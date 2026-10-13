@@ -1,0 +1,29 @@
+{
+  "plantas": {
+    "LC": {
+      "filas": 6,
+      "primer_dato": "2026-10-30",
+      "relleno_completo": true,
+      "relleno_desde": "2025-01-01",
+      "revisado_hasta": "2026-11-18",
+      "ultimo_dato": "2026-11-12"
+    },
+    "PL": {
+      "filas": 114,
+      "primer_dato": "2026-10-30",
+      "relleno_completo": true,
+      "relleno_desde": "2025-01-01",
+      "revisado_hasta": "2026-11-18",
+      "ultimo_dato": "2026-11-17"
+    },
+    "VES": {
+      "filas": 20,
+      "primer_dato": "2026-10-22",
+      "relleno_completo": true,
+      "relleno_desde": "2025-01-01",
+      "revisado_hasta": "2026-11-18",
+      "ultimo_dato": "2026-11-15"
+    }
+  },
+  "ultima_corrida": "2026-11-18 01:35:55"
+}
