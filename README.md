@@ -1,91 +1,46 @@
-# Seguimiento de aislamiento de inversores — FusionSolar
+# Indicadores de inversores FusionSolar
 
-Monitorea **dos indicadores** de los inversores de las plantas **LC, PL y VES**:
+Cada 30 minutos, GitHub entra a FusionSolar, lee de los 10 inversores (LC, VES y PL) la
+**resistencia de aislamiento** y el **estado de ajuste de potencia activa**, y los agrega a un Excel.
+También publica un dashboard web con el mismo dato.
 
-1. **Resistencia de aislamiento** (MΩ), comparada con el umbral de cada inversor.
-2. **Estado de ajuste de potencia activa** (texto completo y el valor `P=xx %` como número).
+## Qué hay en el repositorio (y para qué sirve)
 
-Cada 30 minutos: extrae del portal FusionSolar → agrega al **Excel histórico** (OneDrive) → regenera el **dashboard público** (GitHub Pages).
+| Archivo | Para qué sirve |
+|---|---|
+| `.github/workflows/actualizar.yml` | **El programador**: ejecuta todo cada 30 min en GitHub |
+| `run.py` | El código principal que se ejecuta (orquesta todo) |
+| `fusionsolar/scraper.py` | Entra al portal y lee los valores (scraping) |
+| `fusionsolar/excel_indicadores.py` y `store.py` | Escriben las lecturas en el Excel |
+| `fusionsolar/sitedata.py` | Prepara los datos del dashboard web |
+| `config/inversores.json` | Lista de inversores y sus **umbrales** |
+| `plantilla/Indicadores_FusionSolar.xlsx` | Tu plantilla de Excel (punto de partida) |
+| `docs/` | El dashboard web |
+| `requirements.txt` | Librerías de Python que necesita |
 
-```
- PC Kallpa (Programador de tareas, cada 30 min)
-   run.py ──► Playwright (login → Control → árbol → cada inversor)
-          ├─► state/historico.csv      (respaldo local, base del dashboard)
-          ├─► Excel en OneDrive        (una fila por lectura e inversor; cola si está abierto)
-          └─► data.json ─► rama gh-pages ─► https://dalihuaman.github.io/fusionsolar/
-```
+## Dónde queda el Excel que se va actualizando
 
-## Umbrales (de tu Excel manual)
+**No** está en la rama principal. Se crea en la rama **`data`** después de la primera ejecución:
 
-| Planta | Grupo | Inversores | Umbral (MΩ) |
-|---|---|---|---|
-| LC | Planta 1 | Inv1 / Inv2 | 1.000 / 1.100 |
-| PL | Planta A | InvA.1 / A.2 / A.3 | 1.000 / 1.100 / 1.100 |
-| PL | Planta B | InvB.1 / B.2 / B.3 | 0.037 |
-| VES | Planta 1 | Inv1 / Inv2 | 0.037 |
+- Ver: repo → botón de ramas → `data` → `Indicadores_FusionSolar.xlsx`
+- Descargar / enlace directo (para Power BI):
+  `https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx`
 
-Estados: **ALARMA** (valor < umbral), **ADVERTENCIA** (hasta 10 % por encima del umbral; `margen_advertencia` en `config/inversores.json`), **OK**, **SIN_DATO** (inversor apagado/`--`).
+Tiene dos hojas: **Indicadores** (tu plantilla, una fila por corrida) e **Historico** (una fila por lectura e inversor, ideal para Power BI).
 
-## Instalación (una sola vez, en la PC de Kallpa)
+## Puesta en marcha (una sola vez)
 
-Requisitos: Windows, Python 3.10+ y Git.
+1. **Secretos**: repo → *Settings → Secrets and variables → Actions → New repository secret*.
+   Crear `FUSIONSOLAR_USER` y `FUSIONSOLAR_PASSWORD` con el usuario y la contraseña del portal.
+2. **Pages** (dashboard web): *Settings → Pages → Source: GitHub Actions*.
+3. **Primera ejecución**: pestaña *Actions → "Actualizar indicadores FusionSolar" → Run workflow*.
+   Tarda unos 3–5 minutos. Si sale en verde, ya existe la rama `data` con el Excel.
+4. Desde ahí se ejecuta solo cada 30 min.
 
-**Dónde poner el código:** puede quedar directamente en tu carpeta
-`C:\Users\dali.huaman\OneDrive - KALLPA GENERACION S.A\Kondu\Dalí\Edson\FusionSolar\Indicadores`
-(por ejemplo `git clone https://github.com/DaliHuaman/FusionSolar .` dentro de ella). Ahí también se guarda el Excel histórico.
-Los archivos pesados (entorno Python, CSV maestro, logs, copia de `gh-pages`) se crean en `%LOCALAPPDATA%\FusionSolar`, fuera de OneDrive, para no sincronizar miles de archivos.
+## Notas
 
-1. Clonar el repo y ejecutar `scripts\instalar.bat` (crea el entorno, instala dependencias y el navegador de Playwright).
-2. Editar **`.env`** (se crea solo; no se sube a git): usuario/clave de FusionSolar, `EXCEL_DIR` (ya apunta a tu carpeta `...\FusionSolar\Indicadores`) y `GITHUB_TOKEN`.
-3. Probar: `scripts\probar.bat` (abre el navegador visible y **no** publica). Debe aparecer el Excel en la carpeta de OneDrive.
-4. Crear la tarea de las 30 min: en PowerShell `.\scripts\instalar_tarea.ps1`.
-5. **Activar GitHub Pages** (una vez): en el repo → *Settings → Pages → Source: Deploy from a branch → Branch `gh-pages` / `(root)`*. La rama `gh-pages` la crea la primera corrida con publicación.
-   Enlace público: **https://dalihuaman.github.io/fusionsolar/**
-
-> **Token de GitHub**: crear un *fine-grained personal access token* con permiso **Contents: Read and write** solo sobre este repositorio. Si la PC ya tiene Git Credential Manager con acceso al repo, se puede dejar vacío.
-> **Repo público/privado**: GitHub Pages gratuito exige repo público (los datos del dashboard serán visibles para quien tenga el enlace, como se pidió).
-
-## Uso
-
-```
-python run.py                  # corrida normal (la de la tarea programada)
-python run.py --visible        # ver el navegador para depurar
-python run.py --sin-publicar   # no sube el dashboard
-python run.py --solo-sitio     # regenera data.json desde el histórico y publica
-python run.py --descubrir      # lista el árbol de plantas/inversores que ve el usuario
-python -m fusionsolar.importar_manual "Medicion_manual.xlsx" --excel   # importa el Excel manual antiguo
-```
-
-Registros: `state\logs\collector.log`. Si falla un login o una lectura se guardan capturas en `state\debug\`.
-
-## Excel histórico
-
-`Historico_Indicadores_Inversores.xlsx` → hoja **Historico** (tabla `tHistorico`, filtros, colores por estado), **Umbrales** y **Resumen** (última lectura de cada inversor).
-Una fila por lectura/inversor: 10 inversores × 48 lecturas/día ≈ 480 filas/día, es decir ~6 años antes del límite de Excel; al llegar a 1.000.000 filas se crea automáticamente `..._parte2.xlsx`.
-Si el Excel está abierto o OneDrive lo bloquea, las filas quedan en cola (`state/pendientes_excel.csv`) y se agregan en la siguiente corrida; el dashboard no se ve afectado.
-
-## Qué se verificó contra el portal real
-
-- Login sin captcha con el usuario `DaliHuaman`, navegación `Control` → árbol → inversor, y lectura de `Resistencia de aislamiento` y `Estado de ajuste de potencia activa` (LC Inv1 = 1,745 MΩ, VES Inv1 = 0,188 MΩ, `P=100.0 %`).
-- **PL (Planta Solar y Bess - BSF PL):** con el usuario `MarceloMoreno` aparece en *Shared Plants* con sus 6 inversores (A.1–A.3, B.1–B.3) y se leen sin problema. Con `DaliHuaman` esa planta no tenía dispositivos visibles.
-- Algunos inversores informan el ajuste de potencia como valor fijo (`P=115.000kW`); el recolector lo convierte a % de la potencia nominal para la columna "%".
-
-## Seguridad
-
-- Las credenciales **solo** viven en `.env` (ignorado por git). Como se compartieron por chat, se recomienda **cambiar la contraseña** del portal.
-- Se recomienda un usuario del portal de solo lectura para el recolector.
-
-## Modo nube: GitHub Actions + Excel público + Power BI
-
-El flujo `.github/workflows/actualizar.yml` hace lo mismo que la PC, pero en los servidores de GitHub cada 30 min:
-
-1. Trae el histórico de la rama `data` (solo `Indicadores_FusionSolar.xlsx` y `historico.csv`; un único commit que se reescribe, así el repo no crece).
-2. Entra a FusionSolar, extrae los 10 inversores y agrega una fila a la hoja **Indicadores** (tu plantilla) y a la hoja plana **Historico**.
-3. Guarda de nuevo la rama `data` y despliega el dashboard web en GitHub Pages.
-
-**Configuración (una vez):**
-- Repo → *Settings → Secrets and variables → Actions → New repository secret*: `FUSIONSOLAR_USER` y `FUSIONSOLAR_PASSWORD`. Nunca van en el código.
-- *Settings → Pages → Source: GitHub Actions*.
-- Unir la rama de trabajo a `main` (las tareas programadas solo corren desde la rama principal) y probar con *Actions → Actualizar indicadores → Run workflow*.
-
-**Excel para Power BI:** `https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx` (usar la hoja **Historico**; en Power BI: *Obtener datos → Web* con esa URL, acceso anónimo).
+- GitHub puede retrasar unos minutos las ejecuciones programadas y las desactiva si el repo pasa 60 días sin actividad.
+- Estados: **ALARMA** (valor < umbral), **ADVERTENCIA** (hasta 10 % sobre el umbral), **OK**, **SIN_DATO**.
+- Para probar en tu PC: instalar Python, `pip install -r requirements.txt`, `python -m playwright install chromium`,
+  definir `FUSIONSOLAR_USER`, `FUSIONSOLAR_PASSWORD` y `EXCEL_DIR` (carpeta donde quieres el Excel) y ejecutar `python run.py`.
+- Nunca escribas usuario/contraseña en archivos del repositorio (es público).

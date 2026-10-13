@@ -1,10 +1,8 @@
-"""Corrida completa: extraer -> guardar (CSV + Excel) -> generar data.json -> publicar dashboard.
+"""Corrida completa: extraer de FusionSolar -> guardar (CSV + Excel) -> generar data.json del dashboard.
 
 Uso:
     python run.py                 # corrida normal (la que ejecuta el Programador de tareas)
-    python run.py --sin-publicar  # no sube el dashboard a GitHub
     python run.py --visible       # abre el navegador para ver / depurar el flujo
-    python run.py --solo-sitio    # no extrae; regenera data.json desde el historico y publica
     python run.py --descubrir     # solo lista el arbol de plantas/inversores del portal
 """
 from __future__ import annotations
@@ -18,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from fusionsolar import publish, sitedata, store
+from fusionsolar import sitedata, store
 from fusionsolar.common import (STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
 from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_inversores
 
@@ -92,9 +90,7 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sin-publicar", action="store_true")
     ap.add_argument("--visible", action="store_true")
-    ap.add_argument("--solo-sitio", action="store_true")
     ap.add_argument("--descubrir", action="store_true")
     a = ap.parse_args()
 
@@ -112,10 +108,8 @@ def main() -> int:
 
         faltan: list[str] = []
         info = {"ok": True}
-        if a.solo_sitio and ESTADO.exists():
-            faltan = json.loads(ESTADO.read_text(encoding="utf-8")).get("faltan", [])
         ts = now_local(cfg)
-        if not a.solo_sitio:
+        if True:
             try:
                 filas, faltan, ts, errores = extraer(cfg, a.visible)
             except Exception as e:
@@ -131,12 +125,6 @@ def main() -> int:
 
         data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info)
         sitedata.escribir(data)
-        if not a.sin_publicar:
-            try:
-                publish.publicar(f"Datos {ts:%Y-%m-%d %H:%M}")
-            except Exception as e:
-                log.error("no se pudo publicar el dashboard: %s", e)
-                return 2
         return 0 if info.get("ok", True) else 1
     finally:
         LOCK.unlink(missing_ok=True)
