@@ -10,8 +10,21 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
-STATE_DIR = ROOT / "state"
 CONFIG_PATH = ROOT / "config" / "inversores.json"
+
+
+def _cargar_env() -> None:
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(ROOT / ".env")
+    except ImportError:  # python-dotenv es opcional si las variables ya estan en el entorno
+        pass
+
+
+_cargar_env()
+# Estado local (CSV maestro, logs, capturas, clon de gh-pages). Con el codigo dentro de OneDrive conviene
+# dejarlo FUERA (FUSIONSOLAR_STATE=%LOCALAPPDATA%\FusionSolar\state) para que no se sincronicen miles de archivos.
+STATE_DIR = Path(os.environ.get("FUSIONSOLAR_STATE") or (ROOT / "state"))
 
 # Columnas del historico (Excel y CSV maestro)
 COLUMNAS = [
@@ -22,11 +35,7 @@ COLUMNAS = [
 
 
 def load_env() -> None:
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(ROOT / ".env")
-    except ImportError:  # python-dotenv es opcional si las variables ya estan en el entorno
-        pass
+    _cargar_env()
 
 
 def load_config() -> dict:
