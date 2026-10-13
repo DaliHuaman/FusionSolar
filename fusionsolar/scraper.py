@@ -15,7 +15,7 @@ from playwright.sync_api import Error as PWError
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-from .common import STATE_DIR, parse_mohm, parse_pct
+from .common import STATE_DIR, parse_kw, parse_mohm, parse_pct
 
 LOGIN_URL = "https://la5.fusionsolar.huawei.com/pvmswebsite/login/build/index.html"
 log = logging.getLogger("fusionsolar.scraper")
@@ -24,6 +24,7 @@ log = logging.getLogger("fusionsolar.scraper")
 ETIQ_RESISTENCIA = ["Resistencia de aislamiento", "Insulation resistance"]
 ETIQ_POT_ACTIVA = ["Estado de ajuste de potencia activa", "Active power adjustment status"]
 ETIQ_ESTADO_INV = ["Estado del inversor", "Inverter status"]
+ETIQ_PNOM = ["Potencia nominal del inversor", "Rated power"]
 ETIQ_NOMBRE = ["Nombre del dispositivo", "Device name"]
 
 TEXTO_LOGIN = ["Iniciar sesión", "Log In", "Login"]
@@ -184,16 +185,26 @@ class Scraper:
             pg.wait_for_timeout(800)
         pot = pg.evaluate(JS_VALOR, ETIQ_POT_ACTIVA)
         est = pg.evaluate(JS_VALOR, ETIQ_ESTADO_INV)
+        pnom = pg.evaluate(JS_VALOR, ETIQ_PNOM)
         txt_res = (res or {}).get("texto", "")
         txt_pot = ((pot or {}).get("titulo") or (pot or {}).get("texto") or "").strip()
         return {
             "resistencia_txt": txt_res,
             "resistencia": parse_mohm(txt_res),
             "potencia_txt": txt_pot,
-            "potencia_pct": parse_pct(txt_pot),
+            "potencia_pct": _pct_static(txt_pot, (pnom or {}).get("texto")),
             "estado_inversor": ((est or {}).get("texto") or "").strip(),
             "campos_encontrados": res is not None,
         }
+
+
+def _pct_static(txt_pot, txt_pnom):
+    """% de la potencia nominal: 'P=100.0%' tal cual; 'P=115.000kW' se divide por la potencia nominal."""
+    pct = parse_pct(txt_pot)
+    if pct is not None:
+        return pct
+    kw, nom = parse_kw(txt_pot), parse_kw(txt_pnom)
+    return round(kw / nom * 100, 1) if kw is not None and nom else None
 
 
 def emparejar_inversores(nodos: list[dict], cfg: dict) -> tuple[dict[str, dict], list[str]]:

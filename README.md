@@ -67,9 +67,25 @@ Si el Excel está abierto o OneDrive lo bloquea, las filas quedan en cola (`stat
 ## Qué se verificó contra el portal real
 
 - Login sin captcha con el usuario `DaliHuaman`, navegación `Control` → árbol → inversor, y lectura de `Resistencia de aislamiento` y `Estado de ajuste de potencia activa` (LC Inv1 = 1,745 MΩ, VES Inv1 = 0,188 MΩ, `P=100.0 %`).
-- **Inversores de PL (Planta A y B):** con el usuario `DaliHuaman` la planta *BSF Portada Lurin* aparece **sin dispositivos** (ni en la vista Empresa ni en Dispositivo), así que esos 6 inversores no se pueden leer todavía. El recolector los busca por nombre dentro de las plantas *Portada Lurin* / *Planta Solar y Bess* (`buscar` en `config/inversores.json`); cuando el usuario tenga acceso empezarán a leerse solos. Si los nombres reales difieren de `InvA.1`, ajustar el regex `dispositivo` o fijar su `"ne": "NE=..."` (se ve con `python run.py --descubrir`). Mientras tanto aparecen como "Sin dato" en el dashboard.
+- **PL (Planta Solar y Bess - BSF PL):** con el usuario `MarceloMoreno` aparece en *Shared Plants* con sus 6 inversores (A.1–A.3, B.1–B.3) y se leen sin problema. Con `DaliHuaman` esa planta no tenía dispositivos visibles.
+- Algunos inversores informan el ajuste de potencia como valor fijo (`P=115.000kW`); el recolector lo convierte a % de la potencia nominal para la columna "%".
 
 ## Seguridad
 
 - Las credenciales **solo** viven en `.env` (ignorado por git). Como se compartieron por chat, se recomienda **cambiar la contraseña** del portal.
 - Se recomienda un usuario del portal de solo lectura para el recolector.
+
+## Modo nube: GitHub Actions + Excel público + Power BI
+
+El flujo `.github/workflows/actualizar.yml` hace lo mismo que la PC, pero en los servidores de GitHub cada 30 min:
+
+1. Trae el histórico de la rama `data` (solo `Indicadores_FusionSolar.xlsx` y `historico.csv`; un único commit que se reescribe, así el repo no crece).
+2. Entra a FusionSolar, extrae los 10 inversores y agrega una fila a la hoja **Indicadores** (tu plantilla) y a la hoja plana **Historico**.
+3. Guarda de nuevo la rama `data` y despliega el dashboard web en GitHub Pages.
+
+**Configuración (una vez):**
+- Repo → *Settings → Secrets and variables → Actions → New repository secret*: `FUSIONSOLAR_USER` y `FUSIONSOLAR_PASSWORD`. Nunca van en el código.
+- *Settings → Pages → Source: GitHub Actions*.
+- Unir la rama de trabajo a `main` (las tareas programadas solo corren desde la rama principal) y probar con *Actions → Actualizar indicadores → Run workflow*.
+
+**Excel para Power BI:** `https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx` (usar la hoja **Historico**; en Power BI: *Obtener datos → Web* con esa URL, acceso anónimo).

@@ -4,5 +4,9 @@ __pycache__/
 *.pyc
 state/
 *.xlsx
+!plantilla/*.xlsx
 ~$*
 FusionSolar_dashboard.zip
+
+!config/plantilla/*.xlsx
+!plantilla/*.xlsx
