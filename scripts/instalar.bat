@@ -1,8 +1,12 @@
 @echo off
 REM Instalacion unica en la PC de Kallpa (Windows). Requiere Python 3.10+ y Git.
+REM El codigo puede quedar dentro de OneDrive (carpeta Indicadores); el entorno Python y el estado
+REM local se crean en %LOCALAPPDATA%\FusionSolar para que OneDrive no sincronice miles de archivos.
 cd /d "%~dp0.."
-if not exist .venv ( py -3 -m venv .venv || goto :error )
-call .venv\Scripts\activate.bat || goto :error
+set "BASE=%LOCALAPPDATA%\FusionSolar"
+if not exist "%BASE%" mkdir "%BASE%"
+if not exist "%BASE%\venv" ( py -3 -m venv "%BASE%\venv" || goto :error )
+call "%BASE%\venv\Scripts\activate.bat" || goto :error
 python -m pip install --upgrade pip || goto :error
 pip install -r requirements.txt || goto :error
 python -m playwright install chromium || goto :error

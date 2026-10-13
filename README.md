@@ -30,6 +30,11 @@ Estados: **ALARMA** (valor < umbral), **ADVERTENCIA** (hasta 10 % por encima del
 
 Requisitos: Windows, Python 3.10+ y Git.
 
+**Dónde poner el código:** puede quedar directamente en tu carpeta
+`C:\Users\dali.huaman\OneDrive - KALLPA GENERACION S.A\Kondu\Dalí\Edson\FusionSolar\Indicadores`
+(por ejemplo `git clone https://github.com/DaliHuaman/FusionSolar .` dentro de ella). Ahí también se guarda el Excel histórico.
+Los archivos pesados (entorno Python, CSV maestro, logs, copia de `gh-pages`) se crean en `%LOCALAPPDATA%\FusionSolar`, fuera de OneDrive, para no sincronizar miles de archivos.
+
 1. Clonar el repo y ejecutar `scripts\instalar.bat` (crea el entorno, instala dependencias y el navegador de Playwright).
 2. Editar **`.env`** (se crea solo; no se sube a git): usuario/clave de FusionSolar, `EXCEL_DIR` (ya apunta a tu carpeta `...\FusionSolar\Indicadores`) y `GITHUB_TOKEN`.
 3. Probar: `scripts\probar.bat` (abre el navegador visible y **no** publica). Debe aparecer el Excel en la carpeta de OneDrive.
