@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aislamiento de Inversores · FusionSolar</title>
+<meta name="description" content="Seguimiento de resistencia de aislamiento y ajuste de potencia activa de los inversores de las plantas LC, PL y VES.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M6 20l5-8h5l-3 5h6l-7 7z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M6 20l5-8h5l-3 5h6l-7 7z" fill="#fff"/></svg>
+      <div>
+        <h1>Aislamiento de inversores</h1>
+        <p class="sub">Plantas LC · PL · VES — resistencia de aislamiento y ajuste de potencia activa</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div id="frescura" class="chip" role="status" aria-live="polite"><span class="dot"></span><span id="frescura-txt">Cargando…</span></div>
+      <button id="tema" class="btn" type="button" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema">◐</button>
+    </div>
+  </div>
+</header>
+
+<main id="app">
+  <div id="aviso" class="aviso" hidden></div>
+
+  <section class="kpis" id="kpis" aria-label="Resumen"></section>
+
+  <div class="controles">
+    <div class="seg" id="f-planta" role="group" aria-label="Planta"></div>
+    <div class="seg" id="f-rango" role="group" aria-label="Rango de tiempo">
+      <button data-v="1" type="button">24 h</button>
+      <button data-v="7" type="button" class="on">7 días</button>
+      <button data-v="30" type="button">30 días</button>
+      <button data-v="0" type="button">Todo</button>
+    </div>
+  </div>
+
+  <section>
+    <h2>Estado actual</h2>
+    <div class="grid-cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2>Resistencia de aislamiento <span class="u">MΩ</span></h2>
+    <p class="nota">Línea punteada = umbral de cada inversor. Por debajo del umbral se considera alarma.</p>
+    <div class="grid-charts" id="charts-r"></div>
+  </section>
+
+  <section>
+    <h2>Estado de ajuste de potencia activa <span class="u">% de la potencia</span></h2>
+    <p class="nota">100 % = sin limitación. Valores menores indican reducción de potencia activa ordenada al inversor.</p>
+    <div class="grid-charts" id="charts-p"></div>
+  </section>
+
+  <section>
+    <h2>Mínimo diario de resistencia <span class="u">MΩ · últimos 14 días</span></h2>
+    <div class="tabla-wrap"><table id="t-diario" class="tabla"></table></div>
+    <p class="leyenda-estados" aria-hidden="true">
+      <span class="pill ok">✓ Normal</span> <span class="pill warn">! Advertencia (≤ <b id="mrg">10</b> % sobre umbral)</span> <span class="pill bad">✕ Alarma (&lt; umbral)</span> <span class="pill nd">– Sin dato</span>
+    </p>
+  </section>
+
+  <section>
+    <h2>Registro de alarmas y advertencias</h2>
+    <div class="tabla-wrap alto"><table id="t-alarmas" class="tabla"></table></div>
+  </section>
+
+  <section>
+    <h2>Eventos de limitación de potencia activa</h2>
+    <div class="tabla-wrap alto"><table id="t-pot" class="tabla"></table></div>
+  </section>
+</main>
+
+<footer>
+  <p>Se actualiza automáticamente cada <b id="f-int">30</b> min desde el portal FusionSolar (hora de Lima). La página recarga los datos sola cada 5 min.</p>
+  <p id="f-gen"></p>
+</footer>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

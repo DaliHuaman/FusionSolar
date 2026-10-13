@@ -1,0 +1,24 @@
+{
+  "zona_horaria": "America/Lima",
+  "margen_advertencia": 0.1,
+  "intervalo_minutos": 30,
+  "plantas": [
+    {"codigo": "LC",  "nombre": "BSF Logiscity",       "buscar": ["Logiscity"]},
+    {"codigo": "PL",  "nombre": "BSF Portada Lurin",   "buscar": ["Planta Solar y Bess", "Portada Lurin"]},
+    {"codigo": "VES", "nombre": "BSF Villa el Salvador", "buscar": ["Villa el Salvador"]}
+  ],
+  "inversores": [
+    {"id": "LC-Inv1",   "planta": "LC",  "grupo": "Planta 1", "nombre": "Inv1",   "umbral": 1.000, "dispositivo": "(?i)inversor\\D*1$"},
+    {"id": "LC-Inv2",   "planta": "LC",  "grupo": "Planta 1", "nombre": "Inv2",   "umbral": 1.100, "dispositivo": "(?i)inversor\\D*2$"},
+
+    {"id": "PL-InvA.1", "planta": "PL",  "grupo": "Planta A", "nombre": "InvA.1", "umbral": 1.000, "dispositivo": "(?i)inv\\w*\\W*A\\W*0*1$"},
+    {"id": "PL-InvA.2", "planta": "PL",  "grupo": "Planta A", "nombre": "InvA.2", "umbral": 1.100, "dispositivo": "(?i)inv\\w*\\W*A\\W*0*2$"},
+    {"id": "PL-InvA.3", "planta": "PL",  "grupo": "Planta A", "nombre": "InvA.3", "umbral": 1.100, "dispositivo": "(?i)inv\\w*\\W*A\\W*0*3$"},
+    {"id": "PL-InvB.1", "planta": "PL",  "grupo": "Planta B", "nombre": "InvB.1", "umbral": 0.037, "dispositivo": "(?i)inv\\w*\\W*B\\W*0*1$"},
+    {"id": "PL-InvB.2", "planta": "PL",  "grupo": "Planta B", "nombre": "InvB.2", "umbral": 0.037, "dispositivo": "(?i)inv\\w*\\W*B\\W*0*2$"},
+    {"id": "PL-InvB.3", "planta": "PL",  "grupo": "Planta B", "nombre": "InvB.3", "umbral": 0.037, "dispositivo": "(?i)inv\\w*\\W*B\\W*0*3$"},
+
+    {"id": "VES-Inv1",  "planta": "VES", "grupo": "Planta 1", "nombre": "Inv1",   "umbral": 0.037, "dispositivo": "(?i)inversor\\D*1$"},
+    {"id": "VES-Inv2",  "planta": "VES", "grupo": "Planta 1", "nombre": "Inv2",   "umbral": 0.037, "dispositivo": "(?i)inversor\\D*2$"}
+  ]
+}
