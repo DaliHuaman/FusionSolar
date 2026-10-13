@@ -60,8 +60,7 @@ def main() -> int:
     nuevas.sort(key=lambda f: f["Fecha_Hora"])
     store.anexar_csv(nuevas)
     if a.excel and nuevas:
-        store.escribir_excel(nuevas, [{k: i[k] for k in ("planta", "grupo", "nombre", "umbral")}
-                                       for i in cfg["inversores"]])
+        store.escribir_excel(nuevas, cfg["inversores"])
     print(f"{len(nuevas)} filas importadas")
     return 0
 

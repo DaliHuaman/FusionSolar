@@ -4,7 +4,7 @@
   "intervalo_minutos": 30,
   "plantas": [
     {"codigo": "LC",  "nombre": "BSF Logiscity",       "buscar": ["Logiscity"]},
-    {"codigo": "PL",  "nombre": "BSF Portada Lurin",   "buscar": ["Planta Solar y Bess", "Portada Lurin"]},
+    {"codigo": "PL",  "nombre": "Planta Solar y Bess - BSF PL", "buscar": ["Planta Solar y Bess"]},
     {"codigo": "VES", "nombre": "BSF Villa el Salvador", "buscar": ["Villa el Salvador"]}
   ],
   "inversores": [

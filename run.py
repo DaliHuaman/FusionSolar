@@ -123,8 +123,7 @@ def main() -> int:
                 filas, errores = [], {"general": str(e)}
                 info = {"ok": False, "error": str(e)}
             if filas:
-                info.update(store.guardar(filas, [{k: i[k] for k in ("planta", "grupo", "nombre", "umbral")}
-                                                  for i in cfg["inversores"]]))
+                info.update(store.guardar(filas, cfg["inversores"]))
             info["leidos"] = len(filas)
             ESTADO.write_text(json.dumps({"faltan": faltan, "ts": ts.isoformat()}), encoding="utf-8")
             if errores:

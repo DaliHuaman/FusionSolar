@@ -1,0 +1,80 @@
+name: Actualizar indicadores FusionSolar
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"      # cada 30 min (GitHub puede retrasarlo unos minutos en horas de alta carga)
+  workflow_dispatch:             # ejecución manual desde la pestaña Actions
+
+permissions:
+  contents: write                # publicar la rama "data" con el Excel
+  pages: write                   # desplegar el dashboard web
+  id-token: write
+
+# una sola corrida a la vez: evita que dos ejecuciones se pisen al escribir el Excel
+concurrency:
+  group: fusionsolar-actualizar
+  cancel-in-progress: false
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias y navegador
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      # La rama "data" guarda solo el Excel/CSV (un único commit que se reescribe; el repo no crece).
+      - name: Traer histórico (rama data)
+        run: |
+          REMOTE="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" data >/dev/null 2>&1; then
+            git clone --depth 1 --branch data "$REMOTE" datos
+          else
+            mkdir datos && git -C datos init -q -b data && git -C datos remote add origin "$REMOTE"
+          fi
+
+      - name: Extraer de FusionSolar y actualizar Excel
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          EXCEL_DIR: ${{ github.workspace }}/datos
+          EXCEL_NOMBRE: Indicadores_FusionSolar.xlsx
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+        run: python run.py --sin-publicar
+
+      - name: Guardar histórico (rama data)
+        run: |
+          cd datos
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+            commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC" 2>/dev/null \
+            || git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+                 commit -q -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push -q --force origin HEAD:data
+
+      - name: Preparar dashboard web
+        run: |
+          mkdir -p site
+          cp -r docs/. site/
+          cp "${{ runner.temp }}/fusionsolar/site/data/data.json" site/data/data.json
+          touch site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: pages
+        uses: actions/deploy-pages@v4

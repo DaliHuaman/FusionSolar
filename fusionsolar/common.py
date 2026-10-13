@@ -75,6 +75,14 @@ def parse_pct(txt: str | None) -> float | None:
     return float(m.group(1).replace(",", "."))
 
 
+def parse_kw(txt: str | None) -> float | None:
+    """'P=115.000kW (Valor fijo ...)' -> 115.0 ; '115,000 kW' -> 115.0"""
+    if not txt:
+        return None
+    m = re.search(r"(-?\d+(?:[.,]\d+)?)\s*kW", txt)
+    return float(m.group(1).replace(",", ".")) if m else None
+
+
 def classify(valor: float | None, umbral: float, margen: float) -> str:
     """OK / ADVERTENCIA (dentro del margen sobre el umbral) / ALARMA (< umbral) / SIN_DATO."""
     if valor is None:
