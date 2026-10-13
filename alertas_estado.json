@@ -1,0 +1,39 @@
+{
+  "LC-Inv1": {
+    "en_alerta": false
+  },
+  "LC-Inv2": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-28 05:30:53"
+  },
+  "PL-InvA.1": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-29 05:30:50"
+  },
+  "PL-InvA.2": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-29 05:30:50"
+  },
+  "PL-InvA.3": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-29 05:30:50"
+  },
+  "PL-InvB.1": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-31 06:00:53"
+  },
+  "PL-InvB.2": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-29 06:00:53"
+  },
+  "PL-InvB.3": {
+    "en_alerta": false,
+    "ultimo_envio": "2026-10-31 06:00:53"
+  },
+  "VES-Inv1": {
+    "en_alerta": false
+  },
+  "VES-Inv2": {
+    "en_alerta": false
+  }
+}
