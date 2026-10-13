@@ -53,7 +53,7 @@ jobs:
           EXCEL_NOMBRE: Indicadores_FusionSolar.xlsx
           HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
           FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
-        run: python run.py --sin-publicar
+        run: python run.py
 
       - name: Guardar histórico (rama data)
         run: |
