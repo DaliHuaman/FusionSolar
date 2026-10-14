@@ -2,7 +2,7 @@ name: Actualizar indicadores FusionSolar
 
 on:
   schedule:
-    - cron: "*/30 * * * *"      # cada 30 min (GitHub puede retrasarlo unos minutos en horas de alta carga)
+    - cron: "7,37 * * * *"      # cada 30 min, en los minutos :07 y :37 (menos congestionados que :00/:30; GitHub igual puede retrasarlo)
   workflow_dispatch:             # ejecución manual desde la pestaña Actions
 
 permissions:
