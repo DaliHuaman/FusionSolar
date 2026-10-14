@@ -1,9 +1,8 @@
 name: Actualizar indicadores FusionSolar
 
 on:
-  schedule:
-    - cron: "7,37 * * * *"      # cada 30 min, en los minutos :07 y :37 (menos congestionados que :00/:30; GitHub igual puede retrasarlo)
-  workflow_dispatch:             # ejecución manual desde la pestaña Actions
+  # Lo dispara cron-job.org cada 30 min (API workflow_dispatch) y también se puede lanzar a mano desde Actions.
+  workflow_dispatch:
 
 permissions:
   contents: write                # publicar la rama "data" con el Excel
