@@ -135,8 +135,8 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 
 .descargas{display:flex;gap:8px;align-items:center;margin-left:auto}
 .btn.dl{text-decoration:none;font-size:14px;display:inline-flex;align-items:center;white-space:nowrap}
-.btn.dl:first-child{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.dl:first-child:hover{filter:brightness(1.1)}
+.btn.dl{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.dl:hover{filter:brightness(1.1)}
 .tabla-wrap.grande{max-height:480px}
 .tabla.excel th,.tabla.excel td{text-align:center;padding:5px 8px}
 .tabla.excel th:first-child,.tabla.excel td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:2}
