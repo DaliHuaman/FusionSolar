@@ -88,7 +88,7 @@
     $("#f-int").textContent = D.intervalo_min;
     $("#mrg").textContent = Math.round(D.margen_advertencia * 100);
     $("#f-gen").textContent = "Última corrida del recolector: " + D.generado + (D.corrida && D.corrida.ok === false ? " · con errores: " + (D.corrida.error || "") : "");
-    pintarAviso(); pintarFiltroPlantas(); pintarKpis(); pintarCards(); pintarGraficas(); pintarDiario(); pintarAlarmas(); pintarPotencia();
+    pintarAviso(); pintarFiltroPlantas(); pintarKpis(); pintarCards(); pintarGraficas(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
   }
 
   function pintarAviso() {
@@ -289,6 +289,40 @@
         })));
     });
     t.replaceChildren(head, body);
+  }
+
+  function pintarExcel() {
+    const t = $("#t-excel");
+    const orden = ["LC", "VES", "PL"];
+    const gr = grupos().sort((x, y) => orden.indexOf(x.planta) - orden.indexOf(y.planta) || x.grupo.localeCompare(y.grupo));
+    const invs = gr.flatMap(g => g.invs);
+    const mapas = new Map(invs.map(i => [i.id, new Map(serie(i.id).map(p => [p[0], p]))]));
+    const min = tMin();
+    const tiempos = [...new Set(invs.flatMap(i => serie(i.id).map(p => p[0])))].filter(x => x >= min).sort((a, b) => b - a).slice(0, 300);
+    if (!tiempos.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin datos en el rango seleccionado." })))); return; }
+    const h1 = el("tr", {}, el("th", { class: "g", text: "Horario", rowspan: 3 }));
+    const h2 = el("tr"), h3 = el("tr");
+    gr.forEach((g, k) => {
+      if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
+      h1.append(el("th", { class: "g", colspan: g.invs.length * 2, text: `${g.planta} · ${g.grupo}` }));
+      g.invs.forEach(i => { h2.append(el("th", { class: "i", colspan: 2, text: i.nombre })); h3.append(el("th", { class: "u", text: "MΩ" }), el("th", { class: "u", text: "%" })); });
+    });
+    const body = el("tbody");
+    tiempos.forEach(ts => {
+      const tr = el("tr", {}, el("td", { text: pad(new Date(ts * 1000).getUTCDate()) + "/" + pad(new Date(ts * 1000).getUTCMonth() + 1) + " " + fHora(ts) }));
+      gr.forEach((g, k) => {
+        if (k) tr.append(el("td", { class: "sep" }));
+        g.invs.forEach(i => {
+          const p = mapas.get(i.id).get(ts);
+          const r = p ? p[1] : null;
+          const e = r == null ? "nd" : r < i.umbral ? "bad" : r < i.umbral * (1 + D.margen_advertencia) ? "warn" : "ok";
+          tr.append(el("td", { class: "c-" + e, text: r == null ? "–" : (e === "bad" ? "✕ " : e === "warn" ? "! " : "") + fR(r) }),
+                    el("td", { class: "p", text: p && p[2] != null ? p[2].toLocaleString("es-PE", { maximumFractionDigits: 1 }) : "–" }));
+        });
+      });
+      body.append(tr);
+    });
+    t.replaceChildren(el("thead", {}, h1, h2, h3), body);
   }
 
   function pintarAlarmas() {

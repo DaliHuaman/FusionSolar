@@ -32,6 +32,10 @@
 
   <div class="controles">
     <div class="seg" id="f-planta" role="group" aria-label="Planta"></div>
+    <div class="descargas">
+      <a class="btn dl" id="dl-xlsx" href="https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx" download>⬇ Descargar Excel</a>
+      <a class="btn dl" id="dl-csv" href="https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/historico.csv" download>CSV</a>
+    </div>
     <div class="seg" id="f-rango" role="group" aria-label="Rango de tiempo">
       <button data-v="1" type="button">24 h</button>
       <button data-v="7" type="button" class="on">7 días</button>
@@ -63,6 +67,12 @@
     <p class="leyenda-estados" aria-hidden="true">
       <span class="pill ok">✓ Normal</span> <span class="pill warn">! Advertencia (≤ <b id="mrg">10</b> % sobre umbral)</span> <span class="pill bad">✕ Alarma (&lt; umbral)</span> <span class="pill nd">– Sin dato</span>
     </p>
+  </section>
+
+  <section>
+    <h2>Datos del Excel <span class="u">una fila por corrida · más recientes primero</span></h2>
+    <p class="nota">Misma vista del archivo Excel, separada por planta. Muestra hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.</p>
+    <div class="tabla-wrap alto grande"><table id="t-excel" class="tabla excel"></table></div>
   </section>
 
   <section>
