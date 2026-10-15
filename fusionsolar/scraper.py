@@ -160,6 +160,17 @@ class Scraper:
 
     # ------------------------------------------------------------------ lectura de un inversor
     def leer_inversor(self, ne: str, nombre: str) -> dict:
+        """Lee el inversor; si el portal devuelve '--' (dato momentáneamente no disponible) reintenta una vez."""
+        lec = self._leer_inversor_una_vez(ne, nombre)
+        if lec["resistencia"] is None:
+            log.info("%s: sin dato en la primera lectura, reintento", nombre)
+            self.page.wait_for_timeout(6000)
+            lec2 = self._leer_inversor_una_vez(ne, nombre)
+            if lec2["resistencia"] is not None:
+                return lec2
+        return lec
+
+    def _leer_inversor_una_vez(self, ne: str, nombre: str) -> dict:
         pg = self.page
         pg.click(f'[id="monitor-layout-node-name-{ne}"]')
         # esperar a que el panel muestre ESTE dispositivo (evita leer el valor del anterior)

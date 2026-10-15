@@ -132,3 +132,21 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 @media (forced-colors:active){
   .pill,.card{border:1px solid CanvasText}
 }
+
+.descargas{display:flex;gap:8px;align-items:center;margin-left:auto}
+.btn.dl{text-decoration:none;font-size:14px;display:inline-flex;align-items:center;white-space:nowrap}
+.btn.dl:first-child{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.dl:first-child:hover{filter:brightness(1.1)}
+.tabla-wrap.grande{max-height:480px}
+.tabla.excel th,.tabla.excel td{text-align:center;padding:5px 8px}
+.tabla.excel th:first-child,.tabla.excel td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:2}
+.tabla.excel thead th{top:0}
+.tabla.excel thead tr:nth-child(2) th{top:30px}
+.tabla.excel thead tr:nth-child(3) th{top:60px}
+.tabla.excel th.g{background:var(--accent);color:#fff;font-weight:650}
+.tabla.excel th.i{background:var(--panel-2);color:var(--fg);border-left:1px solid var(--border)}
+.tabla.excel th.u{font-weight:500;font-size:12px}
+.tabla.excel .sep{width:12px;min-width:12px;padding:0;background:var(--bg);border-bottom:0;border-top:0}
+.tabla.excel td.c-ok{background:transparent;color:var(--fg)}
+.tabla.excel td.p{color:var(--fg-3)}
+@media (max-width:640px){.descargas{margin-left:0}}

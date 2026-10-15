@@ -26,7 +26,7 @@ También publica un dashboard web con el mismo dato.
 - Descargar / enlace directo (para Power BI):
   `https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx`
 
-Tiene dos hojas: **Indicadores** (tu plantilla, una fila por corrida) e **Historico** (una fila por lectura e inversor, ideal para Power BI).
+Tiene dos hojas: **Indicadores** (tu plantilla, una fila por corrida, con una columna vacía separando LC | VES | PL-A | PL-B y los umbrales en Z:AA) e **Historico** (una fila por lectura e inversor, ideal para Power BI).
 
 ## Puesta en marcha (una sola vez)
 
@@ -44,3 +44,11 @@ Tiene dos hojas: **Indicadores** (tu plantilla, una fila por corrida) e **Histor
 - Para probar en tu PC: instalar Python, `pip install -r requirements.txt`, `python -m playwright install chromium`,
   definir `FUSIONSOLAR_USER`, `FUSIONSOLAR_PASSWORD` y `EXCEL_DIR` (carpeta donde quieres el Excel) y ejecutar `python run.py`.
 - Nunca escribas usuario/contraseña en archivos del repositorio (es público).
+
+## Mantenimiento (lo que conviene saber)
+
+- **Tamaño**: el Excel crece ~30 KB por día. Al llegar a 200.000 filas de la hoja *Historico* (~14 meses) se crea solo `Indicadores_FusionSolar_parte2.xlsx`; habrá que actualizar el enlace de descarga/Power BI.
+- **Cambio de diseño del Excel**: si el archivo existente tiene un diseño antiguo, se reconstruye solo desde `historico.csv` (no se pierde nada).
+- **Datos `--` del portal**: a veces FusionSolar devuelve `--` en un inversor; el recolector reintenta una vez en la misma corrida y, si persiste, guarda SIN_DATO.
+- **Token de cron-job.org**: si caduca o se revoca, las ejecuciones dejan de dispararse (se ven en rojo en cron-job.org). Crear otro token con permiso *Actions: Read and write* y cambiar la cabecera.
+- **Contraseña del portal**: si cambia, actualizar los secretos `FUSIONSOLAR_USER` / `FUSIONSOLAR_PASSWORD`.

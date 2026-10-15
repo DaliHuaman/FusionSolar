@@ -61,7 +61,7 @@ def construir_fila(ts: datetime, inv: dict, lectura: dict, estado: str, fuente: 
 
 
 def escribir_excel(filas: list[dict], inversores: list[dict]) -> Path:
-    return excel_indicadores.escribir(filas, inversores)
+    return excel_indicadores.escribir(filas, inversores, historico_completo=leer_historico)
 
 
 def guardar(filas: list[dict], inversores: list[dict]) -> dict:
