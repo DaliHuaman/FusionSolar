@@ -6,6 +6,10 @@ columna vacía separando cada grupo:
     La tabla de umbrales queda en Z:AA.
 Hoja "Historico": formato plano, una fila por lectura e inversor. Es la mejor fuente para Power BI.
 
+Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
+columna vacía. Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
+agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
+
 Si el archivo existente tiene un diseño anterior (otra VERSION_DISENO), se reconstruye desde el CSV maestro.
 """
 from __future__ import annotations
@@ -22,12 +26,14 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-from .common import COLUMNAS, ROOT
+from .common import CAMPOS_BESS, COLUMNAS, ROOT
 
 HOJA_WIDE = "Indicadores"
 HOJA_PLANA = "Historico"
 PLANTILLA = ROOT / "plantilla" / "Indicadores_FusionSolar.xlsx"
 VERSION_DISENO = "layout-2"
+HOJA_BESS = "BESS"
+TITULOS_BESS = ["Máx. grupo", "Agua sum. batería", "Agua ret. batería", "Agua sum. potencia", "Agua ret. potencia", "Exterior"]
 LIMITE_FILAS = 200_000      # ~14 meses de histórico plano (10 inversores x 48 lecturas/día); luego se crea _parte2
 FMT = "%Y-%m-%d %H:%M:%S"
 PRIMERA_FILA_DATOS = 4
@@ -193,8 +199,53 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
         fila += 1
 
 
+def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
+    """(Re)crea la hoja "BESS" como segunda hoja: A = horario, luego 6 columnas °C por BESS separadas por una vacía."""
+    if HOJA_BESS in wb.sheetnames:
+        del wb[HOJA_BESS]
+    ws = wb.create_sheet(HOJA_BESS, 1)
+    ids = sorted({f["BESS"] for f in filas_bess})
+    cols = list(CAMPOS_BESS.values())
+    azul = PatternFill("solid", fgColor="1F4E79")
+    gris = PatternFill("solid", fgColor="DDEBF7")
+    centro = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for fila in (1, 2):
+        ws.cell(fila, 1).fill = azul if fila == 1 else gris
+    ws.cell(1, 1).value, ws.cell(2, 1).value = "Horario", "°C"
+    ws.cell(1, 1).font = Font(bold=True, color="FFFFFF")
+    ws.cell(1, 1).alignment = ws.cell(2, 1).alignment = centro
+    col0 = {}
+    for k, bid in enumerate(ids):
+        c = 2 + k * (len(cols) + 1)
+        col0[bid] = c
+        for j, tit in enumerate(TITULOS_BESS):
+            ws.cell(1, c + j).fill = azul
+            ws.cell(2, c + j).value, ws.cell(2, c + j).fill, ws.cell(2, c + j).alignment = tit, gris, centro
+            ws.column_dimensions[get_column_letter(c + j)].width = 11
+        ws.cell(1, c).value = bid
+        ws.cell(1, c).font = Font(bold=True, color="FFFFFF")
+        ws.cell(1, c).alignment = centro
+        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + len(cols) - 1)
+        if k:
+            ws.column_dimensions[get_column_letter(c - 1)].width = 2.5
+    ws.column_dimensions["A"].width = 17
+    ws.row_dimensions[2].height = 30
+    por_ts: dict[str, dict[str, dict]] = {}
+    for f in filas_bess:
+        por_ts.setdefault(f["Fecha_Hora"], {})[f["BESS"]] = f
+    for fila, ts in enumerate(sorted(por_ts), start=3):
+        a = ws.cell(fila, 1)
+        a.value, a.number_format = datetime.strptime(ts, FMT).replace(second=0), "dd/mm/yyyy hh:mm"
+        for bid, f in por_ts[ts].items():
+            for j, col in enumerate(cols):
+                cel = ws.cell(fila, col0[bid] + j)
+                cel.value, cel.number_format = _num(f.get(col)), "0.0"
+    ws.freeze_panes = "B3"
+
+
 def escribir(filas: list[dict], inversores: list[dict],
-             historico_completo: Callable[[], list[dict]] | None = None) -> Path:
+             historico_completo: Callable[[], list[dict]] | None = None,
+             filas_bess: list[dict] | None = None) -> Path:
     """Anexa las lecturas al Excel. Lanza PermissionError/OSError si el archivo está bloqueado.
 
     `historico_completo` devuelve todas las filas del CSV maestro (que ya incluye `filas`): se usa solo
@@ -215,6 +266,8 @@ def escribir(filas: list[dict], inversores: list[dict],
         wb = load_workbook(PLANTILLA)
         _preparar(wb, umbrales)
     _agregar(wb, a_escribir)
+    if filas_bess:
+        _hoja_bess(wb, filas_bess)
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")
     wb.save(tmp)
     os.replace(tmp, ruta)        # atómico; falla con PermissionError si Excel tiene el archivo abierto

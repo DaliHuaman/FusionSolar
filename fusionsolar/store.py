@@ -4,16 +4,18 @@ from __future__ import annotations
 import csv
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import excel_indicadores
-from .common import COLUMNAS, STATE_DIR
+from .common import CAMPOS_BESS, COLUMNAS, COLUMNAS_BESS, STATE_DIR
 
 log = logging.getLogger("fusionsolar.store")
 
 # En la nube (GitHub Actions) el CSV maestro vive en la rama "data"; en la PC, en la carpeta de estado local.
 CSV_MAESTRO = Path(os.environ.get("HISTORICO_CSV") or (STATE_DIR / "historico.csv"))
+# Temperaturas BESS: CSV aparte (junto al maestro) y acotado a los ultimos N dias para no crecer sin limite.
+CSV_BESS = Path(os.environ.get("HISTORICO_BESS_CSV") or CSV_MAESTRO.with_name("historico_bess.csv"))
 PENDIENTES = STATE_DIR / "pendientes_excel.csv"
 FMT = "%Y-%m-%d %H:%M:%S"
 
@@ -60,17 +62,51 @@ def construir_fila(ts: datetime, inv: dict, lectura: dict, estado: str, fuente: 
     }
 
 
-def escribir_excel(filas: list[dict], inversores: list[dict]) -> Path:
-    return excel_indicadores.escribir(filas, inversores, historico_completo=leer_historico)
+def construir_fila_bess(ts: datetime, bess_id: str, lectura: dict) -> dict:
+    fila = {"Fecha_Hora": ts.strftime(FMT), "Fecha": ts.strftime("%Y-%m-%d"), "Hora": ts.strftime("%H:%M"), "BESS": bess_id}
+    for clave, col in CAMPOS_BESS.items():
+        v = lectura.get(clave)
+        fila[col] = "" if v is None else v
+    return fila
 
 
-def guardar(filas: list[dict], inversores: list[dict]) -> dict:
-    """CSV maestro siempre; Excel con cola de pendientes si esta bloqueado (abierto / OneDrive)."""
-    anexar_csv(filas)
+def leer_bess() -> list[dict]:
+    return _leer_csv(CSV_BESS)
+
+
+def guardar_bess(filas: list[dict], ahora: datetime, dias: int) -> list[dict]:
+    """Agrega las lecturas al CSV BESS descartando lo mas antiguo que `dias`. Devuelve el historial resultante.
+
+    Se reescribe completo (es pequeño: ~20 KB/dia) mediante un archivo temporal para que nunca quede a medias.
+    """
+    corte = (ahora - timedelta(days=dias)).strftime(FMT)
+    todas = [f for f in leer_bess() if f.get("Fecha_Hora", "") >= corte] + [f for f in filas if f["Fecha_Hora"] >= corte]
+    CSV_BESS.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CSV_BESS.with_name(CSV_BESS.name + ".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.DictWriter(f, fieldnames=COLUMNAS_BESS)
+        w.writeheader()
+        w.writerows(todas)
+    os.replace(tmp, CSV_BESS)
+    return todas
+
+
+def escribir_excel(filas: list[dict], inversores: list[dict], filas_bess: list[dict] | None = None) -> Path:
+    return excel_indicadores.escribir(filas, inversores, historico_completo=leer_historico, filas_bess=filas_bess)
+
+
+def guardar(filas: list[dict], inversores: list[dict], filas_bess: list[dict] | None = None) -> dict:
+    """CSV maestro siempre; Excel con cola de pendientes si esta bloqueado (abierto / OneDrive).
+
+    `filas_bess` es el historial BESS completo (ya acotado): la hoja "BESS" se reconstruye entera desde el, asi que
+    no necesita cola de pendientes (el CSV BESS ya lo tiene todo).
+    """
+    if filas:
+        anexar_csv(filas)
     pend = _leer_csv(PENDIENTES)
     total = pend + filas
     try:
-        ruta = escribir_excel(total, inversores)
+        ruta = escribir_excel(total, inversores, filas_bess)
         if PENDIENTES.exists():
             PENDIENTES.unlink()
         return {"excel": str(ruta), "pendientes": 0}

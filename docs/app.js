@@ -88,7 +88,7 @@
     $("#f-int").textContent = D.intervalo_min;
     $("#mrg").textContent = Math.round(D.margen_advertencia * 100);
     $("#f-gen").textContent = "Última corrida del recolector: " + D.generado + (D.corrida && D.corrida.ok === false ? " · con errores: " + (D.corrida.error || "") : "");
-    pintarAviso(); pintarFiltroPlantas(); pintarKpis(); pintarCards(); pintarGraficas(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
+    pintarAviso(); pintarFiltroPlantas(); pintarKpis(); pintarCards(); pintarGraficas(); pintarBess(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
   }
 
   function pintarAviso() {
@@ -266,6 +266,77 @@
           charts.push(new Chart(cnv, { type: "line", data: { datasets: ds }, options: o }));
         }
       }
+    });
+  }
+
+  // ---------------------------------------------------------------- BESS (temperaturas)
+  // Orden de los valores en D.bess.serie[id] = [t, max, bat_sum, bat_ret, pot_sum, pot_ret, ext] (ver sitedata._bess)
+  const BESS_CAMPOS = [
+    { k: "temp_max", l: "Máx. del grupo", c: "--s2", w: 2.6 },
+    { k: "agua_bat_sum", l: "Agua suministrada · lado batería", c: "--s1", w: 1.6 },
+    { k: "agua_bat_ret", l: "Agua de retorno · lado batería", c: "--s5", w: 1.6 },
+    { k: "agua_pot_sum", l: "Agua suministrada · lado potencia", c: "--s3", w: 1.6 },
+    { k: "agua_pot_ret", l: "Agua de retorno · lado potencia", c: "--s4", w: 1.6 },
+    { k: "temp_ext", l: "Temperatura en exteriores", c: "--s6", w: 1.6 },
+  ];
+  const fT = v => v == null ? "—" : v.toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const DIAS_BESS = 7;
+
+  function pintarBess() {
+    const sec = $("#sec-bess");
+    const B = D.bess;
+    const visible = !!B && B.activo && B.equipos.length && (S.planta === "TODAS" || S.planta === B.planta);
+    sec.hidden = !visible;
+    const box = $("#bess"), comp = $("#bess-comp");
+    box.replaceChildren(); comp.replaceChildren();
+    if (!visible) return;
+    const av = $("#aviso-bess"), errs = (D.corrida && D.corrida.errores_bess) || {};
+    const ks = Object.keys(errs);
+    av.hidden = !ks.length;
+    av.textContent = ks.length ? "Última corrida sin lectura BESS: " + ks.map(k => `${k} (${errs[k]})`).join(", ") + "." : "";
+
+    const xmax = tMax(), xmin = xmax - Math.min(S.dias || DIAS_BESS, DIAS_BESS) * 86400;
+    const serieB = id => ((B.serie || {})[id] || []).filter(p => p[0] >= xmin);
+    const bessVigente = u => !!u && (naive(D.generado) - naive(u.t)) / 60000 <= (D.intervalo_min || 30) * 3;
+
+    // comparación: temperatura más alta del grupo de los 5 BESS
+    {
+      const hay = B.equipos.some(e => serieB(e.id).some(p => p[1] != null));
+      const items = B.equipos.map((e, k) => [css("--s" + (k + 1)), e.nombre]);
+      const { box: cb, cv } = tarjetaGrafica("Temperatura más alta del grupo", "°C · comparación entre BESS", hay ? leyenda(items) : null,
+        hay ? null : el("span", { text: "Aún no hay lecturas de temperatura BESS." }));
+      comp.className = "chart" + (hay ? "" : " vacio");
+      comp.append(...cb.childNodes);
+      if (hay) {
+        const cnv = el("canvas", { role: "img", "aria-label": "Temperatura más alta del grupo por BESS" });
+        comp.querySelector(".cv").append(cnv);
+        const ds = B.equipos.map((e, k) => ({ label: e.nombre, data: serieB(e.id).filter(p => p[1] != null).map(p => ({ x: p[0], y: p[1] })), borderColor: css("--s" + (k + 1)), backgroundColor: css("--s" + (k + 1)), borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0 }));
+        const o = baseOpts(xmin, xmax, undefined, undefined, "°C");
+        o.scales.y.ticks.callback = v => v + " °C";
+        charts.push(new Chart(cnv, { type: "line", data: { datasets: ds }, options: o }));
+      }
+    }
+
+    B.equipos.forEach(e => {
+      const u = (B.ultima || {})[e.id];
+      const vig = bessVigente(u);
+      const c = el("article", { class: "bess " + (vig ? "OK" : "SIN_DATO"), "aria-label": e.nombre });
+      c.append(el("div", { class: "h" },
+        el("div", {}, el("div", { class: "n", text: e.nombre }), el("div", { class: "g", text: nombrePlanta(B.planta).replace("BSF ", "") })),
+        vig ? el("span", { class: "pill ok" }, "✓ En línea") : pill("SIN_DATO")));
+      c.append(el("div", { class: "max" }, el("span", { class: "val" }, fT(u && u.temp_max), el("small", { text: "°C" })), el("span", { class: "lab" }, el("i", { style: `background:${css("--s2")}` }), "Temperatura más alta del grupo")));
+      c.append(el("div", { class: "temps" }, BESS_CAMPOS.slice(1).map(f => el("div", { class: "t" },
+        el("span", { class: "l" }, el("i", { style: `background:${css(f.c)}` }), f.l), el("span", { class: "v", text: fT(u && u[f.k]) + (u && u[f.k] != null ? " °C" : "") })))));
+      const pts = serieB(e.id);
+      if (pts.length) {
+        const cv = el("div", { class: "cv" }); const cnv = el("canvas", { role: "img", "aria-label": "Temperaturas " + e.nombre }); cv.append(cnv); c.append(cv);
+        const ds = BESS_CAMPOS.map((f, j) => ({ label: f.l, data: pts.filter(p => p[j + 1] != null).map(p => ({ x: p[0], y: p[j + 1] })), borderColor: css(f.c), backgroundColor: css(f.c), borderWidth: f.w, pointRadius: 0, pointHoverRadius: 4, tension: 0 }));
+        const o = baseOpts(xmin, xmax, undefined, undefined, "°C");
+        o.scales.y.ticks.callback = v => v + " °C";
+        charts.push(new Chart(cnv, { type: "line", data: { datasets: ds }, options: o }));
+      }
+      c.append(el("div", { class: "meta", text: u ? `${vig ? "" : "Última lectura " + fEdad((naive(D.generado) - naive(u.t)) / 60000) + " · "}${fFull(naive(u.t) / 1000)}` : "Sin lecturas registradas." }));
+      box.append(c);
     });
   }
 

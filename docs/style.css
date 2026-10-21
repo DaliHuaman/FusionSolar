@@ -150,3 +150,25 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .tabla.excel td.c-ok{background:transparent;color:var(--fg)}
 .tabla.excel td.p{color:var(--fg-3)}
 @media (max-width:640px){.descargas{margin-left:0}}
+
+/* BESS */
+#bess-comp{margin-bottom:14px}
+#bess-comp .cv{height:230px}
+.grid-bess{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
+.bess{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.bess.SIN_DATO{opacity:.72}
+.bess .h{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.bess .n{font-weight:650;font-size:16px}
+.bess .g{font-size:12px;color:var(--fg-3)}
+.bess .max{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.bess .max .val{font-size:34px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.bess .max .val small{font-size:14px;font-weight:500;color:var(--fg-3);margin-left:3px}
+.bess .max .lab{font-size:13px;color:var(--fg-2)}
+.bess .temps{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px}
+.bess .t{background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:2px}
+.bess .t .l{font-size:11.5px;color:var(--fg-3);line-height:1.25;display:flex;gap:6px;align-items:center}
+.bess .t .l i{width:9px;height:9px;border-radius:2px;flex:none}
+.bess .t .v{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.bess .cv{position:relative;height:190px}
+.bess .meta{font-size:12px;color:var(--fg-3)}
+.bess .max .lab{display:inline-flex;gap:6px;align-items:center}.bess .max .lab i{width:9px;height:9px;border-radius:2px;flex:none}
