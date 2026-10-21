@@ -28,7 +28,7 @@
 <main id="app">
   <div id="aviso" class="aviso" hidden></div>
 
-  <section class="kpis" id="kpis" aria-label="Resumen"></section>
+  <section class="kpis" id="kpis" aria-label="Resumen" data-vista="inv"></section>
 
   <div class="controles">
     <div class="seg" id="f-planta" role="group" aria-label="Planta"></div>
@@ -43,24 +43,32 @@
     </div>
   </div>
 
-  <section>
+  <section id="sec-bess" hidden>
+    <h2>BESS · Temperaturas <span class="u">°C · Planta Solar y Bess</span></h2>
+    <p class="nota">Temperatura más alta del grupo y las 5 temperaturas de enfriamiento (agua suministrada y de retorno, lado batería y lado potencia, y exterior) de cada BESS. Historial de hasta 7 días.</p>
+    <div id="aviso-bess" class="aviso" hidden></div>
+    <div class="chart" id="bess-comp"></div>
+    <div class="grid-bess" id="bess"></div>
+  </section>
+
+  <section data-vista="inv">
     <h2>Estado actual</h2>
     <div class="grid-cards" id="cards"></div>
   </section>
 
-  <section>
+  <section data-vista="inv">
     <h2>Resistencia de aislamiento <span class="u">MΩ</span></h2>
     <p class="nota">Línea punteada = umbral de cada inversor. Por debajo del umbral se considera alarma.</p>
     <div class="grid-charts" id="charts-r"></div>
   </section>
 
-  <section>
+  <section data-vista="inv">
     <h2>Estado de ajuste de potencia activa <span class="u">% de la potencia</span></h2>
     <p class="nota">100 % = sin limitación. Valores menores indican reducción de potencia activa ordenada al inversor.</p>
     <div class="grid-charts" id="charts-p"></div>
   </section>
 
-  <section>
+  <section data-vista="inv">
     <h2>Mínimo diario de resistencia <span class="u">MΩ · últimos 14 días</span></h2>
     <div class="tabla-wrap"><table id="t-diario" class="tabla"></table></div>
     <p class="leyenda-estados" aria-hidden="true">
@@ -68,18 +76,18 @@
     </p>
   </section>
 
-  <section>
+  <section data-vista="inv">
     <h2>Datos del Excel <span class="u">una fila por corrida · más recientes primero</span></h2>
     <p class="nota">Misma vista del archivo Excel, separada por planta. Muestra hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.</p>
     <div class="tabla-wrap alto grande"><table id="t-excel" class="tabla excel"></table></div>
   </section>
 
-  <section>
+  <section data-vista="inv">
     <h2>Registro de alarmas y advertencias</h2>
     <div class="tabla-wrap alto"><table id="t-alarmas" class="tabla"></table></div>
   </section>
 
-  <section>
+  <section data-vista="inv">
     <h2>Eventos de limitación de potencia activa</h2>
     <div class="tabla-wrap alto"><table id="t-pot" class="tabla"></table></div>
   </section>
