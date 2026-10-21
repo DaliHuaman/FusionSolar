@@ -20,5 +20,17 @@
 
     {"id": "VES-Inv1",  "planta": "VES", "grupo": "Planta 1", "nombre": "Inv1",   "umbral": 0.037, "dispositivo": "(?i)inversor\\D*1$"},
     {"id": "VES-Inv2",  "planta": "VES", "grupo": "Planta 1", "nombre": "Inv2",   "umbral": 0.037, "dispositivo": "(?i)inversor\\D*2$"}
-  ]
+  ],
+  "bess": {
+    "activo": true,
+    "planta": "PL",
+    "dias_historial": 90,
+    "equipos": [
+      {"id": "BESS-01", "nombre": "BESS-01", "dispositivo": "(?i)bess\\W*0*1$"},
+      {"id": "BESS-02", "nombre": "BESS-02", "dispositivo": "(?i)bess\\W*0*2$"},
+      {"id": "BESS-03", "nombre": "BESS-03", "dispositivo": "(?i)bess\\W*0*3$"},
+      {"id": "BESS-04", "nombre": "BESS-04", "dispositivo": "(?i)bess\\W*0*4$"},
+      {"id": "BESS-05", "nombre": "BESS-05", "dispositivo": "(?i)bess\\W*0*5$"}
+    ]
+  }
 }

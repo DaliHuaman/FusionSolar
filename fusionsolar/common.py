@@ -33,6 +33,21 @@ COLUMNAS = [
     "Estado_Potencia_Activa", "Potencia_Activa_%", "Estado_Inversor", "Fuente",
 ]
 
+# Historico de temperaturas BESS (una fila por BESS y corrida)
+COLUMNAS_BESS = [
+    "Fecha_Hora", "Fecha", "Hora", "BESS", "Temp_Max_Grupo_C",
+    "Agua_Sum_Bateria_C", "Agua_Ret_Bateria_C", "Agua_Sum_Potencia_C", "Agua_Ret_Potencia_C", "Temp_Exterior_C",
+]
+# clave de la lectura -> columna del CSV BESS (mismo orden que en el Excel y en el dashboard)
+CAMPOS_BESS = {
+    "temp_max": "Temp_Max_Grupo_C",
+    "agua_bat_sum": "Agua_Sum_Bateria_C",
+    "agua_bat_ret": "Agua_Ret_Bateria_C",
+    "agua_pot_sum": "Agua_Sum_Potencia_C",
+    "agua_pot_ret": "Agua_Ret_Potencia_C",
+    "temp_ext": "Temp_Exterior_C",
+}
+
 
 def load_env() -> None:
     _cargar_env()
@@ -81,6 +96,17 @@ def parse_kw(txt: str | None) -> float | None:
         return None
     m = re.search(r"(-?\d+(?:[.,]\d+)?)\s*kW", txt)
     return float(m.group(1).replace(",", ".")) if m else None
+
+
+def parse_temp(txt: str | None) -> float | None:
+    """'27.90℃' -> 27.9 ; '-3,5 ℃' -> -3.5 ; '--' -> None. Descarta valores fuera de -40..150 °C (lectura corrupta)."""
+    if not txt:
+        return None
+    m = re.search(r"-?\d+(?:[.,]\d+)?", txt)
+    if not m:
+        return None
+    v = float(m.group(0).replace(",", "."))
+    return v if -40 <= v <= 150 else None
 
 
 def classify(valor: float | None, umbral: float, margen: float) -> str:

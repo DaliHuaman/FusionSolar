@@ -17,12 +17,13 @@ import time
 from pathlib import Path
 
 from fusionsolar import sitedata, store
-from fusionsolar.common import (STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
-from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_inversores
+from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
+from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores
 
 log = logging.getLogger("fusionsolar")
 LOCK = STATE_DIR / "run.lock"
 ESTADO = STATE_DIR / "ultima_extraccion.json"
+PRESUPUESTO_BESS_S = 240      # tope de tiempo para toda la fase BESS; si se agota se omite lo que falte (los inversores ya se leyeron)
 
 
 def configurar_logs() -> None:
@@ -45,10 +46,49 @@ def tomar_lock() -> bool:
     return True
 
 
+def extraer_bess(sc: Scraper, nodos: list[dict], cfg: dict, ts) -> tuple[list[dict], dict[str, str]]:
+    """Lee las temperaturas de cada BESS reutilizando la sesion ya abierta. Nunca lanza: un fallo aqui no afecta a los inversores."""
+    filas: list[dict] = []
+    errores: dict[str, str] = {}
+    try:
+        encontrados, faltan = emparejar_bess(nodos, cfg)
+        if faltan:
+            log.warning("BESS no encontrados en el portal: %s", ", ".join(faltan))
+            errores.update({b: "no visible en el portal" for b in faltan})
+        limite = time.monotonic() + PRESUPUESTO_BESS_S
+        for eq in cfg["bess"]["equipos"]:
+            nodo = encontrados.get(eq["id"])
+            if not nodo:
+                continue
+            if time.monotonic() > limite:
+                log.warning("Presupuesto de tiempo BESS agotado; se omite %s", eq["id"])
+                errores[eq["id"]] = "omitido por tiempo"
+                continue
+            try:
+                lec = sc.leer_bess(nodo["ne"], nodo["nombre"])
+                if all(lec[k] is None for k in CAMPOS_BESS):
+                    sc.captura(f"sin_campos_{eq['id']}")
+                    errores[eq["id"]] = "sin temperaturas"
+                    continue                                 # no se guarda una fila vacia
+                filas.append(store.construir_fila_bess(ts, eq["id"], lec))
+                log.info("%-8s max=%s | agua bat %s/%s | agua pot %s/%s | ext %s", eq["id"], lec["temp_max"],
+                         lec["agua_bat_sum"], lec["agua_bat_ret"], lec["agua_pot_sum"], lec["agua_pot_ret"], lec["temp_ext"])
+            except Exception as e:
+                log.exception("fallo leyendo %s: %s", eq["id"], e)
+                sc.captura(f"error_{eq['id']}")
+                errores[eq["id"]] = str(e)
+    except Exception as e:
+        log.exception("fase BESS fallida: %s", e)
+        errores["general"] = str(e)
+    return filas, errores
+
+
 def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False):
     cred = credenciales()
     ts = now_local(cfg)
     filas: list[dict] = []
+    filas_bess: list[dict] = []
+    errores_bess: dict[str, str] = {}
     detalle: dict[str, str] = {}
     with Scraper(cred.usuario, cred.clave, headless=not visible) as sc:
         for intento in (1, 2):
@@ -64,7 +104,7 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False):
         if solo_descubrir:
             for n in nodos:
                 print("  " * n["nivel"], n["ne"], n["nombre"], n["icono"])
-            return [], [], ts, {}
+            return [], [], ts, {}, [], {}
         encontrados, faltan = emparejar_inversores(nodos, cfg)
         if faltan:
             log.warning("Inversores no encontrados en el portal: %s", ", ".join(faltan))
@@ -85,7 +125,9 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False):
                 log.exception("fallo leyendo %s: %s", inv["id"], e)
                 sc.captura(f"error_{inv['id']}")
                 detalle[inv["id"]] = str(e)
-    return filas, faltan, ts, detalle
+        if (cfg.get("bess") or {}).get("activo"):          # despues de los inversores: nada de aqui los puede romper
+            filas_bess, errores_bess = extraer_bess(sc, nodos, cfg, ts)
+    return filas, faltan, ts, detalle, filas_bess, errores_bess
 
 
 def main() -> int:
@@ -111,19 +153,30 @@ def main() -> int:
         ts = now_local(cfg)
         if True:
             try:
-                filas, faltan, ts, errores = extraer(cfg, a.visible)
+                filas, faltan, ts, errores, filas_bess, errores_bess = extraer(cfg, a.visible)
             except Exception as e:
                 log.exception("corrida fallida: %s", e)
-                filas, errores = [], {"general": str(e)}
+                filas, errores, filas_bess, errores_bess = [], {"general": str(e)}, [], {}
                 info = {"ok": False, "error": str(e)}
-            if filas:
-                info.update(store.guardar(filas, cfg["inversores"]))
+            historial_bess: list[dict] = []
+            if (cfg.get("bess") or {}).get("activo"):
+                try:                                       # historial BESS acotado; un fallo aqui no tumba lo demas
+                    historial_bess = (store.guardar_bess(filas_bess, ts, cfg["bess"].get("dias_historial", 90))
+                                      if filas_bess else store.leer_bess())
+                except Exception as e:
+                    log.exception("no se pudo guardar el historial BESS: %s", e)
+                    errores_bess["guardado"] = str(e)
+            if filas or filas_bess:
+                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None))
             info["leidos"] = len(filas)
+            info["bess_leidos"] = len(filas_bess)
+            if errores_bess:
+                info["errores_bess"] = errores_bess
             ESTADO.write_text(json.dumps({"faltan": faltan, "ts": ts.isoformat()}), encoding="utf-8")
             if errores:
                 info["errores"] = errores
 
-        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info)
+        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess)
         sitedata.escribir(data)
         return 0 if info.get("ok", True) else 1
     finally:

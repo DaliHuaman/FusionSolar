@@ -8,11 +8,35 @@ from pathlib import Path
 
 import pandas as pd
 
-from .common import STATE_DIR
+from .common import CAMPOS_BESS, STATE_DIR
 
 SITE_DIR = STATE_DIR / "site"
 DIAS_SERIE = 45          # resolucion completa (cada lectura) en el dashboard
 MAX_ALARMAS = 200
+DIAS_SERIE_BESS = 7      # temperaturas BESS: 6 valores x 5 equipos x 48 lecturas/dia; 7 dias mantienen data.json liviano
+
+
+def _bess(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
+    """Bloque "bess" de data.json. serie[id] = [[epoch, max_grupo, agua_bat_sum, agua_bat_ret, agua_pot_sum, agua_pot_ret, exterior], ...]"""
+    bcfg = cfg.get("bess") or {}
+    out: dict = {"activo": bool(bcfg.get("activo")), "planta": bcfg.get("planta"),
+                 "campos": list(CAMPOS_BESS), "equipos": [{"id": e["id"], "nombre": e["nombre"]} for e in bcfg.get("equipos", [])],
+                 "ultima": {}, "serie": {}}
+    corte = (ahora - timedelta(days=DIAS_SERIE_BESS)).strftime("%Y-%m-%d %H:%M:%S")
+    cols = list(CAMPOS_BESS.values())
+    num = lambda v: None if v in ("", None) else round(float(v), 1)
+    por_id: dict[str, list[dict]] = {}
+    for f in sorted(filas, key=lambda f: f["Fecha_Hora"]):
+        por_id.setdefault(f["BESS"], []).append(f)
+    for bid, lst in por_id.items():
+        ult = next((f for f in reversed(lst) if any(num(f.get(c)) is not None for c in cols)), None)
+        if ult:
+            out["ultima"][bid] = {"t": ult["Fecha_Hora"], **{k: num(ult.get(c)) for k, c in CAMPOS_BESS.items()}}
+        out["serie"][bid] = [
+            [calendar.timegm(datetime.strptime(f["Fecha_Hora"], "%Y-%m-%d %H:%M:%S").timetuple()), *[num(f.get(c)) for c in cols]]
+            for f in lst if f["Fecha_Hora"] >= corte and any(num(f.get(c)) is not None for c in cols)
+        ]
+    return out
 
 
 def _num(x):
@@ -20,7 +44,7 @@ def _num(x):
 
 
 def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: datetime,
-              info_corrida: dict | None = None) -> dict:
+              info_corrida: dict | None = None, filas_bess: list[dict] | None = None) -> dict:
     invs = cfg["inversores"]
     out: dict = {
         "generado": ahora.strftime("%Y-%m-%d %H:%M:%S"),
@@ -32,6 +56,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "no_encontrados": no_encontrados,
         "corrida": info_corrida or {},
         "ultima": {}, "serie": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
+        "bess": _bess(cfg, filas_bess or [], ahora),
     }
     df = pd.DataFrame(filas)
     if df.empty:

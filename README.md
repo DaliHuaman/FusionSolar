@@ -2,7 +2,7 @@
 
 Cada 30 minutos, GitHub entra a FusionSolar, lee de los 10 inversores (LC, VES y PL) la
 **resistencia de aislamiento** y el **estado de ajuste de potencia activa**, y los agrega a un Excel.
-También publica un dashboard web con el mismo dato.
+También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detalles) y publica un dashboard web con todo.
 
 ## Qué hay en el repositorio (y para qué sirve)
 
@@ -27,6 +27,15 @@ También publica un dashboard web con el mismo dato.
   `https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx`
 
 Tiene dos hojas: **Indicadores** (tu plantilla, una fila por corrida, con una columna vacía separando LC | VES | PL-A | PL-B y los umbrales en Z:AA) e **Historico** (una fila por lectura e inversor, ideal para Power BI).
+
+## Temperaturas BESS
+
+Por cada BESS (BESS-01 a BESS-05 de la planta PL) se guarda: *Temperatura más alta del grupo* y las 5 de *Información de enfriamiento* (agua suministrada y de retorno lado batería, agua suministrada y de retorno lado potencia, y exterior).
+
+- **Excel**: segunda hoja `BESS`, una fila por corrida con un bloque de 6 columnas (°C) por BESS.
+- **Dashboard**: apartado «BESS · Temperaturas» con una tarjeta por BESS y una comparación de la temperatura más alta.
+- **Historial acotado**: `historico_bess.csv` (rama `data`) y la hoja `BESS` conservan solo los últimos `bess.dias_historial` días (90 por defecto); el dashboard muestra 7.
+- **Sin riesgo para los inversores**: la lectura BESS ocurre después de los inversores, en la misma sesión de login, con un tope de 4 minutos y sin lanzar excepciones. Si falla, los inversores se guardan igual y el dashboard avisa qué BESS no se leyó. Para apagarlo: `"activo": false` en `config/inversores.json`.
 
 ## Puesta en marcha (una sola vez)
 
