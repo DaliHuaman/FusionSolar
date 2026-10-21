@@ -23,6 +23,8 @@
   const fR = v => v == null ? "—" : v.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   const fP = v => v == null ? "—" : v.toLocaleString("es-PE", { maximumFractionDigits: 1 }) + " %";
 
+  // Version del codigo: el workflow reemplaza __BUILD__ por el commit desplegado (sin reemplazar = pruebas locales).
+  const BUILD = "__BUILD__";
   let D = null;
   const S = { planta: "TODAS", dias: 7 };
   let charts = [];
@@ -51,7 +53,16 @@
       $("#frescura-txt").textContent = "No se pudo cargar data.json";
       return;
     }
+    if (recargarSiHayVersionNueva()) return;
     pintar();
+  }
+
+  // Pestañas abiertas / cache del navegador con codigo viejo: si data.json es de un despliegue mas nuevo, recarga una sola vez.
+  function recargarSiHayVersionNueva() {
+    if (!D.build || BUILD.startsWith("__") || D.build === BUILD || location.search.includes("v=" + D.build)) return false;
+    try { if (sessionStorage.getItem("build_recarga") === D.build) return false; sessionStorage.setItem("build_recarga", D.build); } catch (e) { /* sin almacenamiento */ }
+    location.replace(location.pathname + "?v=" + D.build);
+    return true;
   }
 
   function frescura() {

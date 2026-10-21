@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import calendar
 import json
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -57,6 +58,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "corrida": info_corrida or {},
         "ultima": {}, "serie": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
         "bess": _bess(cfg, filas_bess or [], ahora),
+        "build": os.environ.get("GITHUB_SHA", "")[:7],      # commit desplegado: el dashboard lo usa para recargar codigo viejo
     }
     df = pd.DataFrame(filas)
     if df.empty:
