@@ -7,7 +7,7 @@ columna vacía separando cada grupo:
 Hoja "Historico": formato plano, una fila por lectura e inversor. Es la mejor fuente para Power BI.
 
 Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
-columna vacía. Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
+columna vacía y con los mismos encabezados (morado / amarillo) de "Indicadores". Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
 agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
 
 Si el archivo existente tiene un diseño anterior (otra VERSION_DISENO), se reconstruye desde el CSV maestro.
@@ -200,47 +200,43 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
 
 
 def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
-    """(Re)crea la hoja "BESS" como segunda hoja: A = horario, luego 6 columnas °C por BESS separadas por una vacía."""
+    """(Re)crea la hoja "BESS" como segunda hoja, con los encabezados morados de "Indicadores":
+    fila 1 = BESS (combinada), fila 2 = magnitud, fila 3 = °C; A3 = Horario; datos desde la fila 4."""
+    ref = wb[HOJA_WIDE]
+    est_g1, est_g2, est_g3, est_a = (copy(ref[c]._style) for c in ("B1", "B2", "B3", "A3"))
     if HOJA_BESS in wb.sheetnames:
         del wb[HOJA_BESS]
     ws = wb.create_sheet(HOJA_BESS, 1)
     ids = sorted({f["BESS"] for f in filas_bess})
     cols = list(CAMPOS_BESS.values())
-    azul = PatternFill("solid", fgColor="1F4E79")
-    gris = PatternFill("solid", fgColor="DDEBF7")
-    centro = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    for fila in (1, 2):
-        ws.cell(fila, 1).fill = azul if fila == 1 else gris
-    ws.cell(1, 1).value, ws.cell(2, 1).value = "Horario", "°C"
-    ws.cell(1, 1).font = Font(bold=True, color="FFFFFF")
-    ws.cell(1, 1).alignment = ws.cell(2, 1).alignment = centro
+    ws.cell(3, 1).value, ws.cell(3, 1)._style = "Horario", est_a
+    ws.column_dimensions["A"].width = 17
+    ws.row_dimensions[2].height = 32
     col0 = {}
     for k, bid in enumerate(ids):
         c = 2 + k * (len(cols) + 1)
         col0[bid] = c
         for j, tit in enumerate(TITULOS_BESS):
-            ws.cell(1, c + j).fill = azul
-            ws.cell(2, c + j).value, ws.cell(2, c + j).fill, ws.cell(2, c + j).alignment = tit, gris, centro
+            for fila, est in ((1, est_g1), (2, est_g2), (3, est_g3)):
+                ws.cell(fila, c + j)._style = copy(est)
+            ws.cell(2, c + j).value, ws.cell(3, c + j).value = tit, "°C"
+            ws.cell(2, c + j).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             ws.column_dimensions[get_column_letter(c + j)].width = 11
         ws.cell(1, c).value = bid
-        ws.cell(1, c).font = Font(bold=True, color="FFFFFF")
-        ws.cell(1, c).alignment = centro
         ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + len(cols) - 1)
         if k:
             ws.column_dimensions[get_column_letter(c - 1)].width = 2.5
-    ws.column_dimensions["A"].width = 17
-    ws.row_dimensions[2].height = 30
     por_ts: dict[str, dict[str, dict]] = {}
     for f in filas_bess:
         por_ts.setdefault(f["Fecha_Hora"], {})[f["BESS"]] = f
-    for fila, ts in enumerate(sorted(por_ts), start=3):
+    for fila, ts in enumerate(sorted(por_ts), start=PRIMERA_FILA_DATOS):
         a = ws.cell(fila, 1)
         a.value, a.number_format = datetime.strptime(ts, FMT).replace(second=0), "dd/mm/yyyy hh:mm"
         for bid, f in por_ts[ts].items():
             for j, col in enumerate(cols):
                 cel = ws.cell(fila, col0[bid] + j)
                 cel.value, cel.number_format = _num(f.get(col)), "0.0"
-    ws.freeze_panes = "B3"
+    ws.freeze_panes = "B4"
 
 
 def escribir(filas: list[dict], inversores: list[dict],

@@ -153,7 +153,7 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 
 /* BESS */
 #bess-comp{margin-bottom:14px}
-#bess-comp .cv{height:230px}
+#bess-comp .cv{height:190px}
 .grid-bess{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:14px}
 .bess{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
 .bess.SIN_DATO{opacity:.72}
@@ -172,3 +172,4 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .bess .cv{position:relative;height:190px}
 .bess .meta{font-size:12px;color:var(--fg-3)}
 .bess .max .lab{display:inline-flex;gap:6px;align-items:center}.bess .max .lab i{width:9px;height:9px;border-radius:2px;flex:none}
+[hidden]{display:none!important}

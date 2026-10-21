@@ -88,7 +88,12 @@
     $("#f-int").textContent = D.intervalo_min;
     $("#mrg").textContent = Math.round(D.margen_advertencia * 100);
     $("#f-gen").textContent = "Última corrida del recolector: " + D.generado + (D.corrida && D.corrida.ok === false ? " · con errores: " + (D.corrida.error || "") : "");
-    pintarAviso(); pintarFiltroPlantas(); pintarKpis(); pintarCards(); pintarGraficas(); pintarBess(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
+    pintarAviso(); pintarFiltroPlantas();
+    const vistaBess = S.planta === "BESS";          // "BESS" es una vista propia (como una planta más) para no alargar la página
+    document.querySelectorAll("[data-vista=inv]").forEach(n => { n.hidden = vistaBess; });
+    if (vistaBess) { charts.forEach(c => c.destroy()); charts = []; pintarBess(); return; }
+    $("#sec-bess").hidden = true;
+    pintarKpis(); pintarCards(); pintarGraficas(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
   }
 
   function pintarAviso() {
@@ -103,7 +108,8 @@
   function pintarFiltroPlantas() {
     const box = $("#f-planta");
     box.replaceChildren();
-    [["TODAS", "Todas"], ...D.plantas.map(p => [p.codigo, p.codigo + " · " + p.nombre.replace("BSF ", "")])].forEach(([v, t]) => {
+    const hayBess = !!(D.bess && D.bess.activo && D.bess.equipos.length);
+    [["TODAS", "Todas"], ...D.plantas.map(p => [p.codigo, p.codigo + " · " + p.nombre.replace("BSF ", "")]), ...(hayBess ? [["BESS", "BESS · Temperaturas"]] : [])].forEach(([v, t]) => {
       const b = el("button", { type: "button", "data-v": v, class: S.planta === v ? "on" : "" }, t);
       b.onclick = () => { S.planta = v; pintar(); };
       box.append(b);
@@ -285,7 +291,7 @@
   function pintarBess() {
     const sec = $("#sec-bess");
     const B = D.bess;
-    const visible = !!B && B.activo && B.equipos.length && (S.planta === "TODAS" || S.planta === B.planta);
+    const visible = !!B && B.activo && B.equipos.length && S.planta === "BESS";
     sec.hidden = !visible;
     const box = $("#bess"), comp = $("#bess-comp");
     box.replaceChildren(); comp.replaceChildren();
