@@ -1,0 +1,24 @@
+# Plantilla del correo de alerta de aislamiento. Edita solo el texto; conserva las lineas "### ..." (marcan cada parte)
+# y los {marcadores}. Las lineas que empiezan con "# " se ignoran.
+#
+# Marcadores de ASUNTO, CABECERA y PIE : {cantidad} {inversores} {porcentaje} {fecha_hora} {dashboard}
+# Marcadores de INVERSOR (se repite una vez por inversor) :
+#   {planta} {inversor} {id} {resistencia} {umbral} {limite} {porcentaje} {sobre_umbral_pct} {estado} {motivo} {fecha_hora}
+# Un marcador mal escrito se deja tal cual en el texto (no rompe el envio).
+
+### ASUNTO
+[FusionSolar] Aislamiento cerca del umbral: {inversores}
+
+### CABECERA
+Hola,
+
+La resistencia de aislamiento de {cantidad} inversor(es) esta a {porcentaje} % o menos por encima de su umbral (o ya por debajo).
+Lectura del {fecha_hora} (hora de Lima):
+
+### INVERSOR
+- {planta} · {inversor}: {resistencia} MΩ (umbral {umbral} MΩ, diferencia {sobre_umbral_pct} %) -> {estado}. {motivo}
+
+### PIE
+
+Dashboard: {dashboard}
+Este aviso se envia una vez al entrar en la condicion y se repite solo si persiste.
