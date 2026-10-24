@@ -239,6 +239,15 @@ def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     ws.freeze_panes = "B4"
 
 
+def _actualizar_umbrales(wb: Workbook, umbrales: dict[str, float]) -> None:
+    """Refleja en la tabla Z:AA los umbrales vigentes (cambian cuando se releen del portal)."""
+    ws = wb[HOJA_WIDE]
+    for k, iid in enumerate(ORDEN):
+        cel = ws.cell(FILA_UMB0 + k, COL_UMB + 1)
+        if iid in umbrales and cel.value != umbrales[iid]:
+            cel.value = umbrales[iid]
+
+
 def escribir(filas: list[dict], inversores: list[dict],
              historico_completo: Callable[[], list[dict]] | None = None,
              filas_bess: list[dict] | None = None) -> Path:
@@ -261,6 +270,8 @@ def escribir(filas: list[dict], inversores: list[dict],
             raise FileNotFoundError(f"No existe la plantilla {PLANTILLA}")
         wb = load_workbook(PLANTILLA)
         _preparar(wb, umbrales)
+    else:
+        _actualizar_umbrales(wb, umbrales)
     _agregar(wb, a_escribir)
     if filas_bess:
         _hoja_bess(wb, filas_bess)

@@ -13,7 +13,9 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
 | `fusionsolar/scraper.py` | Entra al portal y lee los valores (scraping) |
 | `fusionsolar/excel_indicadores.py` y `store.py` | Escriben las lecturas en el Excel |
 | `fusionsolar/sitedata.py` | Prepara los datos del dashboard web |
-| `config/inversores.json` | Lista de inversores y sus **umbrales** |
+| `config/inversores.json` | Lista de inversores, sus **umbrales** (valor inicial) y la configuración de umbrales y alertas |
+| `fusionsolar/umbrales.py` | Lee del portal el umbral de cada inversor cada 8 h y lo guarda |
+| `fusionsolar/alertas.py` y `config/alerta_correo.txt` | Aviso por correo y texto editable del mensaje |
 | `plantilla/Indicadores_FusionSolar.xlsx` | Tu plantilla de Excel (punto de partida) |
 | `docs/` | El dashboard web |
 | `requirements.txt` | Librerías de Python que necesita |
@@ -36,6 +38,24 @@ Por cada BESS (BESS-01 a BESS-05 de la planta PL) se guarda: *Temperatura más a
 - **Dashboard**: apartado «BESS · Temperaturas» con una tarjeta por BESS y una comparación de la temperatura más alta.
 - **Historial acotado**: `historico_bess.csv` (rama `data`) y la hoja `BESS` conservan solo los últimos `bess.dias_historial` días (90 por defecto); el dashboard muestra 7.
 - **Sin riesgo para los inversores**: la lectura BESS ocurre después de los inversores, en la misma sesión de login, con un tope de 4 minutos y sin lanzar excepciones. Si falla, los inversores se guardan igual y el dashboard avisa qué BESS no se leyó. Para apagarlo: `"activo": false` en `config/inversores.json`.
+
+## Umbrales de aislamiento (se leen del portal)
+
+El umbral de cada inversor se lee de FusionSolar (inversor › Control › Configuración › Parámetros de protección › *Umbral de protección de resistencia de aislamiento*), **solo lectura**: nunca se pulsa Guardar.
+
+- Se lee en la primera corrida de cada ventana de `umbrales.horas` (00:00, 08:00 y 16:00 hora de Lima) y se guarda en `umbrales.json` (rama `data`). Las demás corridas reutilizan ese archivo y no abren la pestaña Configuración.
+- Si el umbral cambió en el portal, se actualiza solo (el cambio queda en `cambios` dentro de `umbrales.json`). Si la lectura falla, se conserva el valor anterior y se reintenta pasados `reintento_minutos`; `presupuesto_segundos` acota el tiempo y un error aquí nunca impide leer las resistencias.
+- Los valores de `config/inversores.json` son el valor inicial y el respaldo.
+
+## Alertas por correo
+
+Se envía un correo cuando la resistencia de un inversor es **≤ `porcentaje_sobre_umbral` % por encima de su umbral, o menor** (`alertas` en `config/inversores.json`, 5 % por defecto).
+
+- **Sin spam**: un aviso por inversor al entrar en la condición; se repite solo si persiste tras `reenviar_cada_horas` (24), o si se recupera y vuelve a caer (con `enfriamiento_horas`, 2, mínimas desde el último aviso). Los inversores de una misma corrida salen en un solo correo. Si el envío falla, se reintenta en la siguiente corrida.
+- **Destinatarios**: `alertas.destinatarios` o, si existe, la variable de Actions `ALERTA_DESTINATARIOS` (separados por coma; útil para no dejar el correo en un repo público).
+- **Texto**: `config/alerta_correo.txt` (asunto, cabecera, línea por inversor y pie, con `{marcadores}`).
+- **Secretos** (*Settings → Secrets and variables → Actions*): `SMTP_USER` (cuenta Gmail remitente) y `SMTP_PASSWORD` (contraseña de aplicación de 16 caracteres). Opcionales como *Variables*: `SMTP_HOST`, `SMTP_PORT`, `ALERTA_REMITENTE`, `ALERTA_DESTINATARIOS`. Sin secretos no se envía nada y el resto sigue igual.
+- **Probar**: *Actions → Run workflow* marcando «probar_correo», o `python run.py --probar-correo`.
 
 ## Puesta en marcha (una sola vez)
 

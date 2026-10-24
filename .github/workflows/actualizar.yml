@@ -3,6 +3,11 @@ name: Actualizar indicadores FusionSolar
 on:
   # Lo dispara cron-job.org cada 30 min (API workflow_dispatch) y también se puede lanzar a mano desde Actions.
   workflow_dispatch:
+    inputs:
+      probar_correo:
+        description: "Enviar un correo de prueba de alertas antes de la corrida (requiere los secretos SMTP)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write                # publicar la rama "data" con el Excel
@@ -44,8 +49,25 @@ jobs:
             mkdir datos && git -C datos init -q -b data && git -C datos remote add origin "$REMOTE"
           fi
 
+      - name: Correo de prueba (solo si se pide al lanzar)
+        if: ${{ inputs.probar_correo }}
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}                       # opcional (por defecto smtp.gmail.com)
+          SMTP_PORT: ${{ vars.SMTP_PORT }}                       # opcional (por defecto 465)
+          ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}         # opcional (por defecto = SMTP_USER)
+          ALERTA_DESTINATARIOS: ${{ vars.ALERTA_DESTINATARIOS }} # opcional: reemplaza a config alertas.destinatarios
+        run: python run.py --probar-correo
+
       - name: Extraer de FusionSolar y actualizar Excel
         env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}                       # opcional (por defecto smtp.gmail.com)
+          SMTP_PORT: ${{ vars.SMTP_PORT }}                       # opcional (por defecto 465)
+          ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}         # opcional (por defecto = SMTP_USER)
+          ALERTA_DESTINATARIOS: ${{ vars.ALERTA_DESTINATARIOS }} # opcional: reemplaza a config alertas.destinatarios
           FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
           FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
           EXCEL_DIR: ${{ github.workspace }}/datos
