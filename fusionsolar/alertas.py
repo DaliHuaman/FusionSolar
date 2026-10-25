@@ -9,6 +9,7 @@ ALERTA_REMITENTE, ALERTA_DESTINATARIOS que reemplaza a config). Sin ellos no se 
 """
 from __future__ import annotations
 
+import html as html_lib
 import logging
 import os
 import re
@@ -30,12 +31,11 @@ POR_DEFECTO = {
     "dashboard_url": "",
     "plantilla": "config/alerta_correo.txt",
 }
-_SECCIONES = ("ASUNTO", "CABECERA", "INVERSOR", "PIE")
+_SECCIONES = ("ASUNTO", "CUERPO")
 PLANTILLA_RESPALDO = {
-    "ASUNTO": "[FusionSolar] Aislamiento cerca del umbral: {inversores}",
-    "CABECERA": "La resistencia de aislamiento esta cerca del umbral (<= {porcentaje} %). Lectura del {fecha_hora}:",
-    "INVERSOR": "- {planta} {inversor}: {resistencia} MΩ (umbral {umbral} MΩ) -> {estado}",
-    "PIE": "Dashboard: {dashboard}",
+    "ASUNTO": "FusionSolar - Aislamiento cerca del umbral: {inversores}",
+    "CUERPO": "Estimados,\n\nLa resistencia de aislamiento de {n_inversores} está a {porcentaje} % o menos por encima de su "
+              "umbral. Lectura del {fecha_hora} (hora de Lima).\n\n{recuadro}\n\nDashboard: {dashboard}\n",
 }
 
 
@@ -121,22 +121,42 @@ def _fmt(v: float) -> str:
     return f"{v:.3f}".replace(".", ",")
 
 
-def componer(cfg: dict, avisos: list[dict], ahora: datetime) -> tuple[str, str]:
-    c, plantilla = _cfg(cfg), cargar_plantilla(cfg)
-    base = _Seguro(cantidad=len(avisos), porcentaje=f"{c['porcentaje_sobre_umbral']:g}", fecha_hora=ahora.strftime("%Y-%m-%d %H:%M"),
-                   inversores=", ".join(f"{a['planta']} {a['inversor']}" for a in avisos), dashboard=c["dashboard_url"])
-    bloques = []
+def _recuadro(avisos: list[dict]) -> str:
+    """Tabla en un recuadro de texto (se muestra en monoespaciado, tambien en la version HTML)."""
+    filas = [("Inversor", "Resistencia", "Umbral", "Diferencia", "Estado")]
     for a in avisos:
-        estado = "POR DEBAJO DEL UMBRAL" if a["r"] < a["umbral"] else "cerca del umbral"
-        bloques.append(plantilla["INVERSOR"].format_map(_Seguro(
-            base, planta=a["planta"], inversor=a["inversor"], id=a["id"], resistencia=_fmt(a["r"]), umbral=_fmt(a["umbral"]),
-            limite=_fmt(a["limite"]), sobre_umbral_pct=f"{a['sobre']:.1f}".replace(".", ","), estado=estado, motivo=a["motivo"])))
-    asunto = " ".join(plantilla["ASUNTO"].format_map(base).split())
-    cuerpo = "\n".join([plantilla["CABECERA"].format_map(base), *bloques, plantilla["PIE"].format_map(base)]).strip() + "\n"
-    return asunto, cuerpo
+        filas.append((f"{a['planta']} · {a['inversor']}", f"{_fmt(a['r'])} MΩ", f"{_fmt(a['umbral'])} MΩ",
+                      f"{a['sobre']:+.1f} %".replace(".", ",").replace("-", "−"), "Bajo" if a["r"] < a["umbral"] else "Cerca"))
+    ancho = [max(len(f[i]) for f in filas) for i in range(5)]
+    lineas = ["  ".join(c.ljust(w) for c, w in zip(f, ancho)) for f in filas]
+    n = max(map(len, lineas)) + 2
+    return "\n".join(["┌" + "─" * n + "┐", *("│ " + l.ljust(n - 1) + "│" for l in lineas), "└" + "─" * n + "┘"])
 
 
-def enviar_correo(asunto: str, cuerpo: str, para: list[str]) -> None:
+def _resumen(avisos: list[dict]) -> str:
+    """'PL (InvB.2, InvB.3), VES (Inv2)' en el orden de aparicion."""
+    por_planta: dict[str, list[str]] = {}
+    for a in avisos:
+        por_planta.setdefault(a["planta"], []).append(a["inversor"])
+    return ", ".join(f"{p} ({', '.join(v)})" for p, v in por_planta.items())
+
+
+def componer(cfg: dict, avisos: list[dict], ahora: datetime) -> tuple[str, str, str]:
+    """(asunto, cuerpo_texto, cuerpo_html). El HTML es el mismo texto en monoespaciado (alinea el recuadro) con el enlace activo."""
+    c, plantilla = _cfg(cfg), cargar_plantilla(cfg)
+    datos = _Seguro(cantidad=len(avisos), n_inversores=f"{len(avisos)} inversor" + ("es" if len(avisos) != 1 else ""), inversores=_resumen(avisos), porcentaje=f"{c['porcentaje_sobre_umbral']:g}",
+                    fecha_hora=ahora.strftime("%d/%m/%Y %H:%M"), recuadro=_recuadro(avisos), dashboard=c["dashboard_url"])
+    asunto = " ".join(plantilla["ASUNTO"].format_map(datos).split())
+    cuerpo = plantilla["CUERPO"].format_map(datos).strip() + "\n"
+    html = html_lib.escape(cuerpo)
+    if c["dashboard_url"]:
+        url = html_lib.escape(c["dashboard_url"])
+        html = html.replace(url, f'<a href="{url}">{url}</a>')
+    return asunto, cuerpo, ('<pre style="font-family:Consolas,\'Courier New\',monospace;font-size:13px;line-height:1.45;'
+                            f'white-space:pre-wrap">{html}</pre>')
+
+
+def enviar_correo(asunto: str, cuerpo: str, para: list[str], html: str | None = None) -> None:
     """SMTP con SSL (465) o STARTTLS (587). Lanza si falta configuracion o el servidor rechaza el envio."""
     usuario, clave = os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASSWORD", "")
     if not usuario or not clave:
@@ -145,6 +165,8 @@ def enviar_correo(asunto: str, cuerpo: str, para: list[str]) -> None:
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = asunto, os.environ.get("ALERTA_REMITENTE") or usuario, ", ".join(para)
     msg.set_content(cuerpo)
+    if html:
+        msg.add_alternative(html, subtype="html")
     ctx = ssl.create_default_context()
     if puerto == 465:
         with smtplib.SMTP_SSL(host, puerto, context=ctx, timeout=30) as s:
@@ -172,8 +194,8 @@ def procesar(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
             try:
                 if not para:
                     raise RuntimeError("no hay destinatarios (config alertas.destinatarios o ALERTA_DESTINATARIOS)")
-                asunto, cuerpo = componer(cfg, avisos, ahora)
-                enviar_correo(asunto, cuerpo, para)
+                asunto, cuerpo, html = componer(cfg, avisos, ahora)
+                enviar_correo(asunto, cuerpo, para, html)
                 enviados = len(avisos)
                 for a in avisos:
                     a_guardar[a["id"]]["ultimo_envio"] = ahora.strftime(FMT_TS)
@@ -194,9 +216,12 @@ def enviar_prueba(cfg: dict, ahora: datetime) -> None:
     """Correo de prueba con datos de ejemplo (python run.py --probar-correo). No toca el estado de las alertas."""
     ejemplo = [{"id": "VES-Inv2", "planta": "VES", "inversor": "Inv2", "r": 0.038, "umbral": 0.037, "limite": 0.03885,
                 "sobre": 2.7, "motivo": "Nueva alerta"}]
-    asunto, cuerpo = componer(cfg, ejemplo, ahora)
+    ejemplo.append({"id": "PL-InvB.2", "planta": "PL", "inversor": "InvB.2", "r": 0.205, "umbral": 0.2, "limite": 0.21,
+                    "sobre": 2.5, "motivo": "Nueva alerta"})
+    asunto, cuerpo, html = componer(cfg, ejemplo, ahora)
     para = destinatarios(cfg)
     if not para:
         raise SystemExit("No hay destinatarios (config alertas.destinatarios o ALERTA_DESTINATARIOS).")
-    enviar_correo("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + cuerpo, para)
+    enviar_correo("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + cuerpo, para,
+                  "<p><i>(Correo de prueba con datos de ejemplo)</i></p>" + html)
     log.info("Correo de prueba enviado a %s", ", ".join(para))

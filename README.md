@@ -53,7 +53,7 @@ Se envía un correo cuando la resistencia de un inversor es **≤ `porcentaje_so
 
 - **Sin spam**: un aviso por inversor al entrar en la condición; se repite solo si persiste tras `reenviar_cada_horas` (24), o si se recupera y vuelve a caer (con `enfriamiento_horas`, 2, mínimas desde el último aviso). Los inversores de una misma corrida salen en un solo correo. Si el envío falla, se reintenta en la siguiente corrida.
 - **Destinatarios**: `alertas.destinatarios` o, si existe, la variable de Actions `ALERTA_DESTINATARIOS` (separados por coma; útil para no dejar el correo en un repo público).
-- **Texto**: `config/alerta_correo.txt` (asunto, cabecera, línea por inversor y pie, con `{marcadores}`).
+- **Texto**: `config/alerta_correo.txt` (asunto y cuerpo con `{marcadores}`; el recuadro con inversor, resistencia, umbral, diferencia y estado se genera solo). Se envía en texto plano y HTML monoespaciado para que el recuadro quede alineado.
 - **Secretos** (*Settings → Secrets and variables → Actions*): `SMTP_USER` (cuenta Gmail remitente) y `SMTP_PASSWORD` (contraseña de aplicación de 16 caracteres). Opcionales como *Variables*: `SMTP_HOST`, `SMTP_PORT`, `ALERTA_REMITENTE`, `ALERTA_DESTINATARIOS`. Sin secretos no se envía nada y el resto sigue igual.
 - **Probar**: *Actions → Run workflow* marcando «probar_correo», o `python run.py --probar-correo`.
 
