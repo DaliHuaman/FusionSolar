@@ -49,6 +49,33 @@ CAMPOS_BESS = {
 }
 
 
+FMT_TS = "%Y-%m-%d %H:%M:%S"
+
+
+def archivo_datos(nombre: str) -> Path:
+    """Archivo auxiliar junto al CSV maestro (en la nube = rama "data"; en la PC = carpeta de estado)."""
+    base = os.environ.get("HISTORICO_CSV")
+    return (Path(base).parent if base else STATE_DIR) / nombre
+
+
+def leer_json(path: Path, defecto: dict) -> dict:
+    """JSON auxiliar; si no existe o esta corrupto devuelve `defecto` (nunca lanza)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            datos = json.load(f)
+        return datos if isinstance(datos, dict) else defecto
+    except (OSError, ValueError):
+        return defecto
+
+
+def guardar_json(path: Path, datos: dict) -> None:
+    """Escritura atomica (archivo temporal + reemplazo) para que nunca quede a medias."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(datos, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def load_env() -> None:
     _cargar_env()
 
@@ -107,6 +134,11 @@ def parse_temp(txt: str | None) -> float | None:
         return None
     v = float(m.group(0).replace(",", "."))
     return v if -40 <= v <= 150 else None
+
+
+def umbral_valido(v: float | None) -> bool:
+    """Un umbral de aislamiento razonable (el portal lo limita a 0,020~1,500 MΩ); descarta lecturas corruptas."""
+    return v is not None and 0.001 <= v <= 10
 
 
 def classify(valor: float | None, umbral: float, margen: float) -> str:

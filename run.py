@@ -4,6 +4,7 @@ Uso:
     python run.py                 # corrida normal (la que ejecuta el Programador de tareas)
     python run.py --visible       # abre el navegador para ver / depurar el flujo
     python run.py --descubrir     # solo lista el arbol de plantas/inversores del portal
+    python run.py --probar-correo # envia un correo de prueba (requiere SMTP_USER / SMTP_PASSWORD) y termina
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import sys
 import time
 from pathlib import Path
 
-from fusionsolar import sitedata, store
+from fusionsolar import alertas, sitedata, store, umbrales
 from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
 from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores
 
@@ -83,7 +84,7 @@ def extraer_bess(sc: Scraper, nodos: list[dict], cfg: dict, ts) -> tuple[list[di
     return filas, errores
 
 
-def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False):
+def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False, extra: dict | None = None):
     cred = credenciales()
     ts = now_local(cfg)
     filas: list[dict] = []
@@ -109,6 +110,9 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False):
         if faltan:
             log.warning("Inversores no encontrados en el portal: %s", ", ".join(faltan))
         margen = cfg["margen_advertencia"]
+        res_umbrales = umbrales.actualizar(sc, encontrados, cfg, ts)   # cada 8 h; no lanza y deja el panel en "Detalles"
+        if res_umbrales and extra is not None:
+            extra["umbrales"] = res_umbrales
         for inv in cfg["inversores"]:
             nodo = encontrados.get(inv["id"])
             if not nodo:
@@ -134,11 +138,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--visible", action="store_true")
     ap.add_argument("--descubrir", action="store_true")
+    ap.add_argument("--probar-correo", action="store_true")
     a = ap.parse_args()
 
     load_env()
     configurar_logs()
     cfg = load_config()
+    if a.probar_correo:
+        alertas.enviar_prueba(cfg, now_local(cfg))
+        return 0
+    umbrales.aplicar(cfg)            # umbrales leidos del portal en corridas anteriores (si los hay) sobre los del JSON
 
     if not tomar_lock():
         log.warning("Hay otra corrida en curso; se omite esta.")
@@ -150,10 +159,11 @@ def main() -> int:
 
         faltan: list[str] = []
         info = {"ok": True}
+        extra: dict = {}
         ts = now_local(cfg)
         if True:
             try:
-                filas, faltan, ts, errores, filas_bess, errores_bess = extraer(cfg, a.visible)
+                filas, faltan, ts, errores, filas_bess, errores_bess = extraer(cfg, a.visible, extra=extra)
             except Exception as e:
                 log.exception("corrida fallida: %s", e)
                 filas, errores, filas_bess, errores_bess = [], {"general": str(e)}, [], {}
@@ -169,6 +179,11 @@ def main() -> int:
             if filas or filas_bess:
                 info.update(store.guardar(filas, cfg["inversores"], historial_bess or None))
             info["leidos"] = len(filas)
+            info.update(extra)
+            if filas:                                      # aviso por correo; no lanza y nunca altera la corrida
+                res_alertas = alertas.procesar(cfg, filas, ts)
+                if res_alertas.get("pendientes"):
+                    info["alertas"] = res_alertas
             info["bess_leidos"] = len(filas_bess)
             if errores_bess:
                 info["errores_bess"] = errores_bess

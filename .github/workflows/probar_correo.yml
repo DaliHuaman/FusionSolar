@@ -1,0 +1,30 @@
+name: Probar correo de alertas
+
+# Solo envía el correo de ejemplo (usa los secretos SMTP_*). No entra al portal ni toca la rama data ni el dashboard.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Enviar correo de prueba
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}
+          ALERTA_DESTINATARIOS: ${{ vars.ALERTA_DESTINATARIOS }}
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+        run: python run.py --probar-correo

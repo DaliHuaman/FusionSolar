@@ -15,7 +15,7 @@ from playwright.sync_api import Error as PWError
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-from .common import CAMPOS_BESS, STATE_DIR, parse_kw, parse_mohm, parse_pct, parse_temp
+from .common import CAMPOS_BESS, STATE_DIR, parse_kw, parse_mohm, parse_pct, parse_temp, umbral_valido
 
 LOGIN_URL = "https://la5.fusionsolar.huawei.com/pvmswebsite/login/build/index.html"
 log = logging.getLogger("fusionsolar.scraper")
@@ -37,6 +37,10 @@ ETIQ_BESS = {
     "temp_ext": ["Temperatura en exteriores", "Outdoor temperature"],
 }
 TEXTO_DETALLES = ["Detalles", "Details"]
+
+# Inversor (pestaña "Configuración", solo lectura): el umbral es un <input> numerico dentro del bloque de su etiqueta.
+ETIQ_UMBRAL = ["Umbral de protección de resistencia de aislamiento", "Insulation resistance protection threshold"]
+TEXTO_CONFIG = ["Configuración", "Settings", "Configuration"]
 
 TEXTO_LOGIN = ["Iniciar sesión", "Log In", "Login"]
 
@@ -75,6 +79,25 @@ JS_DETALLES = """() => {
     if (k && v && !(k in out)) out[k] = v.textContent.trim();
   }
   return out;
+}"""
+
+
+JS_CONFIG = """([labelsUmbral, labelsNombre]) => {
+  const norm = s => (s || "").replace(/\\s+/g, " ").replace(/\\s*[:：]\\s*$/, "").trim().toLowerCase();
+  const input = labels => {
+    for (const sp of document.querySelectorAll("span.signal-config-signal-name")) {
+      const t = norm(sp.getAttribute("title") || sp.textContent).replace(/\\s*\\([^)]*\\)$/, "");
+      if (!labels.some(l => norm(l) === t)) continue;
+      const bloque = sp.closest(".device-signal-form-item");
+      const inp = bloque && bloque.querySelector("input");
+      if (inp) return inp;
+    }
+    return null;
+  };
+  const u = input(labelsUmbral), n = input(labelsNombre);
+  return {nombre: n ? (n.getAttribute("title") || n.value || "") : null,
+          texto: u ? (u.value || "") : null,
+          numero: u ? u.getAttribute("aria-valuenow") : null};
 }"""
 
 
@@ -229,6 +252,48 @@ class Scraper:
             "estado_inversor": ((est or {}).get("texto") or "").strip(),
             "campos_encontrados": res is not None,
         }
+
+    # ------------------------------------------------------------------ umbral de aislamiento (solo lectura)
+    def _abrir_pestana(self, textos: list[str]) -> bool:
+        for txt in textos:
+            tab = self.page.get_by_text(txt, exact=True)
+            if tab.count():
+                tab.first.click()
+                return True
+        return False
+
+    def leer_umbral(self, ne: str, nombre: str) -> float | None:
+        """Umbral de proteccion de resistencia de aislamiento (MΩ) de un inversor (Control > inversor > Configuración).
+
+        Solo lee: nunca pulsa Guardar ni toca ningun campo. Devuelve None si no se pudo leer con certeza.
+        """
+        pg = self.page
+        pg.click(f'[id="monitor-layout-node-name-{ne}"]')
+        esperado = " ".join(nombre.split()).lower()
+        previo = None
+        for i in range(25):                                  # hasta ~20 s a que el formulario muestre ESTE inversor
+            datos = pg.evaluate(JS_CONFIG, [ETIQ_UMBRAL, ETIQ_NOMBRE])
+            if datos["texto"] is not None and " ".join((datos["nombre"] or "").split()).lower() == esperado:
+                num = datos["numero"]
+                valor = float(num) if num not in (None, "") else parse_mohm(datos["texto"])
+                if valor == previo:                          # mismo valor en dos lecturas seguidas: el formulario ya cargo
+                    return valor if umbral_valido(valor) else None
+                previo = valor
+            else:
+                previo = None
+            if i % 4 == 0:                                   # al cambiar de nodo la vista puede volver a "Detalles"
+                self._abrir_pestana(TEXTO_CONFIG)
+            pg.wait_for_timeout(800)
+        log.warning("%s: la pestaña Configuración no mostró el umbral de este inversor", nombre)
+        return None
+
+    def volver_a_detalles(self) -> None:
+        """Deja el panel en 'Detalles' (donde leer_inversor busca sus campos) tras visitar 'Configuración'."""
+        try:
+            self._abrir_pestana(TEXTO_DETALLES)
+            self.page.wait_for_timeout(800)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ lectura de un BESS
     def leer_bess(self, ne: str, nombre: str) -> dict:
