@@ -1,0 +1,27 @@
+# Plantilla del correo de alerta de aislamiento. Edita solo el texto; conserva las lineas "### ..." (marcan cada parte)
+# y los {marcadores}. Las lineas que empiezan con "# " se ignoran.
+#
+# Marcadores:
+#   {cantidad}    numero de inversores en el aviso
+#   {n_inversores} '1 inversor' / '3 inversores' (concuerda en singular y plural)
+#   {inversores}  resumen para el asunto, por planta: PL (InvB.2, InvB.3), VES (Inv2)
+#   {porcentaje}  porcentaje sobre el umbral configurado (config: alertas.porcentaje_sobre_umbral)
+#   {fecha_hora}  fecha y hora de la lectura (hora de Lima), dd/mm/aaaa hh:mm
+#   {recuadro}    recuadro con inversor, resistencia, umbral, diferencia y estado de cada inversor
+#   {dashboard}   enlace al dashboard (config: alertas.dashboard_url)
+# Un marcador mal escrito se deja tal cual en el texto (no rompe el envio).
+
+### ASUNTO
+FusionSolar - Aislamiento cerca del umbral: {inversores}
+
+### CUERPO
+Estimados,
+
+La resistencia de aislamiento de {n_inversores} está a {porcentaje} % o menos por encima de su umbral. Lectura del {fecha_hora} (hora de Lima).
+
+{recuadro}
+
+Pueden verificarlo en el dashboard del proyecto:  {dashboard}
+
+Este aviso se envía una vez al entrar en la condición y se repite solo
+si persiste (cada 24 h).
