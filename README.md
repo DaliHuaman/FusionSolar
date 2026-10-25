@@ -69,7 +69,7 @@ Se envía un correo cuando la resistencia de un inversor es **≤ `porcentaje_so
 ## Notas
 
 - GitHub puede retrasar unos minutos las ejecuciones programadas y las desactiva si el repo pasa 60 días sin actividad.
-- Estados: **ALARMA** (valor < umbral), **ADVERTENCIA** (hasta 10 % sobre el umbral), **OK**, **SIN_DATO**.
+- Estados: **ALARMA** (valor < umbral), **ADVERTENCIA** (hasta 5 % sobre el umbral, `margen_advertencia`), **OK**, **SIN_DATO**.
 - Para probar en tu PC: instalar Python, `pip install -r requirements.txt`, `python -m playwright install chromium`,
   definir `FUSIONSOLAR_USER`, `FUSIONSOLAR_PASSWORD` y `EXCEL_DIR` (carpeta donde quieres el Excel) y ejecutar `python run.py`.
 - Nunca escribas usuario/contraseña en archivos del repositorio (es público).

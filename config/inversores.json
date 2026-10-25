@@ -1,6 +1,6 @@
 {
   "zona_horaria": "America/Lima",
-  "margen_advertencia": 0.1,
+  "margen_advertencia": 0.05,
   "intervalo_minutos": 30,
   "umbrales": {
     "horas": [0, 8, 16],
