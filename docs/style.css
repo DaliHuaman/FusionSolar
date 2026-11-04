@@ -183,3 +183,6 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .nota-zoom{margin:10px 2px 0}
 .chart .cv canvas{touch-action:pan-y}
 @media (max-width:640px){#f-planta{display:flex;flex-wrap:wrap}#f-planta button{flex:1 1 auto;border-bottom:1px solid var(--border)}}
+
+#tabs-excel{margin:2px 0 10px;max-width:100%;overflow-x:auto}
+#tabs-excel button{white-space:nowrap}
