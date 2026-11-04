@@ -100,6 +100,28 @@ JS_CONFIG = """([labelsUmbral, labelsNombre]) => {
           numero: u ? u.getAttribute("aria-valuenow") : null};
 }"""
 
+# Cierra cualquier ventana modal visible (p. ej. "Smart Health Guard"): primero la X, luego un boton de rechazo/cierre
+# ("Cancelar", "Cerrar", "Más tarde"...) y, solo para avisos informativos, "Aceptar". NUNCA pulsa "Habilitar"/"Enable".
+JS_CERRAR_MODALES = """([cierres, avisos]) => {
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const raices = [...document.querySelectorAll('[role="dialog"], [class*="modal"][class*="wrap"], .ant-modal, .dpdesign-modal')]
+    .filter(vis);
+  let cerrados = 0;
+  for (const m of raices) {
+    const x = m.querySelector('[class*="modal-close"], button[aria-label="Close"], button[aria-label="Cerrar"], .close-icon-wrap');
+    const botones = [...m.querySelectorAll("button, [role=button], a.btn")].filter(vis);
+    const por = lista => botones.find(b => lista.includes(norm(b.textContent)));
+    const b = (x && vis(x) ? x : null) || por(cierres) || por(avisos);
+    if (b) { b.click(); cerrados++; }
+  }
+  return {modales: raices.length, cerrados};
+}"""
+CIERRES_MODAL = ["cancelar", "cancel", "cerrar", "close", "más tarde", "mas tarde", "later", "omitir", "skip",
+                 "ahora no", "not now", "no, gracias", "entendido", "got it"]
+AVISOS_MODAL = ["aceptar", "accept", "ok"]
+
 
 class ErrorPortal(RuntimeError):
     pass
@@ -164,23 +186,44 @@ class Scraper:
         self._cerrar_avisos()
         log.info("login correcto")
 
-    def _cerrar_avisos(self) -> None:
-        for txt in ("Aceptar", "Accept", "OK"):
+    def _cerrar_avisos(self, intentos: int = 4) -> int:
+        """Descarta modales/avisos que bloquean los clics (Smart Health Guard, novedades, sesion...). Devuelve cuantos cerro.
+
+        Es barato (una evaluacion JS) y se llama tras el login, tras abrir Control y antes de leer cada equipo.
+        """
+        pg, total = self.page, 0
+        for i in range(intentos):
             try:
-                self.page.get_by_text(txt, exact=True).first.click(timeout=800)
+                r = pg.evaluate(JS_CERRAR_MODALES, [CIERRES_MODAL, AVISOS_MODAL])
             except Exception:
-                pass
+                break
+            if not r["modales"]:
+                break
+            if r["cerrados"]:
+                total += r["cerrados"]
+                log.info("aviso/modal del portal cerrado (%s)", r["cerrados"])
+            else:                                             # modal sin boton reconocible: ultimo recurso, tecla Esc
+                if i == 0:
+                    self.captura("modal_desconocido")
+                try:
+                    pg.keyboard.press("Escape")
+                except Exception:
+                    pass
+            pg.wait_for_timeout(500)
+        return total
 
     def abrir_control(self) -> None:
         pg = self.page
         for intento in range(3):
             try:
+                self._cerrar_avisos()
                 pg.get_by_text("Control", exact=True).first.hover()
                 pg.wait_for_timeout(800)
                 visibles = pg.locator('text="Control" >> visible=true')
                 visibles.last.click()
                 pg.wait_for_selector('[id^="monitor-layout-node-name-"]', timeout=30000)
                 pg.wait_for_timeout(1500)
+                self._cerrar_avisos()                         # el modal "Smart Health Guard" aparece al cargar Control
                 return
             except (PWTimeout, PWError):
                 log.warning("abrir_control intento %s fallo", intento + 1)
@@ -191,6 +234,7 @@ class Scraper:
     def expandir_arbol(self) -> list[dict]:
         pg = self.page
         for _ in range(8):
+            self._cerrar_avisos()
             carets = pg.query_selector_all(".anticon-caret-right.tree-icon")
             if not carets:
                 break
@@ -202,6 +246,17 @@ class Scraper:
                     pass
             pg.wait_for_timeout(1200)
         return pg.eval_on_selector_all('[id^="monitor-layout-node-name-"]', JS_NODOS)
+
+    def _clic_nodo(self, ne: str) -> None:
+        """Selecciona un equipo del arbol; si un modal tapa el clic, lo cierra y reintenta una vez."""
+        sel = f'[id="monitor-layout-node-name-{ne}"]'
+        self._cerrar_avisos(intentos=1)
+        try:
+            self.page.click(sel, timeout=8000)
+        except (PWTimeout, PWError):
+            log.warning("clic bloqueado en %s; cierro avisos y reintento", ne)
+            self._cerrar_avisos()
+            self.page.click(sel)
 
     # ------------------------------------------------------------------ lectura de un inversor
     def leer_inversor(self, ne: str, nombre: str) -> dict:
@@ -217,7 +272,7 @@ class Scraper:
 
     def _leer_inversor_una_vez(self, ne: str, nombre: str) -> dict:
         pg = self.page
-        pg.click(f'[id="monitor-layout-node-name-{ne}"]')
+        self._clic_nodo(ne)
         # esperar a que el panel muestre ESTE dispositivo (evita leer el valor del anterior)
         try:
             pg.wait_for_function(
@@ -268,7 +323,7 @@ class Scraper:
         Solo lee: nunca pulsa Guardar ni toca ningun campo. Devuelve None si no se pudo leer con certeza.
         """
         pg = self.page
-        pg.click(f'[id="monitor-layout-node-name-{ne}"]')
+        self._clic_nodo(ne)
         esperado = " ".join(nombre.split()).lower()
         previo = None
         for i in range(25):                                  # hasta ~20 s a que el formulario muestre ESTE inversor
@@ -307,7 +362,7 @@ class Scraper:
 
     def _leer_bess_una_vez(self, ne: str, nombre: str) -> dict:
         pg = self.page
-        pg.click(f'[id="monitor-layout-node-name-{ne}"]')
+        self._clic_nodo(ne)
         esperado = " ".join(nombre.split()).lower()
         datos: dict = {}
         for i in range(25):                              # hasta ~20 s a que la tabla muestre ESTE BESS
