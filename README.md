@@ -14,7 +14,7 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
 | `fusionsolar/excel_indicadores.py` y `store.py` | Escriben las lecturas en el Excel |
 | `fusionsolar/sitedata.py` | Prepara los datos del dashboard web |
 | `config/inversores.json` | Lista de inversores, sus **umbrales** (valor inicial) y la configuración de umbrales y alertas |
-| `fusionsolar/umbrales.py` | Lee del portal el umbral de cada inversor cada 8 h y lo guarda |
+| `fusionsolar/umbrales.py` | Lee del portal el umbral de cada inversor cada hora y lo guarda |
 | `fusionsolar/alertas.py` y `config/alerta_correo.txt` | Aviso por correo y texto editable del mensaje |
 | `plantilla/Indicadores_FusionSolar.xlsx` | Tu plantilla de Excel (punto de partida) |
 | `docs/` | El dashboard web |
