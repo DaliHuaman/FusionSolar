@@ -15,7 +15,7 @@ from .common import FMT_TS, archivo_datos, guardar_json, leer_json, umbral_valid
 log = logging.getLogger("fusionsolar.umbrales")
 ARCHIVO = "umbrales.json"
 MAX_CAMBIOS = 30          # historial de cambios que se conserva en el archivo
-POR_DEFECTO = {"horas": [0, 8, 16], "reintento_minutos": 60, "presupuesto_segundos": 150}
+POR_DEFECTO = {"horas": list(range(24)), "reintento_minutos": 60, "presupuesto_segundos": 150}
 
 
 def _cfg(cfg: dict) -> dict:

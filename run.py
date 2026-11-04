@@ -110,7 +110,7 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False, extra: dict 
         if faltan:
             log.warning("Inversores no encontrados en el portal: %s", ", ".join(faltan))
         margen = cfg["margen_advertencia"]
-        res_umbrales = umbrales.actualizar(sc, encontrados, cfg, ts)   # cada 8 h; no lanza y deja el panel en "Detalles"
+        res_umbrales = umbrales.actualizar(sc, encontrados, cfg, ts)   # cada hora; no lanza y deja el panel en "Detalles"
         if res_umbrales and extra is not None:
             extra["umbrales"] = res_umbrales
         for inv in cfg["inversores"]:
