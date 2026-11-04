@@ -173,3 +173,16 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .bess .meta{font-size:12px;color:var(--fg-3)}
 .bess .max .lab{display:inline-flex;gap:6px;align-items:center}.bess .max .lab i{width:9px;height:9px;border-radius:2px;flex:none}
 [hidden]{display:none!important}
+
+/* Zoom de las gráficas */
+.zbar{display:inline-flex;gap:6px;align-items:center;margin-left:auto}
+.chart .zbar{font-weight:400}
+.bess > .zbar{align-self:flex-end;margin:-4px 0 -6px}
+.seg.mini button{padding:3px 9px;font-size:12px}
+.btn.mini{padding:3px 9px;font-size:12px;border-radius:8px}
+.nota-zoom{margin:10px 2px 0}
+.chart .cv canvas{touch-action:pan-y}
+@media (max-width:640px){#f-planta{display:flex;flex-wrap:wrap}#f-planta button{flex:1 1 auto;border-bottom:1px solid var(--border)}}
+
+#tabs-excel{margin:2px 0 10px;max-width:100%;overflow-x:auto}
+#tabs-excel button{white-space:nowrap}

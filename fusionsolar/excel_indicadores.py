@@ -6,6 +6,9 @@ columna vacía separando cada grupo:
     La tabla de umbrales queda en Z:AA.
 Hoja "Historico": formato plano, una fila por lectura e inversor. Es la mejor fuente para Power BI.
 
+Hoja "Inicio_Temp": un renglón por día y, por inversor, la hora de inicio de ese día y la temperatura interna máxima del día
+(se reconstruye entera en cada corrida desde el CSV maestro).
+
 Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
 columna vacía y con los mismos encabezados (morado / amarillo) de "Indicadores". Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
 agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
@@ -31,8 +34,12 @@ from .common import CAMPOS_BESS, COLUMNAS, ROOT
 HOJA_WIDE = "Indicadores"
 HOJA_PLANA = "Historico"
 PLANTILLA = ROOT / "plantilla" / "Indicadores_FusionSolar.xlsx"
-VERSION_DISENO = "layout-2"
+VERSION_DISENO = "layout-3"     # layout-3: Historico con Inicio_Inversor y Temp_Interna_C (se reconstruye solo desde el CSV)
 HOJA_BESS = "BESS"
+HOJA_INICIO = "Inicio_Temp"
+# (encabezado del grupo, inversores) en el orden de la hoja "Indicadores"
+GRUPOS_INICIO = [("BSF LOGISCITY", ["LC-Inv1", "LC-Inv2"]), ("BSF VILLA EL SALVADOR", ["VES-Inv1", "VES-Inv2"]),
+                 ("PLANTA SOLAR Y BESS - BSF PL", ["PL-InvA.1", "PL-InvA.2", "PL-InvA.3", "PL-InvB.1", "PL-InvB.2", "PL-InvB.3"])]
 TITULOS_BESS = ["Máx. grupo", "Agua sum. batería", "Agua ret. batería", "Agua sum. potencia", "Agua ret. potencia", "Exterior"]
 LIMITE_FILAS = 200_000      # ~14 meses de histórico plano (10 inversores x 48 lecturas/día); luego se crea _parte2
 FMT = "%Y-%m-%d %H:%M:%S"
@@ -118,7 +125,7 @@ def _preparar(wb: Workbook, umbrales: dict[str, float]) -> None:
         c.fill = PatternFill("solid", fgColor="1F4E79")
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     wp.freeze_panes = "A2"
-    for i, w in enumerate([19, 11, 7, 8, 11, 10, 15, 13, 10, 18, 52, 14, 22, 14], 1):
+    for i, w in enumerate([19, 11, 7, 8, 11, 10, 15, 13, 10, 18, 52, 14, 22, 14, 19, 12], 1):
         wp.column_dimensions[get_column_letter(i)].width = w
     for txt, bg, fg in (("ALARMA", "F8CBAD", "9C0006"), ("ADVERTENCIA", "FFE699", "7F6000"),
                         ("OK", "C6EFCE", "006100"), ("SIN_DATO", "EDEDED", "595959")):
@@ -134,11 +141,11 @@ def _num(v):
 def _valor_plano(col: str, v):
     if v in ("", None):
         return None
-    if col == "Fecha_Hora":
+    if col in ("Fecha_Hora", "Inicio_Inversor"):
         return datetime.strptime(v, FMT)
     if col == "Fecha":
         return datetime.strptime(v, "%Y-%m-%d")
-    if col in ("Resistencia_MOhm", "Umbral_MOhm", "Margen_%", "Potencia_Activa_%"):
+    if col in ("Resistencia_MOhm", "Umbral_MOhm", "Margen_%", "Potencia_Activa_%", "Temp_Interna_C"):
         return float(v)
     return v
 
@@ -169,6 +176,8 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
         wp.cell(r, 1).number_format = "yyyy-mm-dd hh:mm:ss"
         wp.cell(r, 2).number_format = "yyyy-mm-dd"
         wp.cell(r, 7).number_format = wp.cell(r, 8).number_format = "0.000"
+        wp.cell(r, COLUMNAS.index("Inicio_Inversor") + 1).number_format = "yyyy-mm-dd hh:mm:ss"
+        wp.cell(r, COLUMNAS.index("Temp_Interna_C") + 1).number_format = "0.0"
     ref = f"A1:{get_column_letter(len(COLUMNAS))}{wp.max_row}"
     if wp.tables:
         wp.tables["tHistorico"].ref = ref
@@ -239,6 +248,62 @@ def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     ws.freeze_panes = "B4"
 
 
+def _hoja_inicio_temp(wb: Workbook, filas: list[dict]) -> None:
+    """(Re)crea la hoja "Inicio_Temp" antes de "Historico": fila 1 = grupo, fila 2 = inversor, fila 3 = Inicio / T máx; A3 = Día.
+
+    Inicio = hora de arranque del inversor ese día (un valor por día); T máx = temperatura interna más alta registrada ese día.
+    """
+    ref = wb[HOJA_WIDE]
+    est_g1, est_g2, est_g3, est_a = (copy(ref[c]._style) for c in ("B1", "B2", "B3", "A3"))
+    if HOJA_INICIO in wb.sheetnames:
+        del wb[HOJA_INICIO]
+    ws = wb.create_sheet(HOJA_INICIO, wb.sheetnames.index(HOJA_PLANA) if HOJA_PLANA in wb.sheetnames else None)
+    inicio: dict[tuple[str, str], str] = {}
+    tmax: dict[tuple[str, str], float] = {}
+    for f in filas:
+        clave = (f"{f['Planta']}-{f['Inversor']}", f["Fecha"])
+        ini = f.get("Inicio_Inversor") or ""
+        if ini[:10] == f["Fecha"]:                                  # el arranque de ESE día (de madrugada la fila aún trae el de ayer)
+            inicio.setdefault(clave, ini)
+        t = _num(f.get("Temp_Interna_C"))
+        if t is not None and t > tmax.get(clave, float("-inf")):
+            tmax[clave] = t
+    dias = sorted({d for _, d in inicio} | {d for _, d in tmax})
+    ws.cell(3, 1).value, ws.cell(3, 1)._style = "Día", est_a
+    ws.column_dimensions["A"].width = 12
+    col0: dict[str, int] = {}
+    c = 2
+    for k, (titulo, ids) in enumerate(GRUPOS_INICIO):
+        if k:
+            ws.column_dimensions[get_column_letter(c)].width = 2.5
+            c += 1
+        for col in range(c, c + 2 * len(ids)):
+            ws.cell(1, col)._style = copy(est_g1)
+        ws.cell(1, c).value = titulo
+        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + 2 * len(ids) - 1)
+        for iid in ids:
+            col0[iid] = c
+            for j, (tit, ancho) in enumerate((("Inicio", 10), ("T máx", 8))):
+                ws.cell(2, c + j)._style, ws.cell(3, c + j)._style = copy(est_g2), copy(est_g3)
+                ws.cell(3, c + j).value = tit if j == 0 else "°C máx"
+                ws.column_dimensions[get_column_letter(c + j)].width = ancho
+            ws.cell(2, c).value = NOMBRES[iid]
+            ws.merge_cells(start_row=2, start_column=c, end_row=2, end_column=c + 1)
+            c += 2
+    for fila, dia in enumerate(dias, start=PRIMERA_FILA_DATOS):
+        a = ws.cell(fila, 1)
+        a.value, a.number_format = datetime.strptime(dia, "%Y-%m-%d"), "dd/mm/yyyy"
+        for iid, c0 in col0.items():
+            ini = inicio.get((iid, dia))
+            if ini:
+                cel = ws.cell(fila, c0)
+                cel.value, cel.number_format = datetime.strptime(ini, FMT).time(), "hh:mm:ss"
+            if (iid, dia) in tmax:
+                cel = ws.cell(fila, c0 + 1)
+                cel.value, cel.number_format = tmax[(iid, dia)], "0.0"
+    ws.freeze_panes = "B4"
+
+
 def _actualizar_umbrales(wb: Workbook, umbrales: dict[str, float]) -> None:
     """Refleja en la tabla Z:AA los umbrales vigentes (cambian cuando se releen del portal)."""
     ws = wb[HOJA_WIDE]
@@ -275,6 +340,8 @@ def escribir(filas: list[dict], inversores: list[dict],
     _agregar(wb, a_escribir)
     if filas_bess:
         _hoja_bess(wb, filas_bess)
+    if historico_completo:
+        _hoja_inicio_temp(wb, historico_completo())
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")
     wb.save(tmp)
     os.replace(tmp, ruta)        # atómico; falla con PermissionError si Excel tiene el archivo abierto

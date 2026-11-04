@@ -15,7 +15,8 @@ from playwright.sync_api import Error as PWError
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-from .common import CAMPOS_BESS, STATE_DIR, parse_kw, parse_mohm, parse_pct, parse_temp, umbral_valido
+from .common import (CAMPOS_BESS, STATE_DIR, parse_inicio, parse_kw, parse_mohm, parse_pct, parse_temp,
+                     umbral_valido)
 
 LOGIN_URL = "https://la5.fusionsolar.huawei.com/pvmswebsite/login/build/index.html"
 log = logging.getLogger("fusionsolar.scraper")
@@ -26,6 +27,9 @@ ETIQ_POT_ACTIVA = ["Estado de ajuste de potencia activa", "Active power adjustme
 ETIQ_ESTADO_INV = ["Estado del inversor", "Inverter status"]
 ETIQ_PNOM = ["Potencia nominal del inversor", "Rated power"]
 ETIQ_NOMBRE = ["Nombre del dispositivo", "Device name"]
+# Real-Time Device Data del inversor: hora de inicio (ultimo arranque) y temperatura interna.
+ETIQ_INICIO = ["Fecha y hora de inicio del inversor", "Hora de inicio del inversor", "Inverter startup time"]
+ETIQ_TEMP_INT = ["Temperatura interna", "Internal temperature"]
 
 # BESS (pestaña "Detalles"): tablas etiqueta/valor <tr class="detail-item">; se leen todas en una sola evaluacion.
 ETIQ_BESS = {
@@ -297,6 +301,8 @@ class Scraper:
         pot = pg.evaluate(JS_VALOR, ETIQ_POT_ACTIVA)
         est = pg.evaluate(JS_VALOR, ETIQ_ESTADO_INV)
         pnom = pg.evaluate(JS_VALOR, ETIQ_PNOM)
+        ini = pg.evaluate(JS_VALOR, ETIQ_INICIO)
+        tint = pg.evaluate(JS_VALOR, ETIQ_TEMP_INT)
         txt_res = (res or {}).get("texto", "")
         txt_pot = ((pot or {}).get("titulo") or (pot or {}).get("texto") or "").strip()
         return {
@@ -305,6 +311,8 @@ class Scraper:
             "potencia_txt": txt_pot,
             "potencia_pct": _pct_static(txt_pot, (pnom or {}).get("texto")),
             "estado_inversor": ((est or {}).get("texto") or "").strip(),
+            "inicio": parse_inicio((ini or {}).get("texto")),
+            "temp_interna": parse_temp((tint or {}).get("texto")),
             "campos_encontrados": res is not None,
         }
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Aislamiento de Inversores · FusionSolar</title>
-<meta name="description" content="Seguimiento de resistencia de aislamiento y ajuste de potencia activa de los inversores de las plantas LC, PL y VES.">
+<title>Seguimiento de indicadores · Plantas BSF</title>
+<meta name="description" content="Seguimiento de indicadores de las plantas de BSF (LC, PL y VES): inversores (aislamiento, potencia activa, temperatura interna y hora de inicio) y BESS (temperaturas).">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M6 20l5-8h5l-3 5h6l-7 7z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -14,8 +14,8 @@
     <div class="brand">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M6 20l5-8h5l-3 5h6l-7 7z" fill="#fff"/></svg>
       <div>
-        <h1>Aislamiento de inversores</h1>
-        <p class="sub">Plantas LC · PL · VES — resistencia de aislamiento y ajuste de potencia activa</p>
+        <h1>Seguimiento de indicadores de las plantas de BSF</h1>
+        <p class="sub">Plantas LC · PL · VES — inversores (aislamiento, potencia activa, temperatura interna, hora de inicio) y BESS</p>
       </div>
     </div>
     <div class="top-actions">
@@ -43,6 +43,8 @@
     </div>
   </div>
 
+  <p class="nota nota-zoom">Zoom en todas las gráficas: elige <b>Horizontal</b>, <b>Vertical</b> o <b>Ambos</b> y arrastra sobre la gráfica para seleccionar el rango. <b>Ctrl + rueda</b> acerca o aleja, <b>Mayús + arrastrar</b> desplaza, y <b>doble clic</b> (o ⟲ Restablecer) vuelve a la vista completa. En el móvil, pellizca para acercar.</p>
+
   <section id="sec-bess" hidden>
     <h2>BESS · Temperaturas <span class="u">°C · Planta Solar y Bess</span></h2>
     <p class="nota">Temperatura más alta del grupo y las 5 temperaturas de enfriamiento (agua suministrada y de retorno, lado batería y lado potencia, y exterior) de cada BESS. Historial de hasta 7 días.</p>
@@ -58,7 +60,7 @@
 
   <section data-vista="inv">
     <h2>Resistencia de aislamiento <span class="u">MΩ</span></h2>
-    <p class="nota">Línea punteada = umbral de cada inversor. Por debajo del umbral se considera alarma.</p>
+    <p class="nota">Línea punteada = umbral de cada inversor, tal como estaba en cada momento (salta cuando el umbral cambia en el portal). Por debajo del umbral se considera alarma.</p>
     <div class="grid-charts" id="charts-r"></div>
   </section>
 
@@ -66,6 +68,18 @@
     <h2>Estado de ajuste de potencia activa <span class="u">% de la potencia</span></h2>
     <p class="nota">100 % = sin limitación. Valores menores indican reducción de potencia activa ordenada al inversor.</p>
     <div class="grid-charts" id="charts-p"></div>
+  </section>
+
+  <section data-vista="inv">
+    <h2>Temperatura interna del inversor <span class="u">°C</span></h2>
+    <p class="nota">Temperatura interna que reporta cada inversor en «Real-Time Device Data» del portal (una lectura por corrida).</p>
+    <div class="grid-charts" id="charts-t"></div>
+  </section>
+
+  <section data-vista="inv">
+    <h2>Hora de inicio del inversor <span class="u">hora del día del arranque</span></h2>
+    <p class="nota">Cada punto es un arranque del inversor (normalmente uno por día, al amanecer); el eje vertical muestra a qué hora arrancó.</p>
+    <div class="grid-charts" id="charts-i"></div>
   </section>
 
   <section data-vista="inv">
@@ -77,8 +91,13 @@
   </section>
 
   <section data-vista="inv">
-    <h2>Datos del Excel <span class="u">una fila por corrida · más recientes primero</span></h2>
-    <p class="nota">Misma vista del archivo Excel, separada por planta. Muestra hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.</p>
+    <h2>Datos del Excel <span class="u">una pestaña por hoja del archivo</span></h2>
+    <div class="seg" id="tabs-excel" role="group" aria-label="Hoja del Excel">
+      <button type="button" data-t="inv" class="on">Indicadores</button>
+      <button type="button" data-t="bess">BESS</button>
+      <button type="button" data-t="dia">Inicio y temp. interna</button>
+    </div>
+    <p class="nota" id="nota-excel"></p>
     <div class="tabla-wrap alto grande"><table id="t-excel" class="tabla excel"></table></div>
   </section>
 
@@ -100,6 +119,9 @@
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Zoom de las gráficas (si no cargan, el dashboard funciona igual pero sin zoom) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

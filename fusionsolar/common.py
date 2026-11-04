@@ -31,6 +31,8 @@ COLUMNAS = [
     "Fecha_Hora", "Fecha", "Hora", "Planta", "Grupo", "Inversor",
     "Resistencia_MOhm", "Umbral_MOhm", "Margen_%", "Estado_Aislamiento",
     "Estado_Potencia_Activa", "Potencia_Activa_%", "Estado_Inversor", "Fuente",
+    # Real-Time Device Data del inversor. Van al FINAL para no mover las columnas del historial existente.
+    "Inicio_Inversor", "Temp_Interna_C",
 ]
 
 # Historico de temperaturas BESS (una fila por BESS y corrida)
@@ -134,6 +136,20 @@ def parse_temp(txt: str | None) -> float | None:
         return None
     v = float(m.group(0).replace(",", "."))
     return v if -40 <= v <= 150 else None
+
+
+def parse_inicio(txt: str | None) -> str | None:
+    """'2026-11-04 05:51:11' -> '2026-11-04 05:51:11' ; '--' / vacio -> None. Hora de inicio del inversor (hora local del portal)."""
+    if not txt:
+        return None
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?", txt)
+    if not m:
+        return None
+    a, mo, d, h, mi, sg = m.groups()
+    try:
+        return datetime(int(a), int(mo), int(d), int(h), int(mi), int(sg or 0)).strftime(FMT_TS)
+    except ValueError:
+        return None
 
 
 def umbral_valido(v: float | None) -> bool:
