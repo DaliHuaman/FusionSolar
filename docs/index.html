@@ -91,8 +91,13 @@
   </section>
 
   <section data-vista="inv">
-    <h2>Datos del Excel <span class="u">una fila por corrida · más recientes primero</span></h2>
-    <p class="nota">Misma vista del archivo Excel, separada por planta. Muestra hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.</p>
+    <h2>Datos del Excel <span class="u">una pestaña por hoja del archivo</span></h2>
+    <div class="seg" id="tabs-excel" role="group" aria-label="Hoja del Excel">
+      <button type="button" data-t="inv" class="on">Indicadores</button>
+      <button type="button" data-t="bess">BESS</button>
+      <button type="button" data-t="dia">Inicio y temp. interna</button>
+    </div>
+    <p class="nota" id="nota-excel"></p>
     <div class="tabla-wrap alto grande"><table id="t-excel" class="tabla excel"></table></div>
   </section>
 

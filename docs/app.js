@@ -24,7 +24,7 @@
   const fP = v => v == null ? "—" : v.toLocaleString("es-PE", { maximumFractionDigits: 1 }) + " %";
 
   let D = null;
-  const S = { planta: "TODAS", dias: 7, zmode: "x" };   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
+  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv" };   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
   let charts = [];
   const zoomGuardado = new Map();                       // clave de gráfica -> {x:[min,max], y:[min,max]} (se conserva al refrescar datos)
   let soltarZoom = false;                               // true al cambiar planta/rango: se parte de la vista completa
@@ -518,15 +518,91 @@
     t.replaceChildren(head, body);
   }
 
+  // "Datos del Excel" con pestañas, como las hojas del archivo: Indicadores (MΩ y %), BESS e Inicio y temperatura interna.
+  const NOTAS_TABLA = {
+    inv: "Misma vista de la hoja «Indicadores» del Excel, separada por planta. Hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.",
+    bess: "Misma vista de la hoja «BESS»: temperaturas en °C de cada BESS por corrida (últimos 7 días). Máx = temperatura más alta del grupo; Sum./Ret. = agua suministrada / de retorno; bat. = lado batería; pot. = lado potencia; Ext. = exterior.",
+    dia: "Un renglón por día. «Inicio» es la hora a la que arrancó el inversor ese día (un valor por día); «T máx» es la temperatura interna más alta registrada ese día.",
+  };
+  const ordenGrupos = () => { const o = ["LC", "VES", "PL"]; return grupos().sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
+  const vacioTabla = (t, msg) => t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: msg }))));
+  const fFechaCorta = ts => pad(new Date(ts * 1000).getUTCDate()) + "/" + pad(new Date(ts * 1000).getUTCMonth() + 1);
+  const fHms = ts => { const d = new Date(ts * 1000); return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds()); };
+
   function pintarExcel() {
+    document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
+    $("#nota-excel").textContent = NOTAS_TABLA[S.tabla];
     const t = $("#t-excel");
-    const orden = ["LC", "VES", "PL"];
-    const gr = grupos().sort((x, y) => orden.indexOf(x.planta) - orden.indexOf(y.planta) || x.grupo.localeCompare(y.grupo));
+    if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t); else tablaInversores(t);
+  }
+
+  function tablaBess(t) {
+    const B = D.bess;
+    if (!B || !B.activo || !B.equipos.length) { vacioTabla(t, "Las temperaturas BESS no están activas."); return; }
+    const TIT = ["Máx", "Sum. bat.", "Ret. bat.", "Sum. pot.", "Ret. pot.", "Ext."];
+    const mapas = new Map(B.equipos.map(e => [e.id, new Map(((B.serie || {})[e.id] || []).map(p => [p[0], p]))]));
+    const min = tMin();
+    const tiempos = [...new Set([...mapas.values()].flatMap(m => [...m.keys()]))].filter(x => x >= min).sort((a, b) => b - a).slice(0, 300);
+    if (!tiempos.length) { vacioTabla(t, "Sin lecturas BESS en el rango seleccionado."); return; }
+    const h1 = el("tr", {}, el("th", { class: "g", text: "Horario", rowspan: 2 })), h2 = el("tr");
+    B.equipos.forEach((e, k) => {
+      if (k) h1.append(el("th", { class: "sep", rowspan: 2 }));
+      h1.append(el("th", { class: "g", colspan: TIT.length, text: e.nombre }));
+      TIT.forEach(x => h2.append(el("th", { class: "i", text: x })));
+    });
+    const body = el("tbody");
+    tiempos.forEach(ts => {
+      const tr = el("tr", {}, el("td", { text: fFechaCorta(ts) + " " + fHora(ts) }));
+      B.equipos.forEach((e, k) => {
+        if (k) tr.append(el("td", { class: "sep" }));
+        const p = mapas.get(e.id).get(ts);
+        TIT.forEach((_, j) => tr.append(el("td", { class: "p", text: p && p[j + 1] != null ? fT(p[j + 1]) : "–" })));
+      });
+      body.append(tr);
+    });
+    t.replaceChildren(el("thead", {}, h1, h2), body);
+  }
+
+  function tablaDia(t) {
+    const gr = ordenGrupos(), invs = gr.flatMap(g => g.invs);
+    const dia = ts => Math.floor(ts / 86400);
+    const inicio = new Map(invs.map(i => [i.id, new Map(((D.inicio || {})[i.id] || []).map(ts => [dia(ts), ts]))]));
+    const tmax = new Map(invs.map(i => {
+      const m = new Map();
+      serie(i.id).forEach(p => { if (p[4] != null) m.set(dia(p[0]), Math.max(m.get(dia(p[0])) ?? -Infinity, p[4])); });
+      return [i.id, m];
+    }));
+    const minDia = dia(tMin());
+    const dias = [...new Set(invs.flatMap(i => [...inicio.get(i.id).keys(), ...tmax.get(i.id).keys()]))].filter(d => d >= minDia).sort((a, b) => b - a).slice(0, 60);
+    if (!dias.length) { vacioTabla(t, "Aún no hay horas de inicio ni temperaturas internas en el rango seleccionado."); return; }
+    const h1 = el("tr", {}, el("th", { class: "g", text: "Día", rowspan: 3 })), h2 = el("tr"), h3 = el("tr");
+    gr.forEach((g, k) => {
+      if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
+      h1.append(el("th", { class: "g", colspan: g.invs.length * 2, text: `${g.planta} · ${g.grupo}` }));
+      g.invs.forEach(i => { h2.append(el("th", { class: "i", colspan: 2, text: i.nombre })); h3.append(el("th", { class: "u", text: "Inicio" }), el("th", { class: "u", text: "T máx °C" })); });
+    });
+    const body = el("tbody");
+    dias.forEach(d => {
+      const tr = el("tr", {}, el("td", { text: fFechaCorta(d * 86400) }));
+      gr.forEach((g, k) => {
+        if (k) tr.append(el("td", { class: "sep" }));
+        g.invs.forEach(i => {
+          const ini = inicio.get(i.id).get(d), tm = tmax.get(i.id).get(d);
+          tr.append(el("td", { class: "c-ok", text: ini != null ? fHms(ini) : "–" }), el("td", { class: "p", text: tm != null ? fT(tm) : "–" }));
+        });
+      });
+      body.append(tr);
+    });
+    t.replaceChildren(el("thead", {}, h1, h2, h3), body);
+  }
+
+  function tablaInversores(t) {
+    const gr = ordenGrupos();
     const invs = gr.flatMap(g => g.invs);
     const mapas = new Map(invs.map(i => [i.id, new Map(serie(i.id).map(p => [p[0], p]))]));
     const min = tMin();
     const tiempos = [...new Set(invs.flatMap(i => serie(i.id).map(p => p[0])))].filter(x => x >= min).sort((a, b) => b - a).slice(0, 300);
-    if (!tiempos.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin datos en el rango seleccionado." })))); return; }
+    if (!tiempos.length) { vacioTabla(t, "Sin datos en el rango seleccionado."); return; }
     const h1 = el("tr", {}, el("th", { class: "g", text: "Horario", rowspan: 3 }));
     const h2 = el("tr"), h3 = el("tr");
     gr.forEach((g, k) => {
@@ -586,6 +662,8 @@
     document.querySelectorAll("#f-rango button").forEach(x => x.classList.toggle("on", x === b));
     if (D) pintar();
   }));
+
+  document.querySelectorAll("#tabs-excel button").forEach(b => b.addEventListener("click", () => { S.tabla = b.dataset.t; if (D) pintarExcel(); }));
 
   const tema = $("#tema");
   tema.addEventListener("click", () => {
