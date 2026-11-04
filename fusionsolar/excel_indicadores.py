@@ -31,7 +31,7 @@ from .common import CAMPOS_BESS, COLUMNAS, ROOT
 HOJA_WIDE = "Indicadores"
 HOJA_PLANA = "Historico"
 PLANTILLA = ROOT / "plantilla" / "Indicadores_FusionSolar.xlsx"
-VERSION_DISENO = "layout-2"
+VERSION_DISENO = "layout-3"     # layout-3: Historico con Inicio_Inversor y Temp_Interna_C (se reconstruye solo desde el CSV)
 HOJA_BESS = "BESS"
 TITULOS_BESS = ["Máx. grupo", "Agua sum. batería", "Agua ret. batería", "Agua sum. potencia", "Agua ret. potencia", "Exterior"]
 LIMITE_FILAS = 200_000      # ~14 meses de histórico plano (10 inversores x 48 lecturas/día); luego se crea _parte2
@@ -118,7 +118,7 @@ def _preparar(wb: Workbook, umbrales: dict[str, float]) -> None:
         c.fill = PatternFill("solid", fgColor="1F4E79")
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     wp.freeze_panes = "A2"
-    for i, w in enumerate([19, 11, 7, 8, 11, 10, 15, 13, 10, 18, 52, 14, 22, 14], 1):
+    for i, w in enumerate([19, 11, 7, 8, 11, 10, 15, 13, 10, 18, 52, 14, 22, 14, 19, 12], 1):
         wp.column_dimensions[get_column_letter(i)].width = w
     for txt, bg, fg in (("ALARMA", "F8CBAD", "9C0006"), ("ADVERTENCIA", "FFE699", "7F6000"),
                         ("OK", "C6EFCE", "006100"), ("SIN_DATO", "EDEDED", "595959")):
@@ -134,11 +134,11 @@ def _num(v):
 def _valor_plano(col: str, v):
     if v in ("", None):
         return None
-    if col == "Fecha_Hora":
+    if col in ("Fecha_Hora", "Inicio_Inversor"):
         return datetime.strptime(v, FMT)
     if col == "Fecha":
         return datetime.strptime(v, "%Y-%m-%d")
-    if col in ("Resistencia_MOhm", "Umbral_MOhm", "Margen_%", "Potencia_Activa_%"):
+    if col in ("Resistencia_MOhm", "Umbral_MOhm", "Margen_%", "Potencia_Activa_%", "Temp_Interna_C"):
         return float(v)
     return v
 
@@ -169,6 +169,8 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
         wp.cell(r, 1).number_format = "yyyy-mm-dd hh:mm:ss"
         wp.cell(r, 2).number_format = "yyyy-mm-dd"
         wp.cell(r, 7).number_format = wp.cell(r, 8).number_format = "0.000"
+        wp.cell(r, COLUMNAS.index("Inicio_Inversor") + 1).number_format = "yyyy-mm-dd hh:mm:ss"
+        wp.cell(r, COLUMNAS.index("Temp_Interna_C") + 1).number_format = "0.0"
     ref = f"A1:{get_column_letter(len(COLUMNAS))}{wp.max_row}"
     if wp.tables:
         wp.tables["tHistorico"].ref = ref

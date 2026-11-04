@@ -37,7 +37,24 @@ def _escribir_csv(path: Path, filas: list[dict], anexar: bool) -> None:
         w.writerows(filas)
 
 
+def _migrar_encabezado(path: Path) -> None:
+    """Si el CSV existente tiene un encabezado anterior (menos columnas), lo reescribe con las actuales.
+
+    Las filas viejas quedan con las columnas nuevas vacias; nada se pierde. Sin esto, anexar filas con mas columnas
+    a un CSV de encabezado viejo las desalinearia.
+    """
+    if not path.exists():
+        return
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        encabezado = next(csv.reader(f), [])
+    if encabezado == COLUMNAS:
+        return
+    log.info("Migrando %s a %s columnas", path.name, len(COLUMNAS))
+    _escribir_csv(path, _leer_csv(path), anexar=False)
+
+
 def anexar_csv(filas: list[dict]) -> None:
+    _migrar_encabezado(CSV_MAESTRO)
     _escribir_csv(CSV_MAESTRO, filas, anexar=True)
 
 
@@ -59,6 +76,8 @@ def construir_fila(ts: datetime, inv: dict, lectura: dict, estado: str, fuente: 
         "Potencia_Activa_%": "" if lectura.get("potencia_pct") is None else lectura["potencia_pct"],
         "Estado_Inversor": lectura.get("estado_inversor", ""),
         "Fuente": fuente,
+        "Inicio_Inversor": lectura.get("inicio") or "",
+        "Temp_Interna_C": "" if lectura.get("temp_interna") is None else lectura["temp_interna"],
     }
 
 

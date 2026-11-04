@@ -1,7 +1,7 @@
 # Indicadores de inversores FusionSolar
 
 Cada 30 minutos, GitHub entra a FusionSolar, lee de los 10 inversores (LC, VES y PL) la
-**resistencia de aislamiento** y el **estado de ajuste de potencia activa**, y los agrega a un Excel.
+**resistencia de aislamiento**, el **estado de ajuste de potencia activa**, la **temperatura interna** y la **hora de inicio**, y los agrega a un Excel.
 También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detalles) y publica un dashboard web con todo.
 
 ## Qué hay en el repositorio (y para qué sirve)
@@ -29,6 +29,19 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
   `https://raw.githubusercontent.com/DaliHuaman/FusionSolar/data/Indicadores_FusionSolar.xlsx`
 
 Tiene dos hojas: **Indicadores** (tu plantilla, una fila por corrida, con una columna vacía separando LC | VES | PL-A | PL-B y los umbrales en Z:AA) e **Historico** (una fila por lectura e inversor, ideal para Power BI).
+
+## Temperatura interna y hora de inicio del inversor
+
+Salen de *Real-Time Device Data* del portal («Temperatura interna» y «Fecha y hora de inicio del inversor») y se guardan en cada corrida:
+
+- **Historial**: dos columnas nuevas al FINAL de `historico.csv` y de la hoja `Historico` del Excel: `Inicio_Inversor` y `Temp_Interna_C`. El historial anterior no se pierde: al primer guardado el CSV se reescribe con las columnas nuevas (vacías en las filas viejas) y el Excel se reconstruye solo desde el CSV.
+- **Dashboard**: cada tarjeta muestra la temperatura y la hora de inicio actuales; debajo de «Estado de ajuste de potencia activa» hay una gráfica de temperatura interna en el tiempo y otra con la hora del día a la que arrancó cada inversor (un punto por arranque).
+- Si el portal devuelve `--` (por ejemplo de noche), esa lectura queda vacía y la gráfica deja un hueco.
+
+## Dashboard: umbral en el tiempo y zoom
+
+- La línea punteada de umbral usa el umbral guardado en cada lectura (`Umbral_MOhm`), así que **salta cuando el umbral cambia** en el portal en vez de mostrar solo el último valor. Las tablas de mínimo diario y «Datos del Excel» también comparan contra el umbral vigente en ese momento.
+- **Zoom en todas las gráficas** (chartjs-plugin-zoom): elegir *Horizontal*, *Vertical* o *Ambos* y arrastrar para seleccionar el rango; `Ctrl + rueda` acerca/aleja, `Mayús + arrastrar` desplaza, doble clic o «⟲ Restablecer» vuelve a la vista completa. Funciona junto con los rangos 24 h / 7 días / 30 días / Todo. El zoom se conserva cuando llegan datos nuevos y se reinicia al cambiar de planta o de rango.
 
 ## Temperaturas BESS
 
