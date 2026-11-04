@@ -55,7 +55,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "inversores": [{k: i[k] for k in ("id", "planta", "grupo", "nombre", "umbral")} for i in invs],
         "no_encontrados": no_encontrados,
         "corrida": info_corrida or {},
-        "ultima": {}, "serie": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
+        "ultima": {}, "serie": {}, "inicio": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
         "bess": _bess(cfg, filas_bess or [], ahora),
     }
     df = pd.DataFrame(filas)
@@ -67,6 +67,11 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
     df["r"] = pd.to_numeric(df["Resistencia_MOhm"], errors="coerce")
     df["p"] = pd.to_numeric(df["Potencia_Activa_%"], errors="coerce")
     df["um"] = pd.to_numeric(df["Umbral_MOhm"], errors="coerce")
+    for col in ("Temp_Interna_C", "Inicio_Inversor"):          # un historial anterior a estas columnas no las trae
+        if col not in df:
+            df[col] = ""
+    df["tint"] = pd.to_numeric(df["Temp_Interna_C"], errors="coerce")
+    df["ini"] = pd.to_datetime(df["Inicio_Inversor"], errors="coerce")
     df = df.sort_values("ts")
 
     corte = ahora - timedelta(days=DIAS_SERIE)
@@ -81,9 +86,20 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
             "p_txt": u["Estado_Potencia_Activa"], "p": _num(u["p"]),
             "inv": u["Estado_Inversor"], "fuente": u["Fuente"],
         }
+        con_t = d[d["tint"].notna()]
+        con_i = d[d["ini"].notna()]
+        if not con_t.empty:                                  # ultimo valor conocido (aunque la ultima corrida no lo trajo)
+            out["ultima"][inv["id"]]["temp"] = _num(con_t.iloc[-1]["tint"])
+            out["ultima"][inv["id"]]["t_temp"] = con_t.iloc[-1]["ts"].strftime("%Y-%m-%d %H:%M:%S")
+        if not con_i.empty:
+            out["ultima"][inv["id"]]["inicio"] = con_i.iloc[-1]["ini"].strftime("%Y-%m-%d %H:%M:%S")
+            # cada arranque (uno por dia) una sola vez: el dashboard dibuja la hora del dia de cada inicio
+            out["inicio"][inv["id"]] = sorted({calendar.timegm(t.timetuple()) for t in con_i["ini"]})
         rec = d[d["ts"] >= corte]
+        # [t, resistencia, potencia %, umbral vigente en ese momento, temperatura interna]
         out["serie"][inv["id"]] = [
-            [calendar.timegm(row.ts.timetuple()), _num(row.r), _num(row.p)] for row in rec.itertuples()
+            [calendar.timegm(row.ts.timetuple()), _num(row.r), _num(row.p), _num(row.um), _num(row.tint)]
+            for row in rec.itertuples()
         ]
         diario = []
         for dia, x in d.assign(dia=d["ts"].dt.strftime("%Y-%m-%d")).groupby("dia"):
@@ -96,6 +112,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
                 int((x["Estado_Aislamiento"] == "ALARMA").sum()),
                 int(len(x)),
                 None if x["p"].dropna().empty else round(float(x["p"].min()), 1),
+                None if x["um"].dropna().empty else float(x["um"].dropna().iloc[-1]),     # umbral vigente ese dia
             ])
         out["diario"][inv["id"]] = diario
 
