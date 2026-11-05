@@ -1,0 +1,81 @@
+name: Disponibilidad diaria FusionSolar
+
+# Cada día a las 06:00 de Lima se lee de FusionSolar (Informes > Informe de inversores > "Por día") la columna
+# «Duración de conexión a la red» del día ANTERIOR y se agrega a disponibilidad.csv (rama "data").
+# La disponibilidad (=SI(horas>=12;1;horas/12)) se calcula en el Excel y en el dashboard; solo las horas salen del portal.
+#
+# Hora: Lima es UTC-5 todo el año (sin horario de verano), así que 06:00 Lima = 11:00 UTC. Se usa el minuto 7 para evitar el
+# pico de las 11:00 en punto, donde GitHub retrasa más las ejecuciones. Como GitHub puede demorar los "schedule", conviene además
+# crear en cron-job.org un trabajo diario a las 06:00 (America/Lima) con la misma llamada workflow_dispatch que ya usa
+# "actualizar.yml" pero apuntando a este archivo (disponibilidad.yml); si ambos coinciden, el segundo solo repasa los últimos días.
+on:
+  schedule:
+    - cron: "7 11 * * *"
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Primer día a consultar (AAAA-MM-DD). Vacío = lo que falte (la primera vez recorre todo 2025 hasta ayer)"
+        type: string
+        default: ""
+      hasta:
+        description: "Último día a consultar (AAAA-MM-DD). Vacío = ayer"
+        type: string
+        default: ""
+
+permissions:
+  contents: write                # publicar la rama "data"
+
+# Misma cola que la corrida de cada 30 min: las dos escriben la rama "data" y no deben pisarse.
+concurrency:
+  group: fusionsolar-actualizar
+  cancel-in-progress: false
+
+jobs:
+  disponibilidad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias y navegador
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Traer histórico (rama data)
+        run: |
+          REMOTE="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" data >/dev/null 2>&1; then
+            git clone --depth 1 --branch data "$REMOTE" datos
+          else
+            mkdir datos && git -C datos init -q -b data && git -C datos remote add origin "$REMOTE"
+          fi
+
+      - name: Leer las horas operativas de FusionSolar
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+        run: |
+          ARGS=""
+          if [ -n "$DESDE" ]; then ARGS="$ARGS --desde $DESDE"; fi
+          if [ -n "$HASTA" ]; then ARGS="$ARGS --hasta $HASTA"; fi
+          python run.py --disponibilidad $ARGS
+
+      - name: Guardar histórico (rama data)
+        run: |
+          cd datos
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+            commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (disponibilidad)" 2>/dev/null \
+            || git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+                 commit -q -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (disponibilidad)"
+          git push -q --force origin HEAD:data

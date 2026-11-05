@@ -9,13 +9,14 @@ from __future__ import annotations
 import logging
 import os
 import re
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from playwright.sync_api import Error as PWError
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-from .common import (CAMPOS_BESS, STATE_DIR, parse_inicio, parse_kw, parse_mohm, parse_pct, parse_temp,
+from .common import (CAMPOS_BESS, STATE_DIR, parse_inicio, parse_kw, parse_mohm, parse_num, parse_pct, parse_temp,
                      umbral_valido)
 
 LOGIN_URL = "https://la5.fusionsolar.huawei.com/pvmswebsite/login/build/index.html"
@@ -47,6 +48,13 @@ ETIQ_UMBRAL = ["Umbral de protección de resistencia de aislamiento", "Insulatio
 TEXTO_CONFIG = ["Configuración", "Settings", "Configuration"]
 
 TEXTO_LOGIN = ["Iniciar sesión", "Log In", "Login"]
+
+# Informes > Informe de inversores (granularidad "Por día"): la columna "Duración de conexión a la red (h)" son las horas operativas.
+RUTA_INFORME = "#/reportv3/inverter"
+API_INFORME = "/rest/pvms/web/report/v1/inverter/energy-generate-kpi-list"
+ETIQ_HORAS_RED = ["duración de conexión a la red", "grid connection duration", "grid connected duration"]
+ETIQ_RENDIMIENTO = ["rendimiento", "yield", "energy yield"]      # kWh del día: distingue "sin datos" de "no se conectó a la red"
+BOTON_BUSCAR = re.compile(r"^(Buscar|Search)$")
 
 JS_NODOS = """els => els.map(e => {
   const li = e.closest("li.node-line");
@@ -85,6 +93,40 @@ JS_DETALLES = """() => {
   return out;
 }"""
 
+
+# El propio informe consulta este servicio REST (la tabla de la pantalla sale de aquí): se llama desde la sesión ya abierta, con el
+# mismo token anti-CSRF ("roarand") que usa la página. statTime = medianoche UTC de la fecha; statTimeDim 2 = "Por día";
+# startupTime = "Duración de conexión a la red (h)"; productPower = "Rendimiento (kWh)".
+JS_INFORME_API = """async ([ne, ms, token]) => {
+  const pedir = async pagina => {
+    const r = await fetch(%r, {method: "POST", credentials: "include",
+      headers: {"content-type": "application/json", "roarand": token},
+      body: JSON.stringify({moList: [{moType: 20800, moString: ne}], stationDn: "", orderBy: "productPower", page: pagina, pageSize: 100,
+                            sort: "desc", statTime: ms, statTimeDim: "2", timeZone: 0, mocId: 20822})});
+    let j = null;
+    try { j = await r.json(); } catch (e) { j = null; }
+    return {status: r.status, d: (j && j.data) || null};
+  };
+  const filas = [];
+  let r = await pedir(1), total = r.d ? r.d.total : null;
+  for (let pagina = 1; r.status === 200 && r.d; pagina++) {
+    (r.d.list || []).forEach(x => filas.push({planta: x.stationName, dispositivo: x.deviceName, horas: x.startupTime, rend: x.productPower}));
+    if (filas.length >= total || !(r.d.list || []).length || pagina >= 20) break;
+    r = await pedir(pagina + 1);
+  }
+  return {status: r.status, json: !!r.d, total, filas};
+}""" % API_INFORME
+
+# Respaldo por pantalla: lee la tabla del informe (se localiza la columna por su encabezado).
+JS_TABLA_INFORME = """([etiquetas, etiquetasRend]) => {
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  const ths = [...document.querySelectorAll(".dpdesign-table-thead th")].map(t => norm(t.getAttribute("title") || t.textContent));
+  const i = ths.findIndex(t => etiquetas.some(e => t.startsWith(e)));
+  const j = ths.findIndex(t => etiquetasRend.some(e => t.startsWith(e)));
+  const filas = [...document.querySelectorAll("tr.dpdesign-table-row")].map(tr => [...tr.querySelectorAll("td")].map(td => td.textContent.trim()))
+    .filter(f => f.some(x => x));
+  return {col: i, colRend: j, nombres: ths, filas};
+}"""
 
 JS_CONFIG = """([labelsUmbral, labelsNombre]) => {
   const norm = s => (s || "").replace(/\\s+/g, " ").replace(/\\s*[:：]\\s*$/, "").trim().toLowerCase();
@@ -138,6 +180,8 @@ class Scraper:
         self.dbg = depuracion or (STATE_DIR / "debug")
         self.dbg.mkdir(parents=True, exist_ok=True)
         self._pw = self._browser = self.page = None
+        self._token = None                                    # token anti-CSRF ("roarand") de las llamadas de la propia página
+        self._raiz_informe = None                             # nodo raíz de las plantas (NE=...) que usa el Informe de inversores
 
     # ------------------------------------------------------------------ ciclo de vida
     def __enter__(self):
@@ -358,6 +402,81 @@ class Scraper:
         except Exception:
             pass
 
+    # ------------------------------------------------------------------ Informe de inversores (disponibilidad)
+    def _capturar_token(self, req) -> None:
+        t = req.headers.get("roarand")
+        if t:
+            self._token = t
+
+    def abrir_informe_inversores(self) -> None:
+        """Informes > Informe de inversores. Se navega por la ruta del portal (el menú con hover es poco fiable) y se espera la tabla."""
+        pg = self.page
+        if not getattr(self, "_escucha_token", False):
+            pg.on("request", self._capturar_token)
+            self._escucha_token = True
+        for intento in range(3):
+            try:
+                self._cerrar_avisos()
+                pg.evaluate(f"location.hash = {RUTA_INFORME!r}")
+                pg.wait_for_selector("tr.dpdesign-table-row", timeout=30000)
+                pg.wait_for_timeout(1500)
+                m = re.search(r"reportv3/inverter/(NE=\d+)", pg.url)
+                self._raiz_informe = m.group(1) if m else None
+                self._cerrar_avisos()
+                log.info("Informe de inversores abierto (%s)", self._raiz_informe or "sin nodo raíz")
+                return
+            except (PWTimeout, PWError):
+                log.warning("abrir_informe_inversores intento %s fallo", intento + 1)
+                pg.wait_for_timeout(2000)
+        self.captura("informe_fallo")
+        raise ErrorPortal("No se pudo abrir Informes > Informe de inversores")
+
+    def horas_dia(self, dia: date) -> list[dict]:
+        """Horas de conexión a la red de cada inversor en un día: [{planta, dispositivo, horas, rend}] (None = el portal no trae el valor).
+
+        Primero por el servicio REST del informe (≈0,3 s por día); si falla, escribiendo la fecha en la pantalla y pulsando Buscar.
+        Cada fila: horas (conexión a la red) y rend (kWh del día). Devuelve [] cuando el portal responde que no hay datos ese día; lanza ErrorPortal si no se pudo consultar.
+        """
+        try:
+            return self._horas_dia_api(dia)
+        except Exception as e:
+            log.warning("informe %s por API fallo (%s); pruebo por pantalla", dia, e)
+        return self._horas_dia_pantalla(dia)
+
+    def _horas_dia_api(self, dia: date) -> list[dict]:
+        if not (self._token and self._raiz_informe):
+            raise ErrorPortal("sin token o nodo raíz del informe")
+        ms = int(datetime(dia.year, dia.month, dia.day, tzinfo=timezone.utc).timestamp() * 1000)
+        r = self.page.evaluate(JS_INFORME_API, [self._raiz_informe, ms, self._token])
+        if r["status"] != 200 or not r["json"] or r["total"] is None:
+            raise ErrorPortal(f"respuesta inesperada del informe (HTTP {r['status']})")
+        return [{"planta": f["planta"] or "", "dispositivo": f["dispositivo"] or "",
+                 "horas": _num_o_none(f["horas"]), "rend": _num_o_none(f["rend"])} for f in r["filas"]]
+
+    def _horas_dia_pantalla(self, dia: date) -> list[dict]:
+        pg = self.page
+        self._cerrar_avisos()
+        campo = pg.locator('input[value^="20"]:visible').first
+        campo.click()
+        pg.keyboard.press("Control+A")
+        pg.keyboard.type(dia.isoformat())
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(400)
+        try:
+            with pg.expect_response(lambda r: API_INFORME in r.url, timeout=25000):
+                pg.get_by_role("button", name=BOTON_BUSCAR).click()
+        except PWTimeout:
+            raise ErrorPortal("el informe no respondió al pulsar Buscar")
+        pg.wait_for_timeout(1200)
+        t = pg.evaluate(JS_TABLA_INFORME, [ETIQ_HORAS_RED, ETIQ_RENDIMIENTO])
+        if t["filas"] and t["col"] < 0:
+            self.captura("informe_sin_columna")
+            raise ErrorPortal("no se encontró la columna «Duración de conexión a la red» en la tabla")
+        if t["filas"] and t["colRend"] < 0:
+            log.warning("informe: no se encontró la columna de rendimiento; un día sin conexión se tomará como «sin dato»")
+        return [{"planta": f[0], "dispositivo": f[1], "horas": parse_num(f[t["col"]]),
+                 "rend": parse_num(f[t["colRend"]]) if t["colRend"] >= 0 else None} for f in t["filas"]]
+
     # ------------------------------------------------------------------ lectura de un BESS
     def leer_bess(self, ne: str, nombre: str) -> dict:
         """Temperaturas de un BESS (Control > BESS > Detalles). Reintenta una vez si todo viene vacio."""
@@ -392,6 +511,13 @@ class Scraper:
             txt = next((datos[e.lower()] for e in etiquetas if e.lower() in datos), None)
             out[clave] = parse_temp(txt)
         return out
+
+
+def _num_o_none(v) -> float | None:
+    try:
+        return None if v is None else float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _pct_static(txt_pot, txt_pnom):
