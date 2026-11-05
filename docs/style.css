@@ -180,7 +180,6 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .bess > .zbar{align-self:flex-end;margin:-4px 0 -6px}
 .seg.mini button{padding:3px 9px;font-size:12px}
 .btn.mini{padding:3px 9px;font-size:12px;border-radius:8px}
-.nota-zoom{margin:10px 2px 0}
 .chart .cv canvas{touch-action:pan-y}
 @media (max-width:640px){#f-planta{display:flex;flex-wrap:wrap}#f-planta button{flex:1 1 auto;border-bottom:1px solid var(--border)}}
 
