@@ -9,6 +9,11 @@ Hoja "Historico": formato plano, una fila por lectura e inversor. Es la mejor fu
 Hoja "Inicio_Temp": un renglón por día y, por inversor, la hora de inicio de ese día y la temperatura interna máxima del día
 (se reconstruye entera en cada corrida desde el CSV maestro).
 
+Hoja "Disponibilidad": una fila por día (desde `disponibilidad.excel_desde`) y, por inversor, las horas operativas extraídas de
+FusionSolar («Duración de conexión a la red», Informe de inversores) y la disponibilidad calculada con la fórmula
+=IF(horas>=12,1,horas/12). Mismo formato de la hoja «Disponibilidad.xlsx» de Maestro; se reconstruye entera en cada corrida desde
+`disponibilidad.csv`, así que tampoco cambia el diseño de las demás hojas.
+
 Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
 columna vacía y con los mismos encabezados (morado / amarillo) de "Indicadores". Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
 agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
@@ -19,13 +24,13 @@ from __future__ import annotations
 
 import os
 from copy import copy
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.formatting.rule import CellIsRule, FormulaRule
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
@@ -37,6 +42,12 @@ PLANTILLA = ROOT / "plantilla" / "Indicadores_FusionSolar.xlsx"
 VERSION_DISENO = "layout-3"     # layout-3: Historico con Inicio_Inversor y Temp_Interna_C (se reconstruye solo desde el CSV)
 HOJA_BESS = "BESS"
 HOJA_INICIO = "Inicio_Temp"
+HOJA_DISP = "Disponibilidad"
+# (encabezado del grupo, [(id del inversor, encabezado)]) en el orden de la hoja de Maestro; entre grupos va una columna vacía
+GRUPOS_DISP = [("Logiscity", [("LC-Inv1", "Inversor 1"), ("LC-Inv2", "Inversor 2")]),
+               ("Villa el Salvador", [("VES-Inv1", "Inversor 1"), ("VES-Inv2", "Inversor 2")]),
+               ("PL - Planta A", [("PL-InvA.1", "Inv A.1"), ("PL-InvA.2", "Inv A.2"), ("PL-InvA.3", "Inv A.3")]),
+               ("PL - Planta B", [("PL-InvB.1", "Inv B.1"), ("PL-InvB.2", "Inv B.2"), ("PL-InvB.3", "Inv B.3")])]
 # (encabezado del grupo, inversores) en el orden de la hoja "Indicadores"
 GRUPOS_INICIO = [("BSF LOGISCITY", ["LC-Inv1", "LC-Inv2"]), ("BSF VILLA EL SALVADOR", ["VES-Inv1", "VES-Inv2"]),
                  ("PLANTA SOLAR Y BESS - BSF PL", ["PL-InvA.1", "PL-InvA.2", "PL-InvA.3", "PL-InvB.1", "PL-InvB.2", "PL-InvB.3"])]
@@ -208,6 +219,81 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
         fila += 1
 
 
+def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref: float = 12) -> None:
+    """(Re)crea la hoja "Disponibilidad" (tras BESS) con el formato de Maestro: encabezados morados con letra amarilla, fila 1 = planta,
+    fila 2 = inversor, fila 3 = «Horas operativas» / «Disponibilidad»; una fila por día desde `desde`.
+
+    Solo las horas son datos (vienen de FusionSolar); la disponibilidad es la fórmula =IF(horas>=12,1,horas/12). Si ese día
+    no hay horas, ambas celdas quedan vacías (así no aparece un 0 % falso).
+    """
+    if HOJA_DISP in wb.sheetnames:
+        del wb[HOJA_DISP]
+    pos = wb.sheetnames.index(HOJA_BESS) + 1 if HOJA_BESS in wb.sheetnames else 1
+    ws = wb.create_sheet(HOJA_DISP, pos)
+    ws.sheet_view.showGridLines = False
+    fill = PatternFill("solid", fgColor="7B1490")
+    fuente = Font(name="Calibri", size=11, bold=True, color="FFFF00")
+    lado = Side(style="thin")
+    borde = Border(left=lado, right=lado, top=lado, bottom=lado)
+    centro = Alignment(horizontal="center", vertical="center")
+
+    def enc(fila, col, texto=None):
+        c = ws.cell(fila, col)
+        c.fill, c.font, c.border, c.alignment = fill, fuente, borde, centro
+        if texto is not None:
+            c.value = texto
+
+    for f in (1, 2, 3):
+        enc(f, 1)
+    ws.cell(1, 1).value = "Fecha"
+    ws.merge_cells("A1:A3")
+    ws.column_dimensions["A"].width = 13.9
+    col0: dict[str, int] = {}
+    c = 2
+    for k, (titulo, invs) in enumerate(GRUPOS_DISP):
+        if k:
+            ws.column_dimensions[get_column_letter(c)].width = 2.4
+            c += 1
+        ini = c
+        for iid, nombre in invs:
+            col0[iid] = c
+            for j, (fila3, ancho) in enumerate((("Horas operativas", 16), ("Disponibilidad", 14))):
+                enc(1, c + j)
+                enc(2, c + j)
+                enc(3, c + j, fila3)
+                ws.column_dimensions[get_column_letter(c + j)].width = ancho
+            ws.cell(2, c).value = nombre
+            ws.merge_cells(start_row=2, start_column=c, end_row=2, end_column=c + 1)
+            c += 2
+        ws.cell(1, ini).value = titulo
+        ws.merge_cells(start_row=1, start_column=ini, end_row=1, end_column=c - 1)
+    horas: dict[tuple[str, str], float] = {}
+    for f in filas:
+        try:
+            horas[(f["Fecha"], f"{f['Planta']}-{f['Inversor']}")] = float(f["Horas"])
+        except (TypeError, ValueError):
+            pass
+    dias = sorted({d for d, _ in horas if not desde or d >= desde})
+    if dias:
+        d, fin = datetime.strptime(desde or dias[0], "%Y-%m-%d"), datetime.strptime(dias[-1], "%Y-%m-%d")
+        fila = PRIMERA_FILA_DATOS
+        while d <= fin:                                                  # todos los días del rango, también los que no tienen dato
+            a = ws.cell(fila, 1)
+            a.value, a.number_format = d, "mm-dd-yy"
+            for iid, c0 in col0.items():
+                h = horas.get((d.strftime("%Y-%m-%d"), iid))
+                if h is None:
+                    continue
+                ch, cd = ws.cell(fila, c0), ws.cell(fila, c0 + 1)
+                col = get_column_letter(c0)
+                ch.value, ch.number_format, ch.alignment = h, "General", Alignment(horizontal="center")
+                cd.value = f"=IF({col}{fila}>={ref:g},1,{col}{fila}/{ref:g})"
+                cd.number_format, cd.alignment = "0.00%", Alignment(horizontal="center")
+            d += timedelta(days=1)
+            fila += 1
+    ws.freeze_panes = "B4"
+
+
 def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     """(Re)crea la hoja "BESS" como segunda hoja, con los encabezados morados de "Indicadores":
     fila 1 = BESS (combinada), fila 2 = magnitud, fila 3 = °C; A3 = Horario; datos desde la fila 4."""
@@ -315,11 +401,12 @@ def _actualizar_umbrales(wb: Workbook, umbrales: dict[str, float]) -> None:
 
 def escribir(filas: list[dict], inversores: list[dict],
              historico_completo: Callable[[], list[dict]] | None = None,
-             filas_bess: list[dict] | None = None) -> Path:
+             filas_bess: list[dict] | None = None, disp: dict | None = None) -> Path:
     """Anexa las lecturas al Excel. Lanza PermissionError/OSError si el archivo está bloqueado.
 
     `historico_completo` devuelve todas las filas del CSV maestro (que ya incluye `filas`): se usa solo
     para reconstruir el Excel cuando el archivo existente tiene un diseño antiguo.
+    `disp` = {"filas": filas de disponibilidad.csv, "desde": "AAAA-MM-DD", "ref": horas de referencia}: si viene, se recrea la hoja «Disponibilidad».
     """
     umbrales = {i["id"]: i["umbral"] for i in inversores}
     ruta = ruta_excel()
@@ -340,6 +427,8 @@ def escribir(filas: list[dict], inversores: list[dict],
     _agregar(wb, a_escribir)
     if filas_bess:
         _hoja_bess(wb, filas_bess)
+    if disp is not None:
+        _hoja_disponibilidad(wb, disp["filas"], disp.get("desde"), disp.get("ref", 12))
     if historico_completo:
         _hoja_inicio_temp(wb, historico_completo())
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")
