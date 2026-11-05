@@ -35,6 +35,9 @@ COLUMNAS = [
     "Inicio_Inversor", "Temp_Interna_C",
 ]
 
+# Disponibilidad diaria: una fila por dia e inversor con las horas de conexion a la red del Informe de inversores.
+COLUMNAS_DISP = ["Fecha", "Planta", "Grupo", "Inversor", "Horas", "Leido"]
+
 # Historico de temperaturas BESS (una fila por BESS y corrida)
 COLUMNAS_BESS = [
     "Fecha_Hora", "Fecha", "Hora", "BESS", "Temp_Max_Grupo_C",
@@ -107,6 +110,11 @@ def parse_mohm(txt: str | None) -> float | None:
         return float(s)
     except ValueError:
         return None
+
+
+def parse_num(txt: str | None) -> float | None:
+    """'11,667' -> 11.667 ; '1.234,5' -> 1234.5 ; '--' -> None (numero con coma decimal del portal, sin unidad)."""
+    return parse_mohm(txt)
 
 
 def parse_pct(txt: str | None) -> float | None:

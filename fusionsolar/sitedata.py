@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import calendar
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
-from .common import CAMPOS_BESS, STATE_DIR
+from . import disponibilidad as disp
+from .common import CAMPOS_BESS, STATE_DIR, leer_json
 
 SITE_DIR = STATE_DIR / "site"
 DIAS_SERIE = 45          # resolucion completa (cada lectura) en el dashboard
@@ -39,12 +40,38 @@ def _bess(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
     return out
 
 
+def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
+    """Bloque "disponibilidad" de data.json: horas operativas por día e inversor, en arreglos alineados desde `d0`.
+
+    h[id_inversor][k] = horas del día d0 + k (null = sin dato). El dashboard calcula con ellas la disponibilidad
+    diaria, mensual y anual (la fórmula del Excel: 1 si horas >= horas_ref, si no horas / horas_ref).
+    """
+    dcfg = cfg.get("disponibilidad") or {}
+    out: dict = {"activo": bool(dcfg.get("activo")), "horas_ref": dcfg.get("horas_referencia", disp.HORAS_REF),
+                 "excel_desde": dcfg.get("excel_desde"), "d0": None, "hasta": None, "revisado": None, "h": {}}
+    if not out["activo"]:
+        return out
+    out["revisado"] = leer_json(disp.ruta_estado(), {}).get("revisado_hasta")
+    por = disp.por_inversor(filas)
+    fechas = sorted({d for m in por.values() for d in m})
+    if not fechas:
+        return out
+    d0, d1 = date.fromisoformat(fechas[0]), date.fromisoformat(fechas[-1])
+    out["d0"], out["hasta"] = fechas[0], fechas[-1]
+    for inv in cfg["inversores"]:
+        m = por.get(inv["id"])
+        if m:
+            out["h"][inv["id"]] = [m.get((d0 + timedelta(days=k)).isoformat()) for k in range((d1 - d0).days + 1)]
+    return out
+
+
 def _num(x):
     return None if pd.isna(x) else float(x)
 
 
 def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: datetime,
-              info_corrida: dict | None = None, filas_bess: list[dict] | None = None) -> dict:
+              info_corrida: dict | None = None, filas_bess: list[dict] | None = None,
+              filas_disp: list[dict] | None = None) -> dict:
     invs = cfg["inversores"]
     out: dict = {
         "generado": ahora.strftime("%Y-%m-%d %H:%M:%S"),
@@ -57,6 +84,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "corrida": info_corrida or {},
         "ultima": {}, "serie": {}, "inicio": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
         "bess": _bess(cfg, filas_bess or [], ahora),
+        "disponibilidad": _disponibilidad(cfg, filas_disp or []),
     }
     df = pd.DataFrame(filas)
     if df.empty:

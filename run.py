@@ -5,6 +5,8 @@ Uso:
     python run.py --visible       # abre el navegador para ver / depurar el flujo
     python run.py --descubrir     # solo lista el arbol de plantas/inversores del portal
     python run.py --probar-correo # envia un correo de prueba (requiere SMTP_USER / SMTP_PASSWORD) y termina
+    python run.py --disponibilidad                 # lee del Informe de inversores las horas operativas de AYER (y repasa los ultimos dias)
+    python run.py --disponibilidad --desde 2025-01-01 [--hasta 2026-11-04]   # recorre un rango (la primera vez recorre todo el historial solo)
 """
 from __future__ import annotations
 
@@ -15,9 +17,10 @@ import logging.handlers
 import os
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
-from fusionsolar import alertas, sitedata, store, umbrales
+from fusionsolar import alertas, disponibilidad, sitedata, store, umbrales
 from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
 from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores
 
@@ -134,11 +137,31 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False, extra: dict 
     return filas, faltan, ts, detalle, filas_bess, errores_bess
 
 
+def extraer_disponibilidad(cfg: dict, visible: bool, desde: date | None = None, hasta: date | None = None) -> dict:
+    """Informes > Informe de inversores: guarda las horas operativas de los dias pendientes (hasta ayer) en disponibilidad.csv."""
+    cred = credenciales()
+    ts = now_local(cfg)
+    with Scraper(cred.usuario, cred.clave, headless=not visible) as sc:
+        for intento in (1, 2):
+            try:
+                sc.login()
+                sc.abrir_informe_inversores()
+                break
+            except ErrorPortal:
+                if intento == 2:
+                    raise
+                log.warning("reintentando login...")
+        return disponibilidad.actualizar(sc, cfg, ts, desde, hasta)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--visible", action="store_true")
     ap.add_argument("--descubrir", action="store_true")
     ap.add_argument("--probar-correo", action="store_true")
+    ap.add_argument("--disponibilidad", action="store_true", help="solo la disponibilidad diaria (horas operativas del Informe de inversores)")
+    ap.add_argument("--desde", type=date.fromisoformat, help="con --disponibilidad: primer dia a consultar (AAAA-MM-DD)")
+    ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad: ultimo dia a consultar (por defecto ayer)")
     a = ap.parse_args()
 
     load_env()
@@ -156,6 +179,10 @@ def main() -> int:
         if a.descubrir:
             extraer(cfg, a.visible, solo_descubrir=True)
             return 0
+        if a.disponibilidad:
+            res = extraer_disponibilidad(cfg, a.visible, a.desde, a.hasta)
+            print(json.dumps(res, ensure_ascii=False))
+            return 1 if res.get("error") else 0
 
         faltan: list[str] = []
         info = {"ok": True}
@@ -176,8 +203,17 @@ def main() -> int:
                 except Exception as e:
                     log.exception("no se pudo guardar el historial BESS: %s", e)
                     errores_bess["guardado"] = str(e)
+            dcfg = cfg.get("disponibilidad") or {}
+            filas_disp: list[dict] = []
+            excel_disp = None
+            if dcfg.get("activo"):
+                try:                                       # lo escribe aparte `run.py --disponibilidad`; aqui solo se lee
+                    filas_disp = disponibilidad.leer_filas()
+                    excel_disp = {"filas": filas_disp, "desde": dcfg.get("excel_desde"), "ref": dcfg.get("horas_referencia", disponibilidad.HORAS_REF)}
+                except Exception as e:
+                    log.exception("no se pudo leer disponibilidad.csv: %s", e)
             if filas or filas_bess:
-                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None))
+                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp))
             info["leidos"] = len(filas)
             info.update(extra)
             if filas:                                      # aviso por correo; no lanza y nunca altera la corrida
@@ -191,7 +227,7 @@ def main() -> int:
             if errores:
                 info["errores"] = errores
 
-        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess)
+        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp)
         sitedata.escribir(data)
         return 0 if info.get("ok", True) else 1
     finally:

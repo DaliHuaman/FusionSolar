@@ -186,3 +186,18 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 
 #tabs-excel{margin:2px 0 10px;max-width:100%;overflow-x:auto}
 #tabs-excel button{white-space:nowrap}
+
+/* Descargar Excel + rango van juntos: si la fila se llena con los botones de planta (ahora hay uno más), bajan juntos a la derecha */
+.controles-der{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.controles-der .descargas{margin-left:0}
+@media (max-width:640px){.controles-der{margin-left:0}}
+#f-planta button{padding-left:11px;padding-right:11px}
+/* Disponibilidad */
+.controles-disp{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:0 0 12px}
+#disp-chart .cv{height:340px}
+.h-sub{margin-top:22px}
+.kpi .v small{font-size:14px;font-weight:500;color:var(--fg-3);margin-left:3px}
+.tabla.excel td.d{color:var(--fg)}
+.tabla.excel td.d.bajo{color:var(--warn);font-weight:600}
+.tabla.excel td.d.cero{color:var(--bad);font-weight:700}
+@media (max-width:640px){#disp-chart .cv{height:280px}.controles-disp .seg{max-width:100%;overflow-x:auto}}
