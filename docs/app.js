@@ -24,7 +24,7 @@
   const fP = v => v == null ? "—" : v.toLocaleString("es-PE", { maximumFractionDigits: 1 }) + " %";
 
   let D = null;
-  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv" };   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
+  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv", dg: "dia", dr: 30 };   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
   let charts = [];
   const zoomGuardado = new Map();                       // clave de gráfica -> {x:[min,max], y:[min,max]} (se conserva al refrescar datos)
   let soltarZoom = false;                               // true al cambiar planta/rango: se parte de la vista completa
@@ -73,9 +73,9 @@
 
   // ---------------------------------------------------------------- helpers de datos
   const invsVisibles = () => D.inversores.filter(i => S.planta === "TODAS" || i.planta === S.planta);
-  const grupos = () => {
+  const grupos = (invs = invsVisibles()) => {
     const m = new Map();
-    invsVisibles().forEach(i => { const k = i.planta + "|" + i.grupo; if (!m.has(k)) m.set(k, { planta: i.planta, grupo: i.grupo, invs: [] }); m.get(k).invs.push(i); });
+    invs.forEach(i => { const k = i.planta + "|" + i.grupo; if (!m.has(k)) m.set(k, { planta: i.planta, grupo: i.grupo, invs: [] }); m.get(k).invs.push(i); });
     return [...m.values()];
   };
   const nombrePlanta = c => (D.plantas.find(p => p.codigo === c) || {}).nombre || c;
@@ -96,10 +96,15 @@
     $("#mrg").textContent = Math.round(D.margen_advertencia * 100);
     $("#f-gen").textContent = "Última corrida del recolector: " + D.generado + (D.corrida && D.corrida.ok === false ? " · con errores: " + (D.corrida.error || "") : "");
     pintarAviso(); pintarFiltroPlantas();
-    const vistaBess = S.planta === "BESS";          // "BESS" es una vista propia (como una planta más) para no alargar la página
-    document.querySelectorAll("[data-vista=inv]").forEach(n => { n.hidden = vistaBess; });
-    if (vistaBess) { destruirCharts(); pintarBess(); return; }
+    // "BESS" y "Disponibilidad" son vistas propias (como una planta más) para no alargar la página
+    const vista = S.planta === "BESS" ? "bess" : S.planta === "DISP" ? "disp" : "inv";
+    document.querySelectorAll("[data-vista=inv]").forEach(n => { n.hidden = vista !== "inv"; });
+    $("#kpis").hidden = vista === "bess";
+    $("#f-rango").hidden = vista === "disp";         // la disponibilidad tiene su propio selector de periodo
+    $("#sec-disp").hidden = vista !== "disp";
+    if (vista === "bess") { destruirCharts(); pintarBess(); return; }
     $("#sec-bess").hidden = true;
+    if (vista === "disp") { destruirCharts(); pintarDisp(); return; }
     pintarKpis(); pintarCards(); pintarGraficas(); pintarTemperatura(); pintarInicio(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
   }
 
@@ -116,7 +121,9 @@
     const box = $("#f-planta");
     box.replaceChildren();
     const hayBess = !!(D.bess && D.bess.activo && D.bess.equipos.length);
-    [["TODAS", "Todas"], ...D.plantas.map(p => [p.codigo, p.codigo + " · " + p.nombre.replace("BSF ", "")]), ...(hayBess ? [["BESS", "BESS · Temperaturas"]] : [])].forEach(([v, t]) => {
+    const hayDisp = !!(D.disponibilidad && D.disponibilidad.activo);
+    [["TODAS", "Todas"], ...D.plantas.map(p => [p.codigo, p.codigo + " · " + p.nombre.replace("BSF ", "")]), ...(hayBess ? [["BESS", "BESS · Temperaturas"]] : []),
+      ...(hayDisp ? [["DISP", "Disponibilidad"]] : [])].forEach(([v, t]) => {
       const b = el("button", { type: "button", "data-v": v, class: S.planta === v ? "on" : "" }, t);
       b.onclick = () => { S.planta = v; soltarZoom = true; pintar(); };
       box.append(b);
@@ -495,6 +502,134 @@
     });
   }
 
+  // ---------------------------------------------------------------- Disponibilidad
+  // D.disponibilidad.h[id] = horas operativas por día desde d0 (null = sin dato). Disponibilidad diaria de un inversor = la fórmula del
+  // Excel: 1 si horas >= horas_ref (12), si no horas / horas_ref. Una planta = promedio de sus inversores; mes/año = promedio de los días con dato.
+  const DIA_MS = 86400000;
+  const dispRef = () => (D.disponibilidad && D.disponibilidad.horas_ref) || 12;
+  const dispFrac = h => h == null ? null : h >= dispRef() ? 1 : h / dispRef();
+  const fPct = v => v == null ? "—" : (v * 100).toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
+  const fPct2 = v => v == null ? "–" : (v * 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " %";
+  const fH3 = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const isoDia = k => new Date(Date.parse(D.disponibilidad.d0 + "T00:00:00Z") + k * DIA_MS).toISOString().slice(0, 10);
+  const fFechaIso = iso => iso.slice(8) + " " + MES[+iso.slice(5, 7) - 1] + " " + iso.slice(0, 4);
+  const fEtiqueta = (modo, clave) => modo === "dia" ? clave.slice(8) + " " + MES[+clave.slice(5, 7) - 1] + (clave.slice(0, 4) !== D.disponibilidad.hasta.slice(0, 4) ? " " + clave.slice(2, 4) : "")
+    : modo === "mes" ? MES[+clave.slice(5, 7) - 1] + " " + clave.slice(0, 4) : clave;
+  const dispPlantas = () => D.plantas.filter(p => D.inversores.some(i => i.planta === p.codigo && (D.disponibilidad.h[i.id] || []).some(h => h != null)));
+  const colorPlanta = c => css("--s" + (D.plantas.findIndex(p => p.codigo === c) + 1));
+
+  // Periodos (día / mes / año) en orden cronológico: {clave, dias, pl: {planta: fracción}, inv: {id: fracción}, horas: {id: h} (solo día)}
+  function dispPeriodos(modo) {
+    const B = D.disponibilidad;
+    const n = Math.max(0, ...Object.values(B.h).map(a => a.length));
+    const per = new Map();
+    for (let k = 0; k < n; k++) {
+      const iso = isoDia(k), clave = modo === "dia" ? iso : modo === "mes" ? iso.slice(0, 7) : iso.slice(0, 4);
+      D.inversores.forEach(i => {
+        const h = (B.h[i.id] || [])[k], a = dispFrac(h);
+        if (a == null) return;
+        let p = per.get(clave);
+        if (!p) per.set(clave, p = { clave, dias: new Set(), pl: {}, inv: {}, horas: {} });
+        p.dias.add(iso);
+        const x = (p.inv[i.id] = p.inv[i.id] || { s: 0, n: 0 }); x.s += a; x.n++;
+        const y = (p.pl[i.planta] = p.pl[i.planta] || { s: 0, n: 0 }); y.s += a; y.n++;
+        if (modo === "dia") p.horas[i.id] = h;
+      });
+    }
+    return [...per.values()].map(p => ({ clave: p.clave, dias: p.dias.size, horas: p.horas,
+      pl: Object.fromEntries(Object.entries(p.pl).map(([c, x]) => [c, x.s / x.n])),
+      inv: Object.fromEntries(Object.entries(p.inv).map(([c, x]) => [c, x.s / x.n])) }));
+  }
+
+  function pintarKpisDisp() {
+    const B = D.disponibilidad;
+    const k = (l, v, s) => el("div", { class: "kpi" }, el("div", { class: "l", text: l }), el("div", { class: "v", text: v }), el("div", { class: "s", text: s }));
+    if (!B.d0) { $("#kpis").replaceChildren(k("Disponibilidad", "—", "aún sin datos")); return; }
+    const dias = dispPeriodos("dia"), meses = dispPeriodos("mes");
+    const ult = dias[dias.length - 1], mes = meses[meses.length - 1];
+    const tarjetas = dispPlantas().map(p => k(`${p.codigo} · ${p.nombre.replace("BSF ", "")}`, fPct(ult.pl[p.codigo]),
+      `${fFechaIso(ult.clave)} · mes ${fPct(mes && mes.pl[p.codigo])}`));
+    const todas = o => { const v = Object.values(o.pl); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    $("#kpis").replaceChildren(...tarjetas, k("Promedio de las plantas", fPct(todas(ult)), `${fFechaIso(ult.clave)} · mes ${fPct(mes && todas(mes))}`));
+  }
+
+  function pintarDisp() {
+    const B = D.disponibilidad;
+    document.querySelectorAll("#disp-gran button").forEach(b => b.classList.toggle("on", b.dataset.v === S.dg));
+    document.querySelectorAll("#disp-rango button").forEach(b => b.classList.toggle("on", +b.dataset.v === S.dr));
+    $("#disp-rango").hidden = S.dg !== "dia";
+    pintarKpisDisp();
+    $("#nota-disp").textContent = `Disponibilidad diaria de un inversor = horas de conexión a la red ÷ ${dispRef()} h (máximo 100 %); la de una planta es el promedio de sus inversores, y la mensual/anual el promedio de sus días. ` +
+      (B.d0 ? `Datos de FusionSolar del ${fFechaIso(B.d0)} al ${fFechaIso(B.hasta)}; cada día a las 06:00 (Lima) se agrega el día anterior. ` : "") +
+      "Un día sin conexión a la red cuenta como 0 %; un día sin datos en el portal (antes de la puesta en marcha) no se grafica.";
+    const box = $("#disp-chart"), tabla = $("#t-disp");
+    box.replaceChildren(); box.className = "chart";
+    if (!B.d0) {
+      box.className = "chart vacio";
+      box.append(el("div", { class: "cv" }, el("span", { text: "Aún no hay datos de disponibilidad: se cargan al ejecutar «Disponibilidad diaria» (lee el Informe de inversores de FusionSolar)." })));
+      vacioTabla(tabla, "Sin datos de disponibilidad todavía.");
+      return;
+    }
+    const modo = S.dg;
+    let per = dispPeriodos(modo);
+    if (modo === "dia" && S.dr) per = per.slice(-S.dr);
+    const plantas = dispPlantas();
+    const nombreMod = { dia: "por día", mes: "por mes", anio: "por año" }[modo];
+    const barra = barraZoom();
+    box.append(el("h3", {}, "Disponibilidad " + nombreMod, el("span", { text: "% · promedio de los inversores de cada planta" }), barra || ""));
+    box.append(leyenda(plantas.map(p => [colorPlanta(p.codigo), `${p.codigo} · ${p.nombre.replace("BSF ", "")}`])));
+    const cv = el("div", { class: "cv" }); const cnv = el("canvas", { role: "img", "aria-label": "Disponibilidad de las plantas " + nombreMod }); cv.append(cnv); box.append(cv);
+    const ds = plantas.map(p => ({ label: `${p.codigo} · ${p.nombre.replace("BSF ", "")}`, _cod: p.codigo, data: per.map(x => x.pl[p.codigo] == null ? null : x.pl[p.codigo] * 100),
+      backgroundColor: colorPlanta(p.codigo), borderColor: colorPlanta(p.codigo), borderWidth: 0, borderRadius: 2, maxBarThickness: 36 }));
+    const o = baseOpts(undefined, undefined, 0, 100);
+    o.scales.x = { type: "category", grid: { display: false }, border: { color: css("--grid") },
+      ticks: { color: css("--fg-2"), maxRotation: 0, autoSkip: true, maxTicksLimit: 14, callback(v) { return fEtiqueta(modo, per[v] ? per[v].clave : ""); } } };
+    o.scales.y.ticks.callback = v => v + " %";
+    o.plugins.zoom.limits = { x: { min: "original", max: "original", minRange: 3 }, y: { min: "original", max: "original" } };
+    o.plugins.tooltip.filter = () => true;
+    o.plugins.tooltip.callbacks = {
+      title: its => its.length ? (modo === "dia" ? fFechaIso(per[its[0].dataIndex].clave) : fEtiqueta(modo, per[its[0].dataIndex].clave)) : "",
+      label: c => `${c.dataset.label}: ${c.parsed.y == null ? "—" : fPct(c.parsed.y / 100)}`,
+      afterBody: its => {
+        const x = its.length ? per[its[0].dataIndex] : null; if (!x) return [];
+        const l = D.inversores.filter(i => x.inv[i.id] != null).map(i => `${i.planta} ${i.nombre}: ${fPct(x.inv[i.id])}` + (modo === "dia" ? ` · ${fH3(x.horas[i.id])} h` : ""));
+        return [...(modo === "dia" ? [] : [`${x.dias} día${x.dias === 1 ? "" : "s"} con datos`]), ...(l.length ? ["", ...l] : [])];
+      },
+    };
+    mk("disp|" + modo + "|" + S.dr, cnv, { type: "bar", data: { labels: per.map(x => x.clave), datasets: ds }, options: o }, barra);
+    tablaDisp(tabla, ordenGrupos(D.inversores), null, 120);
+  }
+
+  // Tabla como la hoja «Disponibilidad» del Excel: por inversor, horas operativas y disponibilidad (fórmula). Un renglón por día, el más reciente arriba.
+  function tablaDisp(t, gr, desde, max) {
+    const B = D.disponibilidad;
+    if (!B || !B.activo) { vacioTabla(t, "La disponibilidad no está activa."); return; }
+    const invs = gr.flatMap(g => g.invs);
+    const n = Math.max(0, ...invs.map(i => (B.h[i.id] || []).length));
+    const dias = [];
+    for (let k = n - 1; k >= 0; k--) { const iso = isoDia(k); if (desde && iso < desde) break; if (invs.some(i => (B.h[i.id] || [])[k] != null)) dias.push([k, iso]); if (dias.length >= max) break; }
+    if (!dias.length) { vacioTabla(t, "Aún no hay datos de disponibilidad" + (desde ? " desde " + fFechaIso(desde) : "") + "."); return; }
+    const h1 = el("tr", {}, el("th", { class: "g", text: "Fecha", rowspan: 3 })), h2 = el("tr"), h3 = el("tr");
+    gr.forEach((g, k) => {
+      if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
+      h1.append(el("th", { class: "g", colspan: g.invs.length * 2, text: `${g.planta} · ${g.grupo}` }));
+      g.invs.forEach(i => { h2.append(el("th", { class: "i", colspan: 2, text: i.nombre })); h3.append(el("th", { class: "u", text: "Horas operativas" }), el("th", { class: "u", text: "Disponibilidad" })); });
+    });
+    const body = el("tbody");
+    dias.forEach(([k, iso]) => {
+      const tr = el("tr", {}, el("td", { text: iso.slice(8) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) }));
+      gr.forEach((g, j) => {
+        if (j) tr.append(el("td", { class: "sep" }));
+        g.invs.forEach(i => {
+          const h = (B.h[i.id] || [])[k], a = dispFrac(h);
+          tr.append(el("td", { class: "p", text: fH3(h) }), el("td", { class: "d" + (a == null ? "" : a === 0 ? " cero" : a < 0.9 ? " bajo" : ""), text: fPct2(a) }));
+        });
+      });
+      body.append(tr);
+    });
+    t.replaceChildren(el("thead", {}, h1, h2, h3), body);
+  }
+
   // ---------------------------------------------------------------- tablas
   function pintarDiario() {
     const t = $("#t-diario");
@@ -523,17 +658,29 @@
     inv: "Misma vista de la hoja «Indicadores» del Excel, separada por planta. Hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.",
     bess: "Misma vista de la hoja «BESS»: temperaturas en °C de cada BESS por corrida (últimos 7 días). Máx = temperatura más alta del grupo; Sum./Ret. = agua suministrada / de retorno; bat. = lado batería; pot. = lado potencia; Ext. = exterior.",
     dia: "Un renglón por día. «Inicio» es la hora a la que arrancó el inversor ese día (un valor por día); «T máx» es la temperatura interna más alta registrada ese día.",
+    disp: "Misma vista de la hoja «Disponibilidad»: horas operativas del día (Duración de conexión a la red, de FusionSolar) y disponibilidad = si horas ≥ 12 → 100 %, si no horas ÷ 12. Un renglón por día, el más reciente arriba.",
   };
-  const ordenGrupos = () => { const o = ["LC", "VES", "PL"]; return grupos().sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
+  const ordenGrupos = (invs) => { const o = ["LC", "VES", "PL"]; return grupos(invs).sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
   const vacioTabla = (t, msg) => t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: msg }))));
   const fFechaCorta = ts => pad(new Date(ts * 1000).getUTCDate()) + "/" + pad(new Date(ts * 1000).getUTCMonth() + 1);
   const fHms = ts => { const d = new Date(ts * 1000); return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds()); };
 
   function pintarExcel() {
-    document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
+    document.querySelectorAll("#disp-gran button").forEach(b => b.addEventListener("click", () => {
+    S.dg = b.dataset.v; soltarZoom = true;
+    if (D) pintar();
+  }));
+  document.querySelectorAll("#disp-rango button").forEach(b => b.addEventListener("click", () => {
+    S.dr = +b.dataset.v; soltarZoom = true;
+    if (D) pintar();
+  }));
+
+  document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
     $("#nota-excel").textContent = NOTAS_TABLA[S.tabla];
     const t = $("#t-excel");
-    if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t); else tablaInversores(t);
+    if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t);
+    else if (S.tabla === "disp") tablaDisp(t, ordenGrupos(), (D.disponibilidad || {}).excel_desde, 300);
+    else tablaInversores(t);
   }
 
   function tablaBess(t) {

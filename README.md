@@ -2,13 +2,15 @@
 
 Cada 30 minutos, GitHub entra a FusionSolar, lee de los 10 inversores (LC, VES y PL) la
 **resistencia de aislamiento**, el **estado de ajuste de potencia activa**, la **temperatura interna** y la **hora de inicio**, y los agrega a un Excel.
-También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detalles) y publica un dashboard web con todo.
+También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detalles), calcula la **disponibilidad diaria** de cada planta y publica un dashboard web con todo.
 
 ## Qué hay en el repositorio (y para qué sirve)
 
 | Archivo | Para qué sirve |
 |---|---|
 | `.github/workflows/actualizar.yml` | **El programador**: ejecuta todo cada 30 min en GitHub |
+| `.github/workflows/disponibilidad.yml` | Cada día a las **06:00 de Lima** lee las horas operativas del día anterior (Disponibilidad) |
+| `fusionsolar/disponibilidad.py` | Fórmula de disponibilidad, lectura del Informe de inversores y `disponibilidad.csv` |
 | `run.py` | El código principal que se ejecuta (orquesta todo) |
 | `fusionsolar/scraper.py` | Entra al portal y lee los valores (scraping) |
 | `fusionsolar/excel_indicadores.py` y `store.py` | Escriben las lecturas en el Excel |
@@ -42,6 +44,22 @@ Salen de *Real-Time Device Data* del portal («Temperatura interna» y «Fecha y
 
 - La línea punteada de umbral usa el umbral guardado en cada lectura (`Umbral_MOhm`), así que **salta cuando el umbral cambia** en el portal en vez de mostrar solo el último valor. Las tablas de mínimo diario y «Datos del Excel» también comparan contra el umbral vigente en ese momento.
 - **Zoom en todas las gráficas** (chartjs-plugin-zoom): elegir *Horizontal*, *Vertical* o *Ambos* y arrastrar para seleccionar el rango; `Ctrl + rueda` acerca/aleja, `Mayús + arrastrar` desplaza, doble clic o «⟲ Restablecer» vuelve a la vista completa. Funciona junto con los rangos 24 h / 7 días / 30 días / Todo. El zoom se conserva cuando llegan datos nuevos y se reinicia al cambiar de planta o de rango.
+
+## Disponibilidad de las plantas
+
+Mide cuántas horas al día está cada inversor conectado a la red. **Solo las horas se leen de FusionSolar**; la disponibilidad es una fórmula, la misma de la hoja `Disponibilidad.xlsx`:
+
+```
+disponibilidad = SI(horas >= 12; 1; horas / 12)      # 12 h = horas de sol de referencia (config: disponibilidad.horas_referencia)
+```
+
+- **De dónde salen las horas**: FusionSolar › *Informes › Informe de inversores*, granularidad *Por día*, columna **«Duración de conexión a la red (h)»**. El recolector llama al mismo servicio REST que usa esa pantalla (≈0,3 s por día); si fallara, escribe la fecha en la pantalla, pulsa *Buscar* y lee la tabla.
+- **Cuándo**: `disponibilidad.yml` corre **todos los días a las 06:07 de Lima** (11:07 UTC; Lima no tiene horario de verano) y guarda las horas de **ayer**. También repasa los últimos `releer_dias` (3) por si el portal completa datos tardíos. Como GitHub puede demorar los `schedule`, conviene crear en cron-job.org un trabajo diario a las 06:00 (zona America/Lima) con la misma llamada `workflow_dispatch` que usa `actualizar.yml`, apuntando a `disponibilidad.yml`.
+- **Historial**: la primera ejecución recorre todo desde `inicio_busqueda` (2025-01-01) hasta ayer y descubre sola la primera fecha con datos (Logiscity desde feb 2025, Villa el Salvador desde sep 2025 y PL desde oct 2026); tarda unos 3 minutos. Si un día falla, la revisión no avanza y la corrida siguiente lo recupera. Para recorrer un rango a mano: *Actions › Disponibilidad diaria › Run workflow* (`desde` / `hasta`) o `python run.py --disponibilidad --desde 2025-01-01`.
+- **Qué se guarda**: `disponibilidad.csv` y `disponibilidad_estado.json` en la rama `data` (una fila por día e inversor: `Fecha, Planta, Grupo, Inversor, Horas, Leido`).
+- **Día sin conexión**: si el inversor aparece ese día en el informe con rendimiento pero **sin** «Duración de conexión a la red», se toma como **0 h** (0 %). Si el portal no trae nada del inversor (antes de su puesta en marcha o sin comunicación), el día queda **sin dato** y no se grafica.
+- **Excel**: hoja `Disponibilidad` (tercera, tras `BESS`) con el formato de Maestro: una fila por día desde `disponibilidad.excel_desde` (2026-10-01), por inversor «Horas operativas» y «Disponibilidad» (la fórmula `=IF(B4>=12,1,B4/12)`, formato 0,00 %). Se reconstruye entera en cada corrida desde el CSV.
+- **Dashboard**: botón **Disponibilidad** junto a BESS: gráfico de barras por planta (promedio de sus inversores) **por día, mes o año** con el zoom de las demás gráficas, tarjetas con el último día y el mes, y la tabla diaria. En «Datos del Excel» hay una pestaña nueva **Disponibilidad** (igual que la hoja del archivo).
 
 ## Temperaturas BESS
 

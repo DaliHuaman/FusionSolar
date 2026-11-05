@@ -35,6 +35,14 @@
     {"id": "VES-Inv1",  "planta": "VES", "grupo": "Planta 1", "nombre": "Inv1",   "umbral": 0.037, "dispositivo": "(?i)inversor\\D*1$"},
     {"id": "VES-Inv2",  "planta": "VES", "grupo": "Planta 1", "nombre": "Inv2",   "umbral": 0.037, "dispositivo": "(?i)inversor\\D*2$"}
   ],
+  "disponibilidad": {
+    "activo": true,
+    "horas_referencia": 12,
+    "inicio_busqueda": "2025-01-01",
+    "excel_desde": "2026-10-01",
+    "releer_dias": 3,
+    "presupuesto_segundos": 900
+  },
   "bess": {
     "activo": true,
     "planta": "PL",
