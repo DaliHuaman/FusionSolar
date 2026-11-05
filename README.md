@@ -9,7 +9,7 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
 | Archivo | Para qué sirve |
 |---|---|
 | `.github/workflows/actualizar.yml` | **El programador**: ejecuta todo cada 30 min en GitHub |
-| `.github/workflows/disponibilidad.yml` | Cada día a las **00:00 de Lima** lee las horas operativas del día anterior (Disponibilidad) |
+| `.github/workflows/disponibilidad.yml` | Cada día a las **06:00 de Lima** lee las horas operativas del día anterior (Disponibilidad) |
 | `fusionsolar/disponibilidad.py` | Fórmula de disponibilidad, lectura del Informe de inversores y `disponibilidad.csv` |
 | `run.py` | El código principal que se ejecuta (orquesta todo) |
 | `fusionsolar/scraper.py` | Entra al portal y lee los valores (scraping) |
@@ -54,7 +54,7 @@ disponibilidad = SI(horas >= 12; 1; horas / 12)      # 12 h = horas de sol de re
 ```
 
 - **De dónde salen las horas**: FusionSolar › *Informes › Informe de inversores*, granularidad *Por día*, columna **«Duración de conexión a la red (h)»**. El recolector llama al mismo servicio REST que usa esa pantalla (≈0,3 s por día); si fallara, escribe la fecha en la pantalla, pulsa *Buscar* y lee la tabla.
-- **Cuándo**: `disponibilidad.yml` corre **todos los días a las 00:07 de Lima** (05:07 UTC; Lima no tiene horario de verano) y guarda las horas de **ayer**. También repasa los últimos `releer_dias` (3) por si el portal completa datos tardíos. Como GitHub puede demorar los `schedule`, conviene crear en cron-job.org un trabajo diario a las 00:00 (zona America/Lima) con la misma llamada `workflow_dispatch` que usa `actualizar.yml`, apuntando a `disponibilidad.yml`.
+- **Cuándo**: `disponibilidad.yml` corre **todos los días a las 06:07 de Lima** (11:07 UTC; Lima no tiene horario de verano) y guarda las horas de **ayer**. También repasa los últimos `releer_dias` (3) por si el portal completa datos tardíos. Como GitHub puede demorar los `schedule`, conviene crear en cron-job.org un trabajo diario a las 06:00 (zona America/Lima) con la misma llamada `workflow_dispatch` que usa `actualizar.yml`, apuntando a `disponibilidad.yml`.
 - **Historial**: la primera ejecución recorre todo desde `inicio_busqueda` (2025-01-01) hasta ayer y descubre sola la primera fecha con datos (Logiscity desde feb 2025, Villa el Salvador desde sep 2025 y PL desde oct 2026); tarda unos 3 minutos. Si un día falla, la revisión no avanza y la corrida siguiente lo recupera. Para recorrer un rango a mano: *Actions › Disponibilidad diaria › Run workflow* (`desde` / `hasta`) o `python run.py --disponibilidad --desde 2025-01-01`.
 - **Qué se guarda**: `disponibilidad.csv` y `disponibilidad_estado.json` en la rama `data` (una fila por día e inversor: `Fecha, Planta, Grupo, Inversor, Horas, Leido`).
 - **Día sin conexión**: si el inversor aparece ese día en el informe con rendimiento pero **sin** «Duración de conexión a la red», se toma como **0 h** (0 %). Si el portal no trae nada del inversor (antes de su puesta en marcha o sin comunicación), el día queda **sin dato** y no se grafica.

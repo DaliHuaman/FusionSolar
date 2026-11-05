@@ -1,16 +1,16 @@
 name: Disponibilidad diaria FusionSolar
 
-# Cada día a las 00:00 de Lima se lee de FusionSolar (Informes > Informe de inversores > "Por día") la columna
+# Cada día a las 06:00 de Lima se lee de FusionSolar (Informes > Informe de inversores > "Por día") la columna
 # «Duración de conexión a la red» del día ANTERIOR y se agrega a disponibilidad.csv (rama "data").
 # La disponibilidad (=SI(horas>=12;1;horas/12)) se calcula en el Excel y en el dashboard; solo las horas salen del portal.
 #
-# Hora: Lima es UTC-5 todo el año (sin horario de verano), así que 00:00 Lima = 05:00 UTC. Se usa el minuto 7 para evitar el
-# pico de las 05:00 en punto, donde GitHub retrasa más las ejecuciones. Como GitHub puede demorar los "schedule", conviene además
-# crear en cron-job.org un trabajo diario a las 00:00 (America/Lima) con la misma llamada workflow_dispatch que ya usa
+# Hora: Lima es UTC-5 todo el año (sin horario de verano), así que 06:00 Lima = 11:00 UTC. Se usa el minuto 7 para evitar el
+# pico de las 11:00 en punto, donde GitHub retrasa más las ejecuciones. Como GitHub puede demorar los "schedule", conviene además
+# crear en cron-job.org un trabajo diario a las 06:00 (America/Lima) con la misma llamada workflow_dispatch que ya usa
 # "actualizar.yml" pero apuntando a este archivo (disponibilidad.yml); si ambos coinciden, el segundo solo repasa los últimos días.
 on:
   schedule:
-    - cron: "7 5 * * *"
+    - cron: "7 11 * * *"
   workflow_dispatch:
     inputs:
       desde:

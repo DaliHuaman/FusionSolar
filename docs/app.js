@@ -560,7 +560,7 @@
     $("#disp-rango").hidden = S.dg !== "dia";
     pintarKpisDisp();
     $("#nota-disp").textContent = `Disponibilidad diaria de un inversor = horas de conexión a la red ÷ ${dispRef()} h (máximo 100 %); la de una planta es el promedio de sus inversores, y la mensual/anual el promedio de sus días. ` +
-      (B.d0 ? `Datos de FusionSolar del ${fFechaIso(B.d0)} al ${fFechaIso(B.hasta)}; cada día a las 00:00 (Lima) se agrega el día anterior. ` : "") +
+      (B.d0 ? `Datos de FusionSolar del ${fFechaIso(B.d0)} al ${fFechaIso(B.hasta)}; cada día a las 06:00 (Lima) se agrega el día anterior. ` : "") +
       "Un día sin conexión a la red cuenta como 0 %; un día sin datos en el portal (antes de la puesta en marcha) no se grafica.";
     const box = $("#disp-chart"), tabla = $("#t-disp");
     box.replaceChildren(); box.className = "chart";
