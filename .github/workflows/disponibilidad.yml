@@ -10,7 +10,12 @@ name: Disponibilidad diaria FusionSolar
 # "actualizar.yml" pero apuntando a este archivo (disponibilidad.yml); si ambos coinciden, el segundo solo repasa los últimos días.
 on:
   schedule:
-    - cron: "7 11 * * *"
+    # GitHub a veces no ejecuta (o salta del todo) un "schedule": el 06/11/2026 el de las 11:07 UTC no corrió y faltó el día 05/11.
+    # Por eso hay varios horarios; la corrida solo consulta lo que falta (y repasa los últimos días), así que repetirla es inofensivo.
+    - cron: "7 11 * * *"      # 06:07 Lima
+    - cron: "37 12 * * *"     # 07:37 Lima
+    - cron: "7 14 * * *"      # 09:07 Lima
+    - cron: "7 17 * * *"      # 12:07 Lima
   workflow_dispatch:
     inputs:
       desde:
