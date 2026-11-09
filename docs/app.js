@@ -215,7 +215,7 @@
         mode: S.zmode,
         wheel: { enabled: true, modifierKey: "ctrl" },
         pinch: { enabled: true },
-        drag: { enabled: true, threshold: 6, backgroundColor: "rgba(57,135,229,.18)", borderColor: css("--accent"), borderWidth: 1 },
+        drag: { enabled: true, threshold: 6, backgroundColor: css("--accent-soft"), borderColor: css("--accent"), borderWidth: 1 },
       },
       limits: { x: { min: "original", max: "original", minRange: 600 }, y: { min: "original", max: "original" } },
     };
