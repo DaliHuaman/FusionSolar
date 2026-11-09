@@ -5,22 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Seguimiento de indicadores · Plantas BSF</title>
 <meta name="description" content="Seguimiento de indicadores de las plantas de BSF (LC, PL y VES): inversores (aislamiento, potencia activa, temperatura interna y hora de inicio), disponibilidad diaria y BESS (temperaturas).">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M6 20l5-8h5l-3 5h6l-7 7z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="assets/kondu-favicon.png">
+<meta name="theme-color" content="#270d44">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
   <div class="top-in">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M6 20l5-8h5l-3 5h6l-7 7z" fill="#fff"/></svg>
+      <div class="logo" role="img" aria-label="Kondu"><img class="mk" src="assets/kondu-mark.png" alt=""><img class="wm" src="assets/kondu-wordmark-blanco.png" alt=""></div>
       <div>
         <h1>Seguimiento de indicadores de las plantas de BSF</h1>
         <p class="sub">Plantas LC · PL · VES — inversores (aislamiento, potencia activa, temperatura interna, hora de inicio), disponibilidad y BESS</p>
+        <span class="titulo-linea" aria-hidden="true"></span>
       </div>
     </div>
     <div class="top-actions">
       <div id="frescura" class="chip" role="status" aria-live="polite"><span class="dot"></span><span id="frescura-txt">Cargando…</span></div>
-      <button id="tema" class="btn" type="button" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema">◐</button>
+      <button id="tema" class="btn" type="button" aria-label="Cambiar tema claro/oscuro" title="Cambiar tema"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="display:block"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor"/></svg></button>
     </div>
   </div>
 </header>
