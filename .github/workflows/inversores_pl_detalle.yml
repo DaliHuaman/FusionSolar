@@ -1,0 +1,50 @@
+name: Detalle inversores PL (corrida única)
+
+# Tarea puntual, fuera del flujo de 30 min: no escribe la rama "data" ni publica el dashboard.
+# Lee de cada inversor de la planta PL (Control > Detalles) la tabla PV de tensión y corriente de entrada y una captura de
+# «Datos del dispositivo en tiempo real» + «Información básica», y deja el Excel como artefacto descargable de la corrida.
+on:
+  push:
+    branches: [claude/project-thread-xbndl4]
+    paths:
+      - "extras/inversores_pl/**"
+      - ".github/workflows/inversores_pl_detalle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  detalle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias y navegador
+        run: |
+          pip install -r requirements.txt pillow
+          python -m playwright install --with-deps chromium
+
+      - name: Extraer de FusionSolar
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+        run: python extras/inversores_pl/extraer.py --salida salida
+
+      - name: Armar Excel
+        if: ${{ !cancelled() }}
+        run: python extras/inversores_pl/excel.py --salida salida
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: inversores-pl-detalle
+          path: salida
+          retention-days: 7
