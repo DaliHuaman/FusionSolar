@@ -357,6 +357,7 @@ class Scraper:
             "estado_inversor": ((est or {}).get("texto") or "").strip(),
             "inicio": parse_inicio((ini or {}).get("texto")),
             "temp_interna": parse_temp((tint or {}).get("texto")),
+            "pnom_kw": parse_kw((pnom or {}).get("texto")),          # «Potencia nominal del inversor» (fija; ver potencia.py)
             "campos_encontrados": res is not None,
         }
 

@@ -9,9 +9,9 @@ Hoja "Historico": formato plano, una fila por lectura e inversor. Es la mejor fu
 Hoja "Inicio_Temp": un renglón por día y, por inversor, la hora de inicio de ese día y la temperatura interna máxima del día
 (se reconstruye entera en cada corrida desde el CSV maestro).
 
-Hoja "Disponibilidad": una fila por día (desde `disponibilidad.excel_desde`) y, por inversor, las horas operativas extraídas de
-FusionSolar («Duración de conexión a la red», Informe de inversores) y la disponibilidad calculada con la fórmula
-=IF(horas>=12,1,horas/12). Mismo formato de la hoja «Disponibilidad.xlsx» de Maestro; se reconstruye entera en cada corrida desde
+Hoja "Disponibilidad": una fila por día (desde `disponibilidad.excel_desde`) y, por inversor (con su potencia nominal en el
+encabezado), las horas operativas y el rendimiento (kWh) extraídos de FusionSolar («Duración de conexión a la red» y «Rendimiento»,
+Informe de inversores) y la disponibilidad calculada con la fórmula =IF(horas>=12,1,horas/12). Mismo formato de la hoja «Disponibilidad.xlsx» de Maestro; se reconstruye entera en cada corrida desde
 `disponibilidad.csv`, así que tampoco cambia el diseño de las demás hojas.
 
 Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
@@ -219,13 +219,17 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
         fila += 1
 
 
-def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref: float = 12) -> None:
+def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref: float = 12,
+                         pnom: dict[str, float | None] | None = None) -> None:
     """(Re)crea la hoja "Disponibilidad" (tras BESS) con el formato de Maestro: encabezados morados con letra amarilla, fila 1 = planta,
-    fila 2 = inversor, fila 3 = «Horas operativas» / «Disponibilidad»; una fila por día desde `desde`.
+    fila 2 = inversor y su potencia nominal («Inversor 1 - 115 kW»), fila 3 = «Horas operativas» / «Rendimiento (kWh)» /
+    «Disponibilidad»; una fila por día desde `desde`.
 
-    Solo las horas son datos (vienen de FusionSolar); la disponibilidad es la fórmula =IF(horas>=12,1,horas/12). Si ese día
-    no hay horas, ambas celdas quedan vacías (así no aparece un 0 % falso).
+    Horas y rendimiento son datos (vienen de FusionSolar); la disponibilidad es la fórmula =IF(horas>=12,1,horas/12). Si ese día
+    no hay horas, las celdas quedan vacías (así no aparece un 0 % falso); sin rendimiento en el informe, esa celda queda vacía.
     """
+    pnom = pnom or {}
+    columnas = (("Horas operativas", 16), ("Rendimiento (kWh)", 17), ("Disponibilidad", 14))
     if HOJA_DISP in wb.sheetnames:
         del wb[HOJA_DISP]
     pos = wb.sheetnames.index(HOJA_BESS) + 1 if HOJA_BESS in wb.sheetnames else 1
@@ -257,22 +261,26 @@ def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref
         ini = c
         for iid, nombre in invs:
             col0[iid] = c
-            for j, (fila3, ancho) in enumerate((("Horas operativas", 16), ("Disponibilidad", 14))):
+            for j, (fila3, ancho) in enumerate(columnas):
                 enc(1, c + j)
                 enc(2, c + j)
                 enc(3, c + j, fila3)
                 ws.column_dimensions[get_column_letter(c + j)].width = ancho
-            ws.cell(2, c).value = nombre
-            ws.merge_cells(start_row=2, start_column=c, end_row=2, end_column=c + 1)
-            c += 2
+            kw = pnom.get(iid)
+            ws.cell(2, c).value = f"{nombre} - {kw:g} kW" if kw else nombre
+            ws.merge_cells(start_row=2, start_column=c, end_row=2, end_column=c + len(columnas) - 1)
+            c += len(columnas)
         ws.cell(1, ini).value = titulo
         ws.merge_cells(start_row=1, start_column=ini, end_row=1, end_column=c - 1)
     horas: dict[tuple[str, str], float] = {}
+    rend: dict[tuple[str, str], float] = {}
     for f in filas:
-        try:
-            horas[(f["Fecha"], f"{f['Planta']}-{f['Inversor']}")] = float(f["Horas"])
-        except (TypeError, ValueError):
-            pass
+        clave = (f["Fecha"], f"{f['Planta']}-{f['Inversor']}")
+        for destino, col in ((horas, "Horas"), (rend, "Rendimiento_kWh")):
+            try:
+                destino[clave] = float(f.get(col))
+            except (TypeError, ValueError):
+                pass
     dias = sorted({d for d, _ in horas if not desde or d >= desde})
     if dias:
         d, fin = datetime.strptime(desde or dias[0], "%Y-%m-%d"), datetime.strptime(dias[-1], "%Y-%m-%d")
@@ -281,12 +289,15 @@ def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref
             a = ws.cell(fila, 1)
             a.value, a.number_format = d, "mm-dd-yy"
             for iid, c0 in col0.items():
-                h = horas.get((d.strftime("%Y-%m-%d"), iid))
+                clave = (d.strftime("%Y-%m-%d"), iid)
+                h = horas.get(clave)
                 if h is None:
                     continue
-                ch, cd = ws.cell(fila, c0), ws.cell(fila, c0 + 1)
+                ch, cr, cd = ws.cell(fila, c0), ws.cell(fila, c0 + 1), ws.cell(fila, c0 + 2)
                 col = get_column_letter(c0)
                 ch.value, ch.number_format, ch.alignment = h, "General", Alignment(horizontal="center")
+                if clave in rend:
+                    cr.value, cr.number_format, cr.alignment = rend[clave], "#,##0.00", Alignment(horizontal="center")
                 cd.value = f"=IF({col}{fila}>={ref:g},1,{col}{fila}/{ref:g})"
                 cd.number_format, cd.alignment = "0.00%", Alignment(horizontal="center")
             d += timedelta(days=1)
@@ -406,7 +417,8 @@ def escribir(filas: list[dict], inversores: list[dict],
 
     `historico_completo` devuelve todas las filas del CSV maestro (que ya incluye `filas`): se usa solo
     para reconstruir el Excel cuando el archivo existente tiene un diseño antiguo.
-    `disp` = {"filas": filas de disponibilidad.csv, "desde": "AAAA-MM-DD", "ref": horas de referencia}: si viene, se recrea la hoja «Disponibilidad».
+    `disp` = {"filas": filas de disponibilidad.csv, "desde": "AAAA-MM-DD", "ref": horas de referencia, "pnom": {id: kW}}: si viene,
+    se recrea la hoja «Disponibilidad».
     """
     umbrales = {i["id"]: i["umbral"] for i in inversores}
     ruta = ruta_excel()
@@ -428,7 +440,7 @@ def escribir(filas: list[dict], inversores: list[dict],
     if filas_bess:
         _hoja_bess(wb, filas_bess)
     if disp is not None:
-        _hoja_disponibilidad(wb, disp["filas"], disp.get("desde"), disp.get("ref", 12))
+        _hoja_disponibilidad(wb, disp["filas"], disp.get("desde"), disp.get("ref", 12), disp.get("pnom"))
     if historico_completo:
         _hoja_inicio_temp(wb, historico_completo())
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")

@@ -35,8 +35,9 @@ COLUMNAS = [
     "Inicio_Inversor", "Temp_Interna_C",
 ]
 
-# Disponibilidad diaria: una fila por dia e inversor con las horas de conexion a la red del Informe de inversores.
-COLUMNAS_DISP = ["Fecha", "Planta", "Grupo", "Inversor", "Horas", "Leido"]
+# Disponibilidad diaria: una fila por dia e inversor con las horas de conexion a la red y el rendimiento (kWh del dia) del Informe de
+# inversores. Rendimiento_kWh va al FINAL para no mover las columnas existentes (vacio = el portal no trajo el valor).
+COLUMNAS_DISP = ["Fecha", "Planta", "Grupo", "Inversor", "Horas", "Leido", "Rendimiento_kWh"]
 
 # Historico de temperaturas BESS (una fila por BESS y corrida)
 COLUMNAS_BESS = [
