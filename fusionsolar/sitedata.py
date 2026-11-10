@@ -45,14 +45,17 @@ def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
 
     h[id_inversor][k] = horas del día d0 + k (null = sin dato). El dashboard calcula con ellas la disponibilidad
     diaria, mensual y anual (la fórmula del Excel: 1 si horas >= horas_ref, si no horas / horas_ref).
+    r[id_inversor][k] = rendimiento (kWh) del mismo día (null = sin dato). pnom[id_inversor] = potencia nominal (kW, fija).
     """
     dcfg = cfg.get("disponibilidad") or {}
     out: dict = {"activo": bool(dcfg.get("activo")), "horas_ref": dcfg.get("horas_referencia", disp.HORAS_REF),
-                 "excel_desde": dcfg.get("excel_desde"), "d0": None, "hasta": None, "revisado": None, "h": {}}
+                 "excel_desde": dcfg.get("excel_desde"), "d0": None, "hasta": None, "revisado": None, "h": {}, "r": {},
+                 "pnom": {i["id"]: i.get("pnom_kw") for i in cfg["inversores"] if i.get("pnom_kw")}}
     if not out["activo"]:
         return out
     out["revisado"] = leer_json(disp.ruta_estado(), {}).get("revisado_hasta")
     por = disp.por_inversor(filas)
+    rend = disp.por_inversor(filas, "Rendimiento_kWh")
     fechas = sorted({d for m in por.values() for d in m})
     if not fechas:
         return out
@@ -62,6 +65,9 @@ def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
         m = por.get(inv["id"])
         if m:
             out["h"][inv["id"]] = [m.get((d0 + timedelta(days=k)).isoformat()) for k in range((d1 - d0).days + 1)]
+        mr = rend.get(inv["id"])
+        if mr:
+            out["r"][inv["id"]] = [mr.get((d0 + timedelta(days=k)).isoformat()) for k in range((d1 - d0).days + 1)]
     return out
 
 
