@@ -20,7 +20,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from fusionsolar import alertas, disponibilidad, sitedata, store, umbrales
+from fusionsolar import alertas, disponibilidad, potencia, sitedata, store, umbrales
 from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
 from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores
 
@@ -113,6 +113,7 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False, extra: dict 
         if faltan:
             log.warning("Inversores no encontrados en el portal: %s", ", ".join(faltan))
         margen = cfg["margen_advertencia"]
+        pnom: dict[str, float | None] = {}
         res_umbrales = umbrales.actualizar(sc, encontrados, cfg, ts)   # cada hora; no lanza y deja el panel en "Detalles"
         if res_umbrales and extra is not None:
             extra["umbrales"] = res_umbrales
@@ -126,12 +127,15 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False, extra: dict 
                     sc.captura(f"sin_campos_{inv['id']}")
                 estado = classify(lec["resistencia"], inv["umbral"], margen)
                 filas.append(store.construir_fila(ts, inv, lec, estado))
+                pnom[inv["id"]] = lec.get("pnom_kw")
                 log.info("%-10s R=%s MΩ (umbral %s) %s | %s", inv["id"], lec["resistencia"], inv["umbral"],
                          estado, lec["potencia_txt"])
             except Exception as e:                       # un inversor con error no tumba a los demas
                 log.exception("fallo leyendo %s: %s", inv["id"], e)
                 sc.captura(f"error_{inv['id']}")
                 detalle[inv["id"]] = str(e)
+        potencia.guardar(pnom, cfg, ts)                    # potencia nominal (fija) para la sección Disponibilidad; no lanza
+        potencia.aplicar(cfg)
         if (cfg.get("bess") or {}).get("activo"):          # despues de los inversores: nada de aqui los puede romper
             filas_bess, errores_bess = extraer_bess(sc, nodos, cfg, ts)
     return filas, faltan, ts, detalle, filas_bess, errores_bess
@@ -171,6 +175,7 @@ def main() -> int:
         alertas.enviar_prueba(cfg, now_local(cfg))
         return 0
     umbrales.aplicar(cfg)            # umbrales leidos del portal en corridas anteriores (si los hay) sobre los del JSON
+    potencia.aplicar(cfg)            # potencia nominal de cada inversor (portal si ya se leyo; si no, la de la configuracion)
 
     if not tomar_lock():
         log.warning("Hay otra corrida en curso; se omite esta.")
@@ -209,7 +214,8 @@ def main() -> int:
             if dcfg.get("activo"):
                 try:                                       # lo escribe aparte `run.py --disponibilidad`; aqui solo se lee
                     filas_disp = disponibilidad.leer_filas()
-                    excel_disp = {"filas": filas_disp, "desde": dcfg.get("excel_desde"), "ref": dcfg.get("horas_referencia", disponibilidad.HORAS_REF)}
+                    excel_disp = {"filas": filas_disp, "desde": dcfg.get("excel_desde"), "ref": dcfg.get("horas_referencia", disponibilidad.HORAS_REF),
+                                  "pnom": {i["id"]: i.get("pnom_kw") for i in cfg["inversores"]}}
                 except Exception as e:
                     log.exception("no se pudo leer disponibilidad.csv: %s", e)
             if filas or filas_bess:

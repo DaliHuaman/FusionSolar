@@ -511,6 +511,9 @@
   const fPct = v => v == null ? "—" : (v * 100).toLocaleString("es-PE", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %";
   const fPct2 = v => v == null ? "–" : (v * 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " %";
   const fH3 = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fKwh = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // nombre del inversor con su potencia nominal fija: «Inv1 - 115 kW»
+  const nomPnom = i => { const kw = ((D.disponibilidad || {}).pnom || {})[i.id]; return kw ? `${i.nombre} - ${kw.toLocaleString("es-PE")} kW` : i.nombre; };
   const isoDia = k => new Date(Date.parse(D.disponibilidad.d0 + "T00:00:00Z") + k * DIA_MS).toISOString().slice(0, 10);
   const fFechaIso = iso => iso.slice(8) + " " + MES[+iso.slice(5, 7) - 1] + " " + iso.slice(0, 4);
   const fEtiqueta = (modo, clave) => modo === "dia" ? clave.slice(8) + " " + MES[+clave.slice(5, 7) - 1] + (clave.slice(0, 4) !== D.disponibilidad.hasta.slice(0, 4) ? " " + clave.slice(2, 4) : "")
@@ -561,7 +564,8 @@
     pintarKpisDisp();
     $("#nota-disp").textContent = `Disponibilidad diaria de un inversor = horas de conexión a la red ÷ ${dispRef()} h (máximo 100 %); la de una planta es el promedio de sus inversores, y la mensual/anual el promedio de sus días. ` +
       (B.d0 ? `Datos de FusionSolar del ${fFechaIso(B.d0)} al ${fFechaIso(B.hasta)}; cada día a las 06:00 (Lima) se agrega el día anterior. ` : "") +
-      "Un día sin conexión a la red cuenta como 0 %; un día sin datos en el portal (antes de la puesta en marcha) no se grafica.";
+      "Un día sin conexión a la red cuenta como 0 %; un día sin datos en el portal (antes de la puesta en marcha) no se grafica. " +
+      "Rendimiento = energía producida por el inversor ese día (kWh, Informe de inversores); junto al nombre va su potencia nominal.";
     const box = $("#disp-chart"), tabla = $("#t-disp");
     box.replaceChildren(); box.className = "chart";
     if (!B.d0) {
@@ -600,7 +604,8 @@
     tablaDisp(tabla, ordenGrupos(D.inversores), null, 120);
   }
 
-  // Tabla como la hoja «Disponibilidad» del Excel: por inversor, horas operativas y disponibilidad (fórmula). Un renglón por día, el más reciente arriba.
+  // Tabla como la hoja «Disponibilidad» del Excel: por inversor (con su potencia nominal), horas operativas, rendimiento (kWh) y
+  // disponibilidad (fórmula). Un renglón por día, el más reciente arriba.
   function tablaDisp(t, gr, desde, max) {
     const B = D.disponibilidad;
     if (!B || !B.activo) { vacioTabla(t, "La disponibilidad no está activa."); return; }
@@ -612,8 +617,8 @@
     const h1 = el("tr", {}, el("th", { class: "g", text: "Fecha", rowspan: 3 })), h2 = el("tr"), h3 = el("tr");
     gr.forEach((g, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
-      h1.append(el("th", { class: "g", colspan: g.invs.length * 2, text: `${g.planta} · ${g.grupo}` }));
-      g.invs.forEach(i => { h2.append(el("th", { class: "i", colspan: 2, text: i.nombre })); h3.append(el("th", { class: "u", text: "Horas operativas" }), el("th", { class: "u", text: "Disponibilidad" })); });
+      h1.append(el("th", { class: "g", colspan: g.invs.length * 3, text: `${g.planta} · ${g.grupo}` }));
+      g.invs.forEach(i => { h2.append(el("th", { class: "i", colspan: 3, text: nomPnom(i) })); h3.append(el("th", { class: "u", text: "Horas operativas" }), el("th", { class: "u", text: "Rendimiento (kWh)" }), el("th", { class: "u", text: "Disponibilidad" })); });
     });
     const body = el("tbody");
     dias.forEach(([k, iso]) => {
@@ -621,8 +626,8 @@
       gr.forEach((g, j) => {
         if (j) tr.append(el("td", { class: "sep" }));
         g.invs.forEach(i => {
-          const h = (B.h[i.id] || [])[k], a = dispFrac(h);
-          tr.append(el("td", { class: "p", text: fH3(h) }), el("td", { class: "d" + (a == null ? "" : a === 0 ? " cero" : a < 0.9 ? " bajo" : ""), text: fPct2(a) }));
+          const h = (B.h[i.id] || [])[k], a = dispFrac(h), r = h == null ? null : ((B.r || {})[i.id] || [])[k];
+          tr.append(el("td", { class: "p", text: fH3(h) }), el("td", { class: "p", text: fKwh(r) }), el("td", { class: "d" + (a == null ? "" : a === 0 ? " cero" : a < 0.9 ? " bajo" : ""), text: fPct2(a) }));
         });
       });
       body.append(tr);
@@ -658,7 +663,7 @@
     inv: "Misma vista de la hoja «Indicadores» del Excel, separada por planta. Hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.",
     bess: "Misma vista de la hoja «BESS»: temperaturas en °C de cada BESS por corrida (últimos 7 días). Máx = temperatura más alta del grupo; Sum./Ret. = agua suministrada / de retorno; bat. = lado batería; pot. = lado potencia; Ext. = exterior.",
     dia: "Un renglón por día. «Inicio» es la hora a la que arrancó el inversor ese día (un valor por día); «T máx» es la temperatura interna más alta registrada ese día.",
-    disp: "Misma vista de la hoja «Disponibilidad»: horas operativas del día (Duración de conexión a la red, de FusionSolar) y disponibilidad = si horas ≥ 12 → 100 %, si no horas ÷ 12. Un renglón por día, el más reciente arriba.",
+    disp: "Misma vista de la hoja «Disponibilidad»: horas operativas del día (Duración de conexión a la red, de FusionSolar), rendimiento del día (kWh) y disponibilidad = si horas ≥ 12 → 100 %, si no horas ÷ 12. Un renglón por día, el más reciente arriba.",
   };
   const ordenGrupos = (invs) => { const o = ["LC", "VES", "PL"]; return grupos(invs).sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
   const vacioTabla = (t, msg) => t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: msg }))));

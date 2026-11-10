@@ -1,8 +1,8 @@
 """Disponibilidad diaria de los inversores.
 
 Horas operativas = «Duración de conexión a la red (h)» del Informe de inversores de FusionSolar (Informes > Informe de
-inversores, granularidad «Por día»). Es lo ÚNICO que se extrae del portal; la disponibilidad se calcula con la misma fórmula
-de la hoja de Excel «Disponibilidad»:
+inversores, granularidad «Por día»). En la misma consulta se guarda el «Rendimiento (kWh)» del día (energía producida por el
+inversor). La disponibilidad no se extrae: se calcula con la misma fórmula de la hoja de Excel «Disponibilidad»:
 
     disponibilidad = SI(horas >= 12; 1; horas / 12)        (12 h = horas de sol de referencia, `horas_referencia`)
 
@@ -86,15 +86,15 @@ def guardar_filas(nuevas: list[dict]) -> list[dict]:
     return orden
 
 
-def por_inversor(filas: list[dict]) -> dict[str, dict[str, float]]:
-    """{id_inversor: {fecha_iso: horas}} a partir de las filas del CSV (descarta las que no tienen horas)."""
+def por_inversor(filas: list[dict], columna: str = "Horas") -> dict[str, dict[str, float]]:
+    """{id_inversor: {fecha_iso: valor}} de una columna del CSV («Horas» o «Rendimiento_kWh»); descarta las celdas vacías."""
     out: dict[str, dict[str, float]] = {}
     for f in filas:
         try:
-            h = float(f["Horas"])
+            v = float(f.get(columna))
         except (TypeError, ValueError):
             continue
-        out.setdefault(f"{f['Planta']}-{f['Inversor']}", {})[f["Fecha"]] = h
+        out.setdefault(f"{f['Planta']}-{f['Inversor']}", {})[f["Fecha"]] = v
     return out
 
 
@@ -117,9 +117,10 @@ def emparejar(filas_informe: list[dict], cfg: dict) -> dict[str, tuple[float | N
     return out
 
 
-def _fila(dia: date, inv: dict, horas: float, ts: datetime) -> dict:
+def _fila(dia: date, inv: dict, horas: float, rend: float | None, ts: datetime) -> dict:
     return {"Fecha": dia.isoformat(), "Planta": inv["planta"], "Grupo": inv["grupo"], "Inversor": inv["nombre"],
-            "Horas": round(horas, 3), "Leido": ts.strftime(FMT_TS)}
+            "Horas": round(horas, 3), "Leido": ts.strftime(FMT_TS),
+            "Rendimiento_kWh": "" if rend is None else round(rend, 3)}
 
 
 # ---------------------------------------------------------------------------------------------- corrida
@@ -130,6 +131,9 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
     `sc` es un Scraper con el Informe de inversores ya abierto. Primera corrida: desde `inicio_busqueda` (se detecta sola la
     primera fecha con datos). Siguientes: desde el día siguiente a la última revisión y, siempre, los últimos `releer_dias`
     días (el portal puede completar o corregir datos tardíos). Un fallo en un día detiene la corrida SIN avanzar la revisión.
+
+    Rendimiento: las filas guardadas antes de existir esa columna no lo tienen, así que una única vez se vuelve a recorrer el
+    historial desde `primer_dato` para completarlo (`rendimiento_hasta` en el estado recuerda el avance si la corrida se corta).
     """
     dcfg = cfg.get("disponibilidad") or {}
     releer = max(1, int(dcfg.get("releer_dias", 3)))
@@ -144,6 +148,14 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
         ini = min(revisado + timedelta(days=1), ayer - timedelta(days=releer - 1))
     else:
         ini = inicio
+    # relleno único del rendimiento en días ya guardados: desde donde quedó (o desde el primer dato con horas)
+    rend_hasta = date.fromisoformat(estado["rendimiento_hasta"]) if estado.get("rendimiento_hasta") else None
+    if not desde and revisado:
+        ini_rend = rend_hasta + timedelta(days=1) if rend_hasta else date.fromisoformat(estado.get("primer_dato") or inicio.isoformat())
+        if ini_rend < ini:
+            log.info("Rendimiento: completo el historial desde %s", ini_rend)
+            ini = ini_rend
+    rellena_rend = rend_hasta is None or ini <= rend_hasta + timedelta(days=1)
     info: dict = {"desde": ini.isoformat(), "hasta": ayer.isoformat(), "dias": 0, "filas": 0}
     if ini > ayer:
         return info
@@ -162,12 +174,14 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
             for iid, (h, rend) in lectura.items():
                 ef = horas_efectivas(h, rend)
                 if ef is not None:
-                    pendientes.append(_fila(d, invs[iid], ef, ahora))
+                    pendientes.append(_fila(d, invs[iid], ef, rend, ahora))
             info["dias"] += 1
             if (ultimo_ok is None and ini <= inicio) or (ultimo_ok is not None and d > ultimo_ok and d <= ultimo_ok + timedelta(days=1)):
                 ultimo_ok = d                       # la revisión solo avanza sin dejar días sin consultar en medio
+            if rellena_rend:
+                rend_hasta = d if rend_hasta is None else max(rend_hasta, d)
             if d == ayer or info["dias"] % GUARDAR_CADA == 0:
-                _guardar(pendientes, ultimo_ok)
+                _guardar(pendientes, ultimo_ok, rend_hasta)
                 info["filas"] += len(pendientes)
                 pendientes = []
             d += timedelta(days=1)
@@ -175,18 +189,20 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
         log.exception("fallo consultando la disponibilidad del %s: %s", d, e)
         info["error"] = f"{d}: {e}"
     if pendientes or ultimo_ok:
-        _guardar(pendientes, ultimo_ok)
+        _guardar(pendientes, ultimo_ok, rend_hasta)
         info["filas"] += len(pendientes)
     info["revisado_hasta"] = ultimo_ok.isoformat() if ultimo_ok else None
     log.info("Disponibilidad: %s día(s) consultados desde %s, %s fila(s) con horas", info["dias"], ini, info["filas"])
     return info
 
 
-def _guardar(filas: list[dict], revisado: date | None) -> None:
+def _guardar(filas: list[dict], revisado: date | None, rend_hasta: date | None = None) -> None:
     todas = guardar_filas(filas)
     estado = leer_json(ruta_estado(), {})
     if revisado:
         estado["revisado_hasta"] = revisado.isoformat()
+    if rend_hasta:
+        estado["rendimiento_hasta"] = rend_hasta.isoformat()
     if todas:
         estado["primer_dato"] = todas[0]["Fecha"]
         estado["ultimo_dato"] = todas[-1]["Fecha"]
