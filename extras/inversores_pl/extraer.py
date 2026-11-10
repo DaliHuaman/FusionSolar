@@ -31,6 +31,7 @@ ETIQ_TENSION = ["Tensión de entrada", "Input voltage"]
 ETIQ_CORRIENTE = ["Corriente de entrada", "Input current"]
 ETIQ_ESTADO = ["Estado del inversor", "Inverter status"]
 ETIQ_INFO_BASICA = ["Información básica", "Basic information", "Basic Information"]
+ETIQ_FIN = ["Detalles de la cadena", "String details", "String Details"]     # sección siguiente: queda fuera de la captura
 
 # Hojas visibles (sin hijos, con texto) del panel: base de todo lo demás. Se trabaja por geometría porque la tabla PV
 # puede venir partida en varias <table> (cabecera fija, columna fija, scroll horizontal).
@@ -68,13 +69,15 @@ JS_TABLA_PV = r"""
 
 # Recuadro rojo: desde debajo de la tabla PV («Estado del inversor») hasta el final de «Información básica».
 JS_RECUADRO = r"""
-([etqEstado, etqInfo, topeMin]) => {""" + JS_COMUN + r"""
-  const le = buscar(etqEstado), li = buscar(etqInfo);
+([etqEstado, etqInfo, topeMin, etqFin]) => {""" + JS_COMUN + r"""
+  const le = buscar(etqEstado), li = buscar(etqInfo), lf = buscar(etqFin);
   if (!le || !li) return null;
   let cont = le.parentElement;
   while (cont && !cont.contains(li)) cont = cont.parentElement;
   const top = Math.max(topeMin || 0, le.getBoundingClientRect().top - 24);
-  const dentro = hojas(cont).map(e => e.getBoundingClientRect()).filter(r => r.top >= top - 2);
+  // el recuadro termina donde empieza «Detalles de la cadena» (si existe, debajo de «Información básica»)
+  const fin = lf && lf.getBoundingClientRect().top > li.getBoundingClientRect().top ? lf.getBoundingClientRect().top - 8 : Infinity;
+  const dentro = hojas(cont).map(e => e.getBoundingClientRect()).filter(r => r.top >= top - 2 && r.bottom <= fin);
   const izq = Math.min(...dentro.map(r => r.left)), der = Math.max(...dentro.map(r => r.right));
   const abajo = Math.max(...dentro.map(r => r.bottom));
   const datos = {};                                    // etiqueta -> valor (div[title] + hermano), igual que el scraper
@@ -156,7 +159,7 @@ def leer(sc: Scraper, nodo: dict, salida: Path, dbg: Path) -> dict:
         log.warning("%s: no se encontró la tabla PV", nombre)
 
     tope = (tabla["rect"]["y"] + tabla["rect"]["h"] + 2) if tabla else 0
-    rec = pg.evaluate(JS_RECUADRO, [ETIQ_ESTADO, ETIQ_INFO_BASICA, tope])
+    rec = pg.evaluate(JS_RECUADRO, [ETIQ_ESTADO, ETIQ_INFO_BASICA, tope, ETIQ_FIN])
     png = None
     if rec:
         c = rec["clip"]
