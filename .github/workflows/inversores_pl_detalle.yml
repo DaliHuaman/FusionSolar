@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write                # solo para dejar la salida en una rama temporal (ver último paso)
 
 jobs:
   detalle:
@@ -48,3 +48,13 @@ jobs:
           name: inversores-pl-detalle
           path: salida
           retention-days: 7
+
+      # Copia temporal de la salida en una rama huérfana (se borra después de descargarla); no toca main ni "data".
+      - name: Publicar salida en rama temporal
+        if: ${{ !cancelled() }}
+        run: |
+          cd salida
+          git init -q -b salida-inversores-pl
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" commit -q -m "Salida $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:refs/heads/tmp/salida-inversores-pl
