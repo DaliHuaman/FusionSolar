@@ -40,6 +40,9 @@ const norm = s => (s || "").replace(/\s+/g, " ").trim().toLowerCase();
 const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e);
   return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && s.display !== "none"; };
 const hojas = raiz => [...raiz.querySelectorAll("*")].filter(e => e.children.length === 0 && norm(e.textContent) && vis(e));
+const propio = e => [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(" ");
+const buscarPropio = etiquetas => [...document.querySelectorAll("body *")]
+  .find(e => vis(e) && etiquetas.some(l => norm(propio(e)).startsWith(norm(l))));   // títulos con ícono dentro (no son hojas)
 const buscar = (etiquetas, raiz) => hojas(raiz || document.body).find(e => etiquetas.some(l => norm(e.textContent).startsWith(norm(l))));
 """
 
@@ -70,7 +73,7 @@ JS_TABLA_PV = r"""
 # Recuadro rojo: desde debajo de la tabla PV («Estado del inversor») hasta el final de «Información básica».
 JS_RECUADRO = r"""
 ([etqEstado, etqInfo, topeMin, etqFin]) => {""" + JS_COMUN + r"""
-  const le = buscar(etqEstado), li = buscar(etqInfo), lf = buscar(etqFin);
+  const le = buscar(etqEstado), li = buscar(etqInfo), lf = buscar(etqFin) || buscarPropio(etqFin);
   if (!le || !li) return null;
   let cont = le.parentElement;
   while (cont && !cont.contains(li)) cont = cont.parentElement;
