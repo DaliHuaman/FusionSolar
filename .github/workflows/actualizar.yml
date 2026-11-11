@@ -37,7 +37,12 @@ jobs:
       - name: Instalar dependencias y navegador
         run: |
           pip install -r requirements.txt
-          python -m playwright install --with-deps chromium
+          # Chromium se baja del CDN de Playwright (no depende de los espejos apt de Ubuntu).
+          python -m playwright install chromium
+          # Las librerías del sistema ya vienen en la imagen del runner; install-deps solo agrega
+          # fuentes extra. Si los espejos apt de Ubuntu fallan (DNS caído), no se tumba la corrida.
+          timeout 180 python -m playwright install-deps chromium \
+            || echo "::warning::No se pudieron instalar dependencias apt de Playwright (espejos Ubuntu); se continúa con las de la imagen."
 
       # La rama "data" guarda solo el Excel/CSV (un único commit que se reescribe; el repo no crece).
       - name: Traer histórico (rama data)
