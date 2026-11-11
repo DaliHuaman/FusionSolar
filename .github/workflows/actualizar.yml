@@ -95,7 +95,7 @@ jobs:
             commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC" 2>/dev/null \
             || git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
                  commit -q -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC"
-          bash .github/scripts/reintentar.sh 3 10 git push -q --force origin HEAD:data
+          bash "$GITHUB_WORKSPACE/.github/scripts/reintentar.sh" 3 10 git push -q --force origin HEAD:data
 
       - name: Preparar dashboard web
         run: |
