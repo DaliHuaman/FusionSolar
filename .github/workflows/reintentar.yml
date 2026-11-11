@@ -1,0 +1,27 @@
+name: Relanzar corrida fallida
+
+# Red de seguridad: si "Actualizar indicadores" o "Disponibilidad diaria" terminan en falla aun con los reintentos
+# internos (p. ej. el runner se quedó sin red en un paso que no se reintenta), se vuelven a lanzar UNA vez.
+# Solo relanza el primer intento (run_attempt 1), así que no puede entrar en bucle.
+on:
+  workflow_run:
+    workflows: ["Actualizar indicadores FusionSolar", "Disponibilidad diaria FusionSolar"]
+    types: [completed]
+
+permissions:
+  actions: write                 # relanzar la corrida
+
+jobs:
+  relanzar:
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Relanzar la corrida fallida
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          NOMBRE: ${{ github.event.workflow_run.name }}
+        run: |
+          echo "Relanzando '$NOMBRE' (corrida $RUN_ID)"
+          gh run rerun "$RUN_ID" --repo "${{ github.repository }}"
