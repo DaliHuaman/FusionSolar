@@ -22,7 +22,7 @@ concurrency:
 jobs:
   actualizar:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     environment:
       name: github-pages
       url: ${{ steps.pages.outputs.page_url }}
@@ -36,9 +36,10 @@ jobs:
 
       - name: Instalar dependencias y navegador
         run: |
-          pip install -r requirements.txt
+          # Cada descarga se reintenta (3 intentos, espera creciente) ante fallos pasajeros de red/DNS.
+          bash .github/scripts/reintentar.sh 3 15 pip install -r requirements.txt
           # Chromium se baja del CDN de Playwright (no depende de los espejos apt de Ubuntu).
-          python -m playwright install chromium
+          bash .github/scripts/reintentar.sh 3 15 python -m playwright install chromium
           # Las librerías del sistema ya vienen en la imagen del runner; install-deps solo agrega
           # fuentes extra. Si los espejos apt de Ubuntu fallan (DNS caído), no se tumba la corrida.
           timeout 180 python -m playwright install-deps chromium \
@@ -49,7 +50,7 @@ jobs:
         run: |
           REMOTE="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           if git ls-remote --exit-code --heads "$REMOTE" data >/dev/null 2>&1; then
-            git clone --depth 1 --branch data "$REMOTE" datos
+            bash .github/scripts/reintentar.sh 3 10 git clone --depth 1 --branch data "$REMOTE" datos
           else
             mkdir datos && git -C datos init -q -b data && git -C datos remote add origin "$REMOTE"
           fi
@@ -79,7 +80,12 @@ jobs:
           EXCEL_NOMBRE: Indicadores_FusionSolar.xlsx
           HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
           FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
-        run: python run.py
+        # Si la corrida completa falla (portal caído, login, red), se repite hasta 2 veces más tras 60 s y 120 s.
+        # Cada intento tiene tope de 8 min para que un cuelgue no consuma todo el tiempo del job; antes de cada
+        # intento se borra el candado de run.py (si timeout cortó el anterior, quedaría y el reintento se saltaría).
+        run: |
+          bash .github/scripts/reintentar.sh 3 60 \
+            bash -c 'rm -f "$FUSIONSOLAR_STATE/run.lock"; timeout 480 python run.py'
 
       - name: Guardar histórico (rama data)
         run: |
@@ -89,7 +95,7 @@ jobs:
             commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC" 2>/dev/null \
             || git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
                  commit -q -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC"
-          git push -q --force origin HEAD:data
+          bash .github/scripts/reintentar.sh 3 10 git push -q --force origin HEAD:data
 
       - name: Preparar dashboard web
         run: |
