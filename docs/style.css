@@ -209,8 +209,11 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .h-sub{margin-top:22px}
 .kpi .v small{font-size:14px;font-weight:500;color:var(--fg-3);margin-left:3px}
 .tabla.excel td.d{color:var(--fg)}
-.tabla.excel td.d.bajo{color:var(--warn);font-weight:600}
-.tabla.excel td.d.cero{color:var(--bad);font-weight:700}
+/* Disponibilidad: 0 ≤ d < 70 % rojo · 70 ≤ d < 98,5 % amarillo · 98,5 ≤ d ≤ 100 % blanco (color normal del texto) */
+.tabla.excel td.d.amarillo{color:var(--warn);background:var(--warn-bg);font-weight:600}
+.tabla.excel td.d.rojo{color:var(--bad);background:var(--bad-bg);font-weight:700}
+.tabla.excel td.conc{color:var(--fg);white-space:nowrap}
+.tabla.excel td.conc.nd{color:var(--fg-3)}
 @media (max-width:640px){#disp-chart .cv{height:280px}.controles-disp .seg{max-width:100%;overflow-x:auto}}
 
 /* Kondu: acentos de marca */
@@ -222,3 +225,14 @@ h2{letter-spacing:-.01em}
 .nota a,.tabla a{color:var(--accent-hi)}
 .medidor b{background:var(--accent-hi)}
 @media (max-width:640px){.logo .wm{display:none}.logo{padding-right:10px}.titulo-linea{display:none}}
+
+/* Filtro por mes en los encabezados de las tablas */
+.tabla th.filtro-mes{cursor:pointer;user-select:none}
+.tabla th.filtro-mes:hover,.tabla th.filtro-mes:focus-visible{outline:2px solid var(--accent-hi);outline-offset:-2px}
+.tabla th.filtro-mes .fm-ico{font-weight:500;opacity:.8}
+.tabla th.filtro-mes.fm-on .fm-ico{color:var(--accent-hi);opacity:1;font-weight:650}
+.tabla.excel th.g.filtro-mes.fm-on .fm-ico{color:#ffd1e6}
+.pop-mes{position:fixed;z-index:60;min-width:150px;max-height:260px;overflow:auto;background:var(--panel);color:var(--fg);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(39,13,68,.28);padding:4px;display:flex;flex-direction:column;gap:1px}
+.pop-mes button{font:inherit;font-size:13px;text-align:left;background:transparent;color:inherit;border:0;border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.pop-mes button:hover,.pop-mes button:focus-visible{background:var(--accent-soft);outline:none}
+.pop-mes button.on{background:var(--accent);color:var(--on-accent);font-weight:600}
