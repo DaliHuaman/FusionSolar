@@ -39,7 +39,7 @@
     "activo": true,
     "horas_referencia": 12,
     "inicio_busqueda": "2025-01-01",
-    "excel_desde": "2026-10-01",
+    "excel_desde": null,
     "releer_dias": 3,
     "presupuesto_segundos": 900
   },
@@ -47,6 +47,7 @@
     "activo": true,
     "planta": "PL",
     "dias_historial": 90,
+    "carga_descarga": {"activo": true, "hora_extraccion": 12, "tolerancia_min": 10, "umbral_c": 0.1, "recalcular_dias": 7},
     "equipos": [
       {"id": "BESS-01", "nombre": "BESS-01", "dispositivo": "(?i)bess\\W*0*1$"},
       {"id": "BESS-02", "nombre": "BESS-02", "dispositivo": "(?i)bess\\W*0*2$"},
