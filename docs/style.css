@@ -236,3 +236,6 @@ h2{letter-spacing:-.01em}
 .pop-mes button{font:inherit;font-size:13px;text-align:left;background:transparent;color:inherit;border:0;border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
 .pop-mes button:hover,.pop-mes button:focus-visible{background:var(--accent-soft);outline:none}
 .pop-mes button.on{background:var(--accent);color:var(--on-accent);font-weight:600}
+
+/* Encabezados de inversor y de columnas centrados (el primero de cada fila heredaba la alineación izquierda) */
+.tabla.excel thead th.i,.tabla.excel thead th.u{text-align:center}
