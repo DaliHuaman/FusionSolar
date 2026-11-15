@@ -24,7 +24,7 @@
   const fP = v => v == null ? "—" : v.toLocaleString("es-PE", { maximumFractionDigits: 1 }) + " %";
 
   let D = null;
-  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv", dg: "dia", dr: 30 };   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
+  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv", dg: "dia", dr: 30, mes: {} };   // mes: filtro por mes de cada tabla ({id_tabla: "AAAA-MM"})   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
   let charts = [];
   const zoomGuardado = new Map();                       // clave de gráfica -> {x:[min,max], y:[min,max]} (se conserva al refrescar datos)
   let soltarZoom = false;                               // true al cambiar planta/rango: se parte de la vista completa
@@ -91,6 +91,7 @@
 
   // ---------------------------------------------------------------- render
   function pintar() {
+    cerrarPop();
     frescura();
     $("#f-int").textContent = D.intervalo_min;
     $("#mrg").textContent = Math.round(D.margen_advertencia * 100);
@@ -601,20 +602,76 @@
       },
     };
     mk("disp|" + modo + "|" + S.dr, cnv, { type: "bar", data: { labels: per.map(x => x.clave), datasets: ds }, options: o }, barra);
-    tablaDisp(tabla, ordenGrupos(D.inversores), null, 120);
+    tablaDisp(tabla, ordenGrupos(D.inversores), null, 800, "disp-dia");
   }
+
+  // ---------------------------------------------------------------- filtro por mes en los encabezados de las tablas
+  // Al pasar el mouse (o tocar / enfocar con el teclado) el encabezado de la fecha aparece la lista de meses con datos; elegir uno muestra solo ese mes.
+  const mesTxt = m => MES[+m.slice(5, 7) - 1] + " " + m.slice(0, 4);
+  const mesDeTs = ts => new Date(ts * 1000).toISOString().slice(0, 7);
+  let pop = null, popTimer = null;
+  const cerrarPop = () => { clearTimeout(popTimer); if (pop) pop.hidden = true; };
+  const cierraPronto = () => { clearTimeout(popTimer); popTimer = setTimeout(cerrarPop, 220); };
+  function menuMes() {
+    if (!pop) {
+      pop = el("div", { class: "pop-mes", role: "menu", hidden: "" });
+      pop.addEventListener("mouseenter", () => clearTimeout(popTimer));
+      pop.addEventListener("mouseleave", cierraPronto);
+      document.body.append(pop);
+    }
+    return pop;
+  }
+  // Aplica el filtro de la tabla `clave`: devuelve las filas del mes elegido (o todas) y los meses disponibles (el más reciente primero).
+  function aplicarMes(clave, items, fMes) {
+    const meses = [...new Set(items.map(fMes))].sort().reverse();
+    let sel = S.mes[clave] || "";
+    if (sel && !meses.includes(sel)) sel = "";
+    return { meses, sel, filas: sel ? items.filter(x => fMes(x) === sel) : items };
+  }
+  // Convierte el <th> de la fecha en el disparador del filtro. `alCambiar` vuelve a dibujar solo esa tabla.
+  function filtroMes(th, clave, meses, sel, alCambiar) {
+    if (!meses.length) return th;
+    th.classList.add("filtro-mes");
+    if (sel) th.classList.add("fm-on");
+    th.tabIndex = 0;
+    th.title = "Pasa el mouse por aquí para filtrar por mes";
+    th.append(el("span", { class: "fm-ico", "aria-hidden": "true", text: sel ? " · " + mesTxt(sel) + " ▾" : " ▾" }));
+    const abrir = () => {
+      clearTimeout(popTimer);
+      const m = menuMes(), r = th.getBoundingClientRect();
+      m.replaceChildren(...[["", "Todos los meses"], ...meses.map(x => [x, mesTxt(x)])].map(([v, t]) => {
+        const b = el("button", { type: "button", role: "menuitem", class: v === sel ? "on" : "", text: t });
+        b.addEventListener("click", () => { S.mes[clave] = v; cerrarPop(); alCambiar(); });
+        return b;
+      }));
+      m.hidden = false;
+      m.style.left = Math.max(4, Math.min(r.left, innerWidth - m.offsetWidth - 4)) + "px";
+      m.style.top = Math.min(r.bottom + 2, innerHeight - Math.min(m.offsetHeight, 260) - 4) + "px";
+    };
+    th.addEventListener("mouseenter", abrir);
+    th.addEventListener("focus", abrir);
+    th.addEventListener("click", abrir);
+    th.addEventListener("mouseleave", cierraPronto);
+    th.addEventListener("keydown", e => { if (e.key === "Escape") cerrarPop(); });
+    return th;
+  }
+  // Colores de la disponibilidad (fracción 0–1): 0 ≤ d < 70 % rojo · 70 ≤ d < 98,5 % amarillo · 98,5 ≤ d ≤ 100 % blanco (sin resaltar)
+  const claseDisp = a => a == null ? "" : a * 100 + 1e-9 < 70 ? " rojo" : a * 100 + 1e-9 < 98.5 ? " amarillo" : "";
 
   // Tabla como la hoja «Disponibilidad» del Excel: por inversor (con su potencia nominal), horas operativas, rendimiento (kWh) y
   // disponibilidad (fórmula). Un renglón por día, el más reciente arriba.
-  function tablaDisp(t, gr, desde, max) {
+  function tablaDisp(t, gr, desde, max, clave = "disp") {
     const B = D.disponibilidad;
     if (!B || !B.activo) { vacioTabla(t, "La disponibilidad no está activa."); return; }
     const invs = gr.flatMap(g => g.invs);
     const n = Math.max(0, ...invs.map(i => (B.h[i.id] || []).length));
-    const dias = [];
-    for (let k = n - 1; k >= 0; k--) { const iso = isoDia(k); if (desde && iso < desde) break; if (invs.some(i => (B.h[i.id] || [])[k] != null)) dias.push([k, iso]); if (dias.length >= max) break; }
-    if (!dias.length) { vacioTabla(t, "Aún no hay datos de disponibilidad" + (desde ? " desde " + fFechaIso(desde) : "") + "."); return; }
-    const h1 = el("tr", {}, el("th", { class: "g", text: "Fecha", rowspan: 3 })), h2 = el("tr"), h3 = el("tr");
+    const todos = [];
+    for (let k = n - 1; k >= 0; k--) { const iso = isoDia(k); if (desde && iso < desde) break; if (invs.some(i => (B.h[i.id] || [])[k] != null)) todos.push([k, iso]); }
+    if (!todos.length) { vacioTabla(t, "Aún no hay datos de disponibilidad" + (desde ? " desde " + fFechaIso(desde) : "") + "."); return; }
+    const f = aplicarMes(clave, todos, x => x[1].slice(0, 7));
+    const dias = f.filas.slice(0, max);
+    const h1 = el("tr", {}), h2 = el("tr"), h3 = el("tr");
+    h1.append(filtroMes(el("th", { class: "g", text: "Fecha", rowspan: 3 }), clave, f.meses, f.sel, () => tablaDisp(t, gr, desde, max, clave)));
     gr.forEach((g, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
       h1.append(el("th", { class: "g", colspan: g.invs.length * 3, text: `${g.planta} · ${g.grupo}` }));
@@ -627,7 +684,7 @@
         if (j) tr.append(el("td", { class: "sep" }));
         g.invs.forEach(i => {
           const h = (B.h[i.id] || [])[k], a = dispFrac(h), r = h == null ? null : ((B.r || {})[i.id] || [])[k];
-          tr.append(el("td", { class: "p", text: fH3(h) }), el("td", { class: "p", text: fKwh(r) }), el("td", { class: "d" + (a == null ? "" : a === 0 ? " cero" : a < 0.9 ? " bajo" : ""), text: fPct2(a) }));
+          tr.append(el("td", { class: "p", text: fH3(h) }), el("td", { class: "p", text: fKwh(r) }), el("td", { class: "d" + claseDisp(a), text: fPct2(a) }));
         });
       });
       body.append(tr);
@@ -641,9 +698,12 @@
     const vis = invsVisibles();
     const dias = new Set();
     vis.forEach(i => (D.diario[i.id] || []).forEach(r => dias.add(r[0])));
-    const lista = [...dias].sort().slice(-14);
-    if (!lista.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin datos diarios todavía." })))); return; }
-    const head = el("thead", {}, el("tr", {}, el("th", { text: "Inversor" }), el("th", { text: "Umbral" }), lista.map(d => el("th", { text: d.slice(8) + " " + MES[+d.slice(5, 7) - 1] }))));
+    const todos = [...dias].sort();
+    if (!todos.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin datos diarios todavía." })))); return; }
+    const f = aplicarMes("diario", todos, d => d.slice(0, 7));
+    const lista = f.sel ? f.filas : todos.slice(-14);                  // sin filtro: últimos 14 días; con filtro: todos los días del mes
+    const th0 = filtroMes(el("th", { text: "Inversor" }), "diario", f.meses, f.sel, pintarDiario);
+    const head = el("thead", {}, el("tr", {}, th0, el("th", { text: "Umbral" }), lista.map(d => el("th", { text: d.slice(8) + " " + MES[+d.slice(5, 7) - 1] }))));
     const body = el("tbody");
     vis.forEach(i => {
       const m = Object.fromEntries((D.diario[i.id] || []).map(r => [r[0], r]));
@@ -663,6 +723,7 @@
     inv: "Misma vista de la hoja «Indicadores» del Excel, separada por planta. Hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.",
     bess: "Misma vista de la hoja «BESS»: temperaturas en °C de cada BESS por corrida (últimos 7 días). Máx = temperatura más alta del grupo; Sum./Ret. = agua suministrada / de retorno; bat. = lado batería; pot. = lado potencia; Ext. = exterior.",
     dia: "Un renglón por día. «Inicio» es la hora a la que arrancó el inversor ese día (un valor por día); «T máx» es la temperatura interna más alta registrada ese día.",
+    bcd: "Misma vista de la hoja «BESS carga-descarga»: por día, temperatura mínima y máxima (°C, «Temperatura más alta del grupo») de cada BESS fuera de punta (HFP, 00:00–17:30) y en hora punta (HP, 18:00–20:30), y dónde se concentró el aumento de temperatura al comparar el promedio de los 2 primeros incrementos de 30 min con el de los 2 últimos: «Al inicio», «Al final» o «Sin predominio» (diferencia menor a 0,1 °C por 30 min). Se agrega una fila cada día a las 12:00 (Lima) con el día anterior; el más reciente arriba.",
     disp: "Misma vista de la hoja «Disponibilidad»: horas operativas del día (Duración de conexión a la red, de FusionSolar), rendimiento del día (kWh) y disponibilidad = si horas ≥ 12 → 100 %, si no horas ÷ 12. Un renglón por día, el más reciente arriba.",
   };
   const ordenGrupos = (invs) => { const o = ["LC", "VES", "PL"]; return grupos(invs).sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
@@ -671,20 +732,11 @@
   const fHms = ts => { const d = new Date(ts * 1000); return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds()); };
 
   function pintarExcel() {
-    document.querySelectorAll("#disp-gran button").forEach(b => b.addEventListener("click", () => {
-    S.dg = b.dataset.v; soltarZoom = true;
-    if (D) pintar();
-  }));
-  document.querySelectorAll("#disp-rango button").forEach(b => b.addEventListener("click", () => {
-    S.dr = +b.dataset.v; soltarZoom = true;
-    if (D) pintar();
-  }));
-
-  document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
+    document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
     $("#nota-excel").textContent = NOTAS_TABLA[S.tabla];
     const t = $("#t-excel");
-    if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t);
-    else if (S.tabla === "disp") tablaDisp(t, ordenGrupos(), (D.disponibilidad || {}).excel_desde, 300);
+    if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t); else if (S.tabla === "bcd") tablaBcd(t);
+    else if (S.tabla === "disp") tablaDisp(t, ordenGrupos(), (D.disponibilidad || {}).excel_desde, 800, "excel-disp");
     else tablaInversores(t);
   }
 
@@ -694,9 +746,12 @@
     const TIT = ["Máx", "Sum. bat.", "Ret. bat.", "Sum. pot.", "Ret. pot.", "Ext."];
     const mapas = new Map(B.equipos.map(e => [e.id, new Map(((B.serie || {})[e.id] || []).map(p => [p[0], p]))]));
     const min = tMin();
-    const tiempos = [...new Set([...mapas.values()].flatMap(m => [...m.keys()]))].filter(x => x >= min).sort((a, b) => b - a).slice(0, 300);
-    if (!tiempos.length) { vacioTabla(t, "Sin lecturas BESS en el rango seleccionado."); return; }
-    const h1 = el("tr", {}, el("th", { class: "g", text: "Horario", rowspan: 2 })), h2 = el("tr");
+    const todos = [...new Set([...mapas.values()].flatMap(m => [...m.keys()]))].filter(x => x >= min).sort((a, b) => b - a);
+    if (!todos.length) { vacioTabla(t, "Sin lecturas BESS en el rango seleccionado."); return; }
+    const f = aplicarMes("excel-bess", todos, mesDeTs);
+    const tiempos = f.filas.slice(0, 300);
+    const h1 = el("tr", {}), h2 = el("tr");
+    h1.append(filtroMes(el("th", { class: "g", text: "Horario", rowspan: 2 }), "excel-bess", f.meses, f.sel, () => tablaBess(t)));
     B.equipos.forEach((e, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 2 }));
       h1.append(el("th", { class: "g", colspan: TIT.length, text: e.nombre }));
@@ -715,6 +770,37 @@
     t.replaceChildren(el("thead", {}, h1, h2), body);
   }
 
+  // Hoja «BESS carga-descarga»: por día y BESS, °C mín / máx y «concentración» del aumento de temperatura en HFP y HP.
+  function tablaBcd(t) {
+    const B = D.bess;
+    if (!B || !B.activo || !B.equipos.length) { vacioTabla(t, "Las temperaturas BESS no están activas."); return; }
+    const todos = ((B.cd || {}).dias || []);
+    if (!todos.length) { vacioTabla(t, "Aún no hay días cerrados: se agrega una fila cada día a las 12:00 (Lima) con el día anterior."); return; }
+    const f = aplicarMes("excel-bcd", todos, x => x[0].slice(0, 7));
+    const h1 = el("tr", {}), h2 = el("tr"), h3 = el("tr");
+    h1.append(filtroMes(el("th", { class: "g", text: "Fecha", rowspan: 3 }), "excel-bcd", f.meses, f.sel, () => tablaBcd(t)));
+    B.equipos.forEach((e, k) => {
+      if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
+      h1.append(el("th", { class: "g", colspan: 6, text: e.nombre }));
+      ["HFP", "HP"].forEach(g => h2.append(el("th", { class: "i", colspan: 3, text: g })));
+      for (let j = 0; j < 2; j++) h3.append(el("th", { class: "u", text: "°C Min" }), el("th", { class: "u", text: "°C Máx" }), el("th", { class: "u", text: "°C Concentración" }));
+    });
+    const body = el("tbody");
+    f.filas.forEach(([dia, por]) => {
+      const tr = el("tr", {}, el("td", { text: dia.slice(8) + "/" + dia.slice(5, 7) + "/" + dia.slice(0, 4) }));
+      B.equipos.forEach((e, k) => {
+        if (k) tr.append(el("td", { class: "sep" }));
+        const v = por[e.id] || [];
+        [0, 1, 2, 3, 4, 5].forEach(j => {
+          const conc = j % 3 === 2;
+          tr.append(el("td", { class: conc ? "conc" + (v[j] && v[j] !== "Sin datos" ? "" : " nd") : "p", text: v[j] == null ? "–" : conc ? v[j] : fT(v[j]) }));
+        });
+      });
+      body.append(tr);
+    });
+    t.replaceChildren(el("thead", {}, h1, h2, h3), body);
+  }
+
   function tablaDia(t) {
     const gr = ordenGrupos(), invs = gr.flatMap(g => g.invs);
     const dia = ts => Math.floor(ts / 86400);
@@ -725,9 +811,12 @@
       return [i.id, m];
     }));
     const minDia = dia(tMin());
-    const dias = [...new Set(invs.flatMap(i => [...inicio.get(i.id).keys(), ...tmax.get(i.id).keys()]))].filter(d => d >= minDia).sort((a, b) => b - a).slice(0, 60);
-    if (!dias.length) { vacioTabla(t, "Aún no hay horas de inicio ni temperaturas internas en el rango seleccionado."); return; }
-    const h1 = el("tr", {}, el("th", { class: "g", text: "Día", rowspan: 3 })), h2 = el("tr"), h3 = el("tr");
+    const todos = [...new Set(invs.flatMap(i => [...inicio.get(i.id).keys(), ...tmax.get(i.id).keys()]))].filter(d => d >= minDia).sort((a, b) => b - a);
+    if (!todos.length) { vacioTabla(t, "Aún no hay horas de inicio ni temperaturas internas en el rango seleccionado."); return; }
+    const f = aplicarMes("excel-dia", todos, d => mesDeTs(d * 86400));
+    const dias = f.filas.slice(0, 60);
+    const h1 = el("tr", {}), h2 = el("tr"), h3 = el("tr");
+    h1.append(filtroMes(el("th", { class: "g", text: "Día", rowspan: 3 }), "excel-dia", f.meses, f.sel, () => tablaDia(t)));
     gr.forEach((g, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
       h1.append(el("th", { class: "g", colspan: g.invs.length * 2, text: `${g.planta} · ${g.grupo}` }));
@@ -753,9 +842,12 @@
     const invs = gr.flatMap(g => g.invs);
     const mapas = new Map(invs.map(i => [i.id, new Map(serie(i.id).map(p => [p[0], p]))]));
     const min = tMin();
-    const tiempos = [...new Set(invs.flatMap(i => serie(i.id).map(p => p[0])))].filter(x => x >= min).sort((a, b) => b - a).slice(0, 300);
-    if (!tiempos.length) { vacioTabla(t, "Sin datos en el rango seleccionado."); return; }
-    const h1 = el("tr", {}, el("th", { class: "g", text: "Horario", rowspan: 3 }));
+    const todos = [...new Set(invs.flatMap(i => serie(i.id).map(p => p[0])))].filter(x => x >= min).sort((a, b) => b - a);
+    if (!todos.length) { vacioTabla(t, "Sin datos en el rango seleccionado."); return; }
+    const f = aplicarMes("excel-inv", todos, mesDeTs);
+    const tiempos = f.filas.slice(0, 300);
+    const h1 = el("tr", {});
+    h1.append(filtroMes(el("th", { class: "g", text: "Horario", rowspan: 3 }), "excel-inv", f.meses, f.sel, () => tablaInversores(t)));
     const h2 = el("tr"), h3 = el("tr");
     gr.forEach((g, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
@@ -785,10 +877,15 @@
     const t = $("#t-alarmas");
     const ids = new Set(invsVisibles().map(i => i.id));
     const lim = S.dias ? naive(D.generado) - S.dias * 86400000 : 0;
-    const rows = D.alarmas.filter(a => ids.has(a.id) && naive(a.t) >= lim).slice(0, 150);
-    if (!rows.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin alarmas ni advertencias en el rango seleccionado." })))); return; }
+    const todas = D.alarmas.filter(a => ids.has(a.id) && naive(a.t) >= lim);
+    if (!todas.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin alarmas ni advertencias en el rango seleccionado." })))); return; }
+    const f = aplicarMes("alarmas", todas, a => a.t.slice(0, 7));
+    const rows = f.filas.slice(0, 150);
     t.replaceChildren(
-      el("thead", {}, el("tr", {}, ["Fecha y hora", "Inversor", "Resistencia (MΩ)", "Umbral (MΩ)", "Diferencia", "Estado"].map(h => el("th", { text: h })))),
+      el("thead", {}, el("tr", {}, ["Fecha y hora", "Inversor", "Resistencia (MΩ)", "Umbral (MΩ)", "Diferencia", "Estado"].map((h, k) => {
+        const th = el("th", { text: h });
+        return k ? th : filtroMes(th, "alarmas", f.meses, f.sel, pintarAlarmas);
+      }))),
       el("tbody", {}, rows.map(a => {
         const dif = a.r != null && a.um ? ((a.r - a.um) / a.um * 100) : null;
         return el("tr", {}, el("td", { text: a.t }), el("td", { class: "t-l", text: a.id.replace("-", " · ") }), el("td", { text: fR(a.r) }), el("td", { text: fR(a.um) }),
@@ -800,10 +897,15 @@
     const t = $("#t-pot");
     const ids = new Set(invsVisibles().map(i => i.id));
     const lim = S.dias ? naive(D.generado) - S.dias * 86400000 : 0;
-    const rows = D.eventos_potencia.filter(a => ids.has(a.id) && naive(a.t) >= lim).slice(0, 150);
-    if (!rows.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin limitaciones de potencia activa en el rango seleccionado." })))); return; }
+    const todas = D.eventos_potencia.filter(a => ids.has(a.id) && naive(a.t) >= lim);
+    if (!todas.length) { t.replaceChildren(el("tbody", {}, el("tr", {}, el("td", { class: "vacio-t", text: "Sin limitaciones de potencia activa en el rango seleccionado." })))); return; }
+    const f = aplicarMes("potencia", todas, a => a.t.slice(0, 7));
+    const rows = f.filas.slice(0, 150);
     t.replaceChildren(
-      el("thead", {}, el("tr", {}, ["Fecha y hora", "Inversor", "Potencia", "Estado reportado"].map(h => el("th", { text: h })))),
+      el("thead", {}, el("tr", {}, ["Fecha y hora", "Inversor", "Potencia", "Estado reportado"].map((h, k) => {
+        const th = el("th", { text: h });
+        return k ? th : filtroMes(th, "potencia", f.meses, f.sel, pintarPotencia);
+      }))),
       el("tbody", {}, rows.map(a => el("tr", {}, el("td", { text: a.t }), el("td", { class: "t-l", text: a.id.replace("-", " · ") }), el("td", { text: fP(a.p) }), el("td", { class: "t-l", text: a.txt })))));
   }
 
@@ -815,7 +917,9 @@
     if (D) pintar();
   }));
 
-  document.querySelectorAll("#tabs-excel button").forEach(b => b.addEventListener("click", () => { S.tabla = b.dataset.t; if (D) pintarExcel(); }));
+  document.querySelectorAll("#tabs-excel button").forEach(b => b.addEventListener("click", () => { S.tabla = b.dataset.t; cerrarPop(); if (D) pintarExcel(); }));
+  document.querySelectorAll("#disp-gran button").forEach(b => b.addEventListener("click", () => { S.dg = b.dataset.v; soltarZoom = true; if (D) pintar(); }));
+  document.querySelectorAll("#disp-rango button").forEach(b => b.addEventListener("click", () => { S.dr = +b.dataset.v; soltarZoom = true; if (D) pintar(); }));
 
   const tema = $("#tema");
   tema.addEventListener("click", () => {
