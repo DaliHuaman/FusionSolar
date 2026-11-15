@@ -40,6 +40,16 @@ def _bess(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
     return out
 
 
+def _carga_descarga(cfg: dict, filas: list[dict]) -> dict:
+    """Bloque "bess.cd" de data.json: dias[k] = [fecha, {id_BESS: [hfp_min, hfp_max, hfp_conc, hp_min, hp_max, hp_conc]}], el más reciente primero."""
+    num = lambda v: None if v in ("", None) else round(float(v), 1)
+    por_dia: dict[str, dict] = {}
+    for f in filas:
+        por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = [num(f.get("HFP_Min")), num(f.get("HFP_Max")), f.get("HFP_Concentracion") or None,
+                                                         num(f.get("HP_Min")), num(f.get("HP_Max")), f.get("HP_Concentracion") or None]
+    return {"dias": [[d, por_dia[d]] for d in sorted(por_dia, reverse=True)]}
+
+
 def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
     """Bloque "disponibilidad" de data.json: horas operativas por día e inversor, en arreglos alineados desde `d0`.
 
@@ -77,7 +87,7 @@ def _num(x):
 
 def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: datetime,
               info_corrida: dict | None = None, filas_bess: list[dict] | None = None,
-              filas_disp: list[dict] | None = None) -> dict:
+              filas_disp: list[dict] | None = None, filas_cd: list[dict] | None = None) -> dict:
     invs = cfg["inversores"]
     out: dict = {
         "generado": ahora.strftime("%Y-%m-%d %H:%M:%S"),
@@ -89,7 +99,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "no_encontrados": no_encontrados,
         "corrida": info_corrida or {},
         "ultima": {}, "serie": {}, "inicio": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
-        "bess": _bess(cfg, filas_bess or [], ahora),
+        "bess": {**_bess(cfg, filas_bess or [], ahora), "cd": _carga_descarga(cfg, filas_cd or [])},
         "disponibilidad": _disponibilidad(cfg, filas_disp or []),
     }
     df = pd.DataFrame(filas)

@@ -55,6 +55,9 @@ CAMPOS_BESS = {
 }
 
 
+# BESS carga-descarga: una fila por dia y BESS (HFP = fuera de punta, HP = hora punta). Lecturas_* = horarios con dato (de 36 / 6)
+COLUMNAS_BCD = ["Fecha", "BESS", "HFP_Min", "HFP_Max", "HFP_Concentracion", "HP_Min", "HP_Max", "HP_Concentracion", "Lecturas_HFP", "Lecturas_HP"]
+
 FMT_TS = "%Y-%m-%d %H:%M:%S"
 
 

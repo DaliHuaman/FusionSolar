@@ -14,6 +14,10 @@ encabezado), las horas operativas y el rendimiento (kWh) extraídos de FusionSol
 Informe de inversores) y la disponibilidad calculada con la fórmula =IF(horas>=12,1,horas/12). Mismo formato de la hoja «Disponibilidad.xlsx» de Maestro; se reconstruye entera en cada corrida desde
 `disponibilidad.csv`, así que tampoco cambia el diseño de las demás hojas.
 
+Hoja "BESS carga-descarga": una fila por día (la más reciente arriba) y, por BESS, HFP (fuera de punta) y HP (hora punta) con °C mín., °C máx.
+y «°C Concentración» (Al inicio / Al final / Sin predominio: dónde se concentró el aumento de temperatura). Se reconstruye entera desde
+`bess_carga_descarga.csv` (ver fusionsolar/bess_cd.py).
+
 Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
 columna vacía y con los mismos encabezados (morado / amarillo) de "Indicadores". Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
 agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
@@ -43,6 +47,7 @@ VERSION_DISENO = "layout-3"     # layout-3: Historico con Inicio_Inversor y Temp
 HOJA_BESS = "BESS"
 HOJA_INICIO = "Inicio_Temp"
 HOJA_DISP = "Disponibilidad"
+HOJA_BCD = "BESS carga-descarga"
 # (encabezado del grupo, [(id del inversor, encabezado)]) en el orden de la hoja de Maestro; entre grupos va una columna vacía
 GRUPOS_DISP = [("Logiscity", [("LC-Inv1", "Inversor 1"), ("LC-Inv2", "Inversor 2")]),
                ("Villa el Salvador", [("VES-Inv1", "Inversor 1"), ("VES-Inv2", "Inversor 2")]),
@@ -223,7 +228,7 @@ def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref
                          pnom: dict[str, float | None] | None = None) -> None:
     """(Re)crea la hoja "Disponibilidad" (tras BESS) con el formato de Maestro: encabezados morados con letra amarilla, fila 1 = planta,
     fila 2 = inversor y su potencia nominal («Inversor 1 - 115 kW»), fila 3 = «Horas operativas» / «Rendimiento (kWh)» /
-    «Disponibilidad»; una fila por día desde `desde`.
+    «Disponibilidad»; una fila por día desde `desde` (vacío = todo el histórico), la más reciente arriba.
 
     Horas y rendimiento son datos (vienen de FusionSolar); la disponibilidad es la fórmula =IF(horas>=12,1,horas/12). Si ese día
     no hay horas, las celdas quedan vacías (así no aparece un 0 % falso); sin rendimiento en el informe, esa celda queda vacía.
@@ -285,11 +290,11 @@ def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref
     if dias:
         d, fin = datetime.strptime(desde or dias[0], "%Y-%m-%d"), datetime.strptime(dias[-1], "%Y-%m-%d")
         fila = PRIMERA_FILA_DATOS
-        while d <= fin:                                                  # todos los días del rango, también los que no tienen dato
+        while fin >= d:                                                  # lo más reciente arriba; todos los días del rango, también los sin dato
             a = ws.cell(fila, 1)
-            a.value, a.number_format = d, "mm-dd-yy"
+            a.value, a.number_format = fin, "mm-dd-yy"
             for iid, c0 in col0.items():
-                clave = (d.strftime("%Y-%m-%d"), iid)
+                clave = (fin.strftime("%Y-%m-%d"), iid)
                 h = horas.get(clave)
                 if h is None:
                     continue
@@ -300,7 +305,7 @@ def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref
                     cr.value, cr.number_format, cr.alignment = rend[clave], "#,##0.00", Alignment(horizontal="center")
                 cd.value = f"=IF({col}{fila}>={ref:g},1,{col}{fila}/{ref:g})"
                 cd.number_format, cd.alignment = "0.00%", Alignment(horizontal="center")
-            d += timedelta(days=1)
+            fin -= timedelta(days=1)
             fila += 1
     ws.freeze_panes = "B4"
 
@@ -342,6 +347,70 @@ def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
             for j, col in enumerate(cols):
                 cel = ws.cell(fila, col0[bid] + j)
                 cel.value, cel.number_format = _num(f.get(col)), "0.0"
+    ws.freeze_panes = "B4"
+
+
+def _hoja_bess_cd(wb: Workbook, filas: list[dict], ids: list[str]) -> None:
+    """(Re)crea la hoja "BESS carga-descarga" (después de "BESS") con el formato de Maestro: encabezados morados con letra amarilla;
+    fila 1 = BESS, fila 2 = HFP | HP, fila 3 = °C Min | °C Máx | °C Concentración; una fila por día, la más reciente arriba."""
+    if HOJA_BCD in wb.sheetnames:
+        del wb[HOJA_BCD]
+    pos = wb.sheetnames.index(HOJA_BESS) + 1 if HOJA_BESS in wb.sheetnames else 1
+    ws = wb.create_sheet(HOJA_BCD, pos)
+    ws.sheet_view.showGridLines = False
+    fill = PatternFill("solid", fgColor="7B1490")
+    fuente = Font(name="Calibri", size=11, bold=True, color="FFFF00")
+    lado = Side(style="thin")
+    borde = Border(left=lado, right=lado, top=lado, bottom=lado)
+    centro = Alignment(horizontal="center", vertical="center")
+
+    def enc(fila, col, texto=None):
+        c = ws.cell(fila, col)
+        c.fill, c.font, c.border, c.alignment = fill, fuente, borde, centro
+        if texto is not None:
+            c.value = texto
+
+    for f in (1, 2, 3):
+        enc(f, 1)
+    ws.cell(1, 1).value = "Fecha"
+    ws.merge_cells("A1:A3")
+    ws.column_dimensions["A"].width = 13.9
+    ids = list(ids) or sorted({f["BESS"] for f in filas})
+    col0: dict[str, int] = {}
+    c = 2
+    for k, bid in enumerate(ids):
+        if k:
+            ws.column_dimensions[get_column_letter(c)].width = 2.4
+            c += 1
+        col0[bid] = c
+        for g, nombre in enumerate(("HFP", "HP")):
+            for j, tit in enumerate(("°C Min", "°C Máx", "°C Concentración")):
+                cc = c + g * 3 + j
+                enc(1, cc)
+                enc(2, cc)
+                enc(3, cc, tit)
+                ws.column_dimensions[get_column_letter(cc)].width = 18 if j == 2 else 10
+            ws.cell(2, c + g * 3).value = nombre
+            ws.merge_cells(start_row=2, start_column=c + g * 3, end_row=2, end_column=c + g * 3 + 2)
+        ws.cell(1, c).value = bid
+        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + 5)
+        c += 6
+    por_dia: dict[str, dict[str, dict]] = {}
+    for f in filas:
+        por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = f
+    centrado = Alignment(horizontal="center")
+    for fila, dia in enumerate(sorted(por_dia, reverse=True), start=PRIMERA_FILA_DATOS):
+        a = ws.cell(fila, 1)
+        a.value, a.number_format, a.alignment = datetime.strptime(dia, "%Y-%m-%d"), "dd/mm/yyyy", Alignment(horizontal="right")
+        for bid, f in por_dia[dia].items():
+            if bid not in col0:
+                continue
+            for j, clave in enumerate(("HFP_Min", "HFP_Max", "HFP_Concentracion", "HP_Min", "HP_Max", "HP_Concentracion")):
+                cel = ws.cell(fila, col0[bid] + j)
+                v = f.get(clave)
+                cel.value, cel.alignment = (v or None) if j % 3 == 2 else _num(v), centrado
+                if j % 3 != 2:
+                    cel.number_format = "0.0"
     ws.freeze_panes = "B4"
 
 
@@ -412,13 +481,13 @@ def _actualizar_umbrales(wb: Workbook, umbrales: dict[str, float]) -> None:
 
 def escribir(filas: list[dict], inversores: list[dict],
              historico_completo: Callable[[], list[dict]] | None = None,
-             filas_bess: list[dict] | None = None, disp: dict | None = None) -> Path:
+             filas_bess: list[dict] | None = None, disp: dict | None = None, bcd: dict | None = None) -> Path:
     """Anexa las lecturas al Excel. Lanza PermissionError/OSError si el archivo está bloqueado.
 
     `historico_completo` devuelve todas las filas del CSV maestro (que ya incluye `filas`): se usa solo
     para reconstruir el Excel cuando el archivo existente tiene un diseño antiguo.
     `disp` = {"filas": filas de disponibilidad.csv, "desde": "AAAA-MM-DD", "ref": horas de referencia, "pnom": {id: kW}}: si viene,
-    se recrea la hoja «Disponibilidad».
+    se recrea la hoja «Disponibilidad». `bcd` = {"filas": filas de bess_carga_descarga.csv, "ids": [BESS]}: recrea «BESS carga-descarga».
     """
     umbrales = {i["id"]: i["umbral"] for i in inversores}
     ruta = ruta_excel()
@@ -441,6 +510,8 @@ def escribir(filas: list[dict], inversores: list[dict],
         _hoja_bess(wb, filas_bess)
     if disp is not None:
         _hoja_disponibilidad(wb, disp["filas"], disp.get("desde"), disp.get("ref", 12), disp.get("pnom"))
+    if bcd is not None:
+        _hoja_bess_cd(wb, bcd["filas"], bcd.get("ids") or [])
     if historico_completo:
         _hoja_inicio_temp(wb, historico_completo())
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")

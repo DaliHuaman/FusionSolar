@@ -20,7 +20,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from fusionsolar import alertas, disponibilidad, potencia, sitedata, store, umbrales
+from fusionsolar import alertas, bess_cd, disponibilidad, potencia, sitedata, store, umbrales
 from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
 from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores
 
@@ -208,6 +208,13 @@ def main() -> int:
                 except Exception as e:
                     log.exception("no se pudo guardar el historial BESS: %s", e)
                     errores_bess["guardado"] = str(e)
+            filas_cd: list[dict] = []
+            bcd = None
+            if (cfg.get("bess") or {}).get("activo") and ((cfg["bess"].get("carga_descarga") or {}).get("activo", True)):
+                # BESS carga-descarga: se calcula con el historial BESS (sin tocar el portal) y se guarda 1 fila por dia al cerrarse
+                # (a las 12:00 de Lima del dia siguiente); nunca lanza: ante un fallo se conserva lo ya guardado.
+                filas_cd = bess_cd.actualizar(historial_bess, ts, cfg)
+                bcd = {"filas": filas_cd, "ids": [e["id"] for e in cfg["bess"]["equipos"]]}
             dcfg = cfg.get("disponibilidad") or {}
             filas_disp: list[dict] = []
             excel_disp = None
@@ -219,7 +226,7 @@ def main() -> int:
                 except Exception as e:
                     log.exception("no se pudo leer disponibilidad.csv: %s", e)
             if filas or filas_bess:
-                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp))
+                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp, bcd))
             info["leidos"] = len(filas)
             info.update(extra)
             if filas:                                      # aviso por correo; no lanza y nunca altera la corrida
@@ -233,7 +240,7 @@ def main() -> int:
             if errores:
                 info["errores"] = errores
 
-        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp)
+        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp, filas_cd)
         sitedata.escribir(data)
         return 0 if info.get("ok", True) else 1
     finally:
