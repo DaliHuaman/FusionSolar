@@ -5,7 +5,7 @@ se recupera y vuelve a caer (con `enfriamiento_horas` minimas desde el ultimo av
 alrededor del limite). Varios inversores de la misma corrida salen juntos en un solo correo.
 
 Secretos (variables de entorno, en GitHub Actions = Secrets): SMTP_USER, SMTP_PASSWORD (y opcionales SMTP_HOST, SMTP_PORT,
-ALERTA_REMITENTE, ALERTA_DESTINATARIOS que reemplaza a config). Sin ellos no se envia nada ni se pierde el aviso.
+ALERTA_REMITENTE, ALERTA_DESTINATARIOS y ALERTA_COPIA que reemplazan a config). Sin ellos no se envia nada ni se pierde el aviso.
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ POR_DEFECTO = {
     "activo": True,
     "porcentaje_sobre_umbral": 5,
     "destinatarios": [],
+    "copia": [],
     "reenviar_cada_horas": 24,
     "enfriamiento_horas": 2,
     "dashboard_url": "",
@@ -52,6 +53,14 @@ def destinatarios(cfg: dict) -> list[str]:
     env = os.environ.get("ALERTA_DESTINATARIOS", "")
     lista = re.split(r"[,;\s]+", env) if env.strip() else _cfg(cfg)["destinatarios"]
     return [d for d in lista if d and "@" in d]
+
+
+def copia(cfg: dict) -> list[str]:
+    """Destinatarios en copia (CC); se excluyen los que ya van en 'Para'."""
+    env = os.environ.get("ALERTA_COPIA", "")
+    lista = re.split(r"[,;\s]+", env) if env.strip() else _cfg(cfg)["copia"]
+    para = {d.lower() for d in destinatarios(cfg)}
+    return [d for d in lista if d and "@" in d and d.lower() not in para]
 
 
 def cargar_plantilla(cfg: dict) -> dict[str, str]:
@@ -156,7 +165,7 @@ def componer(cfg: dict, avisos: list[dict], ahora: datetime) -> tuple[str, str, 
                             f'white-space:pre-wrap">{html}</pre>')
 
 
-def enviar_correo(asunto: str, cuerpo: str, para: list[str], html: str | None = None) -> None:
+def enviar_correo(asunto: str, cuerpo: str, para: list[str], html: str | None = None, cc: list[str] | None = None) -> None:
     """SMTP con SSL (465) o STARTTLS (587). Lanza si falta configuracion o el servidor rechaza el envio."""
     usuario, clave = os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASSWORD", "")
     if not usuario or not clave:
@@ -164,6 +173,8 @@ def enviar_correo(asunto: str, cuerpo: str, para: list[str], html: str | None = 
     host, puerto = os.environ.get("SMTP_HOST") or "smtp.gmail.com", int(os.environ.get("SMTP_PORT") or 465)
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = asunto, os.environ.get("ALERTA_REMITENTE") or usuario, ", ".join(para)
+    if cc:
+        msg["Cc"] = ", ".join(cc)                       # send_message entrega a Para + Cc
     msg.set_content(cuerpo)
     if html:
         msg.add_alternative(html, subtype="html")
@@ -195,11 +206,11 @@ def procesar(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
                 if not para:
                     raise RuntimeError("no hay destinatarios (config alertas.destinatarios o ALERTA_DESTINATARIOS)")
                 asunto, cuerpo, html = componer(cfg, avisos, ahora)
-                enviar_correo(asunto, cuerpo, para, html)
+                enviar_correo(asunto, cuerpo, para, html, copia(cfg))
                 enviados = len(avisos)
                 for a in avisos:
                     a_guardar[a["id"]]["ultimo_envio"] = ahora.strftime(FMT_TS)
-                log.info("Aviso enviado (%s inversores) a %s", enviados, ", ".join(para))
+                log.info("Aviso enviado (%s inversores) a %s (copia: %s)", enviados, ", ".join(para), ", ".join(copia(cfg)) or "-")
             except Exception as e:                      # sin enviar no se marca nada: se reintenta en la proxima corrida
                 log.warning("No se pudo enviar el aviso (%s); se reintentara en la proxima corrida", e)
                 for a in avisos:                        # que no cuente como "ya en alerta avisada"
@@ -223,5 +234,5 @@ def enviar_prueba(cfg: dict, ahora: datetime) -> None:
     if not para:
         raise SystemExit("No hay destinatarios (config alertas.destinatarios o ALERTA_DESTINATARIOS).")
     enviar_correo("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + cuerpo, para,
-                  "<p><i>(Correo de prueba con datos de ejemplo)</i></p>" + html)
-    log.info("Correo de prueba enviado a %s", ", ".join(para))
+                  "<p><i>(Correo de prueba con datos de ejemplo)</i></p>" + html, copia(cfg))
+    log.info("Correo de prueba enviado a %s (copia: %s)", ", ".join(para), ", ".join(copia(cfg)) or "-")
