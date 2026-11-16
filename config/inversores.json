@@ -10,7 +10,8 @@
   "alertas": {
     "activo": true,
     "porcentaje_sobre_umbral": 5,
-    "destinatarios": ["dali.huaman.c@uni.pe"],
+    "destinatarios": ["gestiondesoluciones@kondu.pe"],
+    "copia": ["copia@correo.invalido"],
     "reenviar_cada_horas": 24,
     "enfriamiento_horas": 2,
     "dashboard_url": "https://dalihuaman.github.io/FusionSolar/",
