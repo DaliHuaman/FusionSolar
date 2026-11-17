@@ -7,7 +7,7 @@
 #   {inversores}  resumen para el asunto, por planta: PL (InvB.2, InvB.3), VES (Inv2)
 #   {porcentaje}  porcentaje sobre el umbral configurado (config: alertas.porcentaje_sobre_umbral)
 #   {fecha_hora}  fecha y hora de la lectura (hora de Lima), dd/mm/aaaa hh:mm
-#   {recuadro}    recuadro con inversor, resistencia, umbral, diferencia y estado de cada inversor
+#   {recuadro}    lista (texto) / tabla (HTML) con inversor, resistencia, umbral, diferencia y estado de cada inversor
 #   {dashboard}   enlace al dashboard (config: alertas.dashboard_url)
 # Un marcador mal escrito se deja tal cual en el texto (no rompe el envio).
 

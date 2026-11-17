@@ -131,15 +131,91 @@ def _fmt(v: float) -> str:
 
 
 def _recuadro(avisos: list[dict]) -> str:
-    """Tabla en un recuadro de texto (se muestra en monoespaciado, tambien en la version HTML)."""
-    filas = [("Inversor", "Resistencia", "Umbral", "Diferencia", "Estado")]
+    """Version texto plano (fallback legible, sin tabla ASCII): una linea por inversor."""
+    out = []
     for a in avisos:
-        filas.append((f"{a['planta']} · {a['inversor']}", f"{_fmt(a['r'])} MΩ", f"{_fmt(a['umbral'])} MΩ",
-                      f"{a['sobre']:+.1f} %".replace(".", ",").replace("-", "−"), "Bajo" if a["r"] < a["umbral"] else "Cerca"))
-    ancho = [max(len(f[i]) for f in filas) for i in range(5)]
-    lineas = ["  ".join(c.ljust(w) for c, w in zip(f, ancho)) for f in filas]
-    n = max(map(len, lineas)) + 2
-    return "\n".join(["┌" + "─" * n + "┐", *("│ " + l.ljust(n - 1) + "│" for l in lineas), "└" + "─" * n + "┘"])
+        dif = f"{a['sobre']:+.1f} %".replace(".", ",").replace("-", "−")
+        estado = "Bajo el umbral" if a["r"] < a["umbral"] else "Cerca del umbral"
+        out.append(f"• {a['planta']} · {a['inversor']}: {_fmt(a['r'])} MΩ (umbral {_fmt(a['umbral'])} MΩ, {dif}) - {estado}")
+    return "\n".join(out)
+
+
+# Paleta Kondu (misma del dashboard, tema claro)
+K = {"brand": "#270d44", "brand2": "#3d1a66", "acc": "#a3195f", "hi": "#e11d73", "bg": "#f6f4f9", "panel": "#ffffff",
+     "borde": "#e6e1ec", "fg": "#1a1325", "fg2": "#4a4357", "fg3": "#6b6479", "dim": "#d9cde8",
+     "warn": "#8a5a00", "warn_bg": "#fff1cf", "bad": "#c4271b", "bad_bg": "#fde6e3"}
+FUENTE = "Inter,'Segoe UI',Roboto,Arial,sans-serif"
+_MARCA = "\x00TABLA\x00"
+
+
+def _tabla_html(avisos: list[dict]) -> str:
+    """Tabla HTML con estilos inline y atributos bgcolor/width (compatible con Outlook de escritorio)."""
+    def th(t, al):
+        return (f'<td align="{al}" bgcolor="{K["brand"]}" style="padding:9px 12px;background:{K["brand"]};color:#ffffff;'
+                f'font:600 12px {FUENTE};text-align:{al};white-space:nowrap">{t}</td>')
+    filas = ['<tr>' + th("Inversor", "left") + th("Resistencia", "right") + th("Umbral", "right") + th("Dif.", "right")
+             + th("Estado", "center") + '</tr>']
+    for i, a in enumerate(avisos):
+        bajo = a["r"] < a["umbral"]
+        fg, bg, txt = (K["bad"], K["bad_bg"], "Bajo") if bajo else (K["warn"], K["warn_bg"], "Cerca")
+        fondo = K["panel"] if i % 2 == 0 else K["bg"]
+        dif = f"{a['sobre']:+.1f} %".replace(".", ",").replace("-", "−")
+        base = (f'padding:10px 12px;border-bottom:1px solid {K["borde"]};font:14px {FUENTE};color:{K["fg"]};white-space:nowrap')
+        filas.append(
+            f'<tr bgcolor="{fondo}" style="background:{fondo}">'
+            f'<td align="left" style="{base};font-weight:600">{html_lib.escape(a["planta"])} · {html_lib.escape(a["inversor"])}</td>'
+            f'<td align="right" style="{base}">{_fmt(a["r"])} MΩ</td>'
+            f'<td align="right" style="{base};color:{K["fg2"]}">{_fmt(a["umbral"])} MΩ</td>'
+            f'<td align="right" style="{base};color:{fg};font-weight:600">{dif}</td>'
+            f'<td align="center" style="{base}"><span style="display:inline-block;padding:2px 10px;border-radius:999px;'
+            f'background:{bg};color:{fg};font:600 12px {FUENTE}">{txt}</span></td></tr>')
+    return (f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
+            f'style="border:1px solid {K["borde"]};border-collapse:separate;border-radius:10px;overflow:hidden">'
+            + "".join(filas) + '</table>')
+
+
+def _parrafo(txt: str, url: str, muted: bool = False) -> str:
+    esc = html_lib.escape(txt).replace("\n", "<br>")
+    u = html_lib.escape(url) if url else ""
+    estilo = (f'font:13px/1.5 {FUENTE};color:{K["fg3"]}' if muted else f'font:15px/1.55 {FUENTE};color:{K["fg"]}')
+    if u and u in esc:
+        antes, _, despues = esc.partition(u)
+        antes = antes.rstrip().rstrip(":").rstrip() + ":" if antes.strip() else ""
+        boton = (f'<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 2px"><tr>'
+                 f'<td bgcolor="{K["acc"]}" style="background:{K["acc"]};border-radius:8px">'
+                 f'<a href="{u}" style="display:inline-block;padding:10px 20px;font:600 14px {FUENTE};color:#ffffff;'
+                 f'text-decoration:none">Abrir dashboard</a></td></tr></table>'
+                 f'<div style="font:12px {FUENTE};color:{K["fg3"]};margin:4px 0 18px">{u}</div>')
+        pre = f'<p style="margin:0 0 6px;{estilo}">{antes}</p>' if antes else ""
+        pos = f'<p style="margin:8px 0 0;{estilo}">{despues.strip()}</p>' if despues.strip() else ""
+        return pre + boton + pos
+    return f'<p style="margin:0 0 16px;{estilo}">{esc}</p>'
+
+
+def _html_correo(cuerpo: str, avisos: list[dict], url: str, asunto: str) -> str:
+    """Correo HTML: cabecera Kondu, parrafos de la plantilla, tabla de inversores y pie. `cuerpo` lleva _MARCA donde va la tabla."""
+    parrafos = [p.strip("\n") for p in re.split(r"\n\s*\n", cuerpo.strip()) if p.strip()]
+    bloques = []
+    for i, p in enumerate(parrafos):
+        if p.strip() == _MARCA:
+            bloques.append(f'<div style="margin:2px 0 20px">{_tabla_html(avisos)}</div>')
+        else:
+            bloques.append(_parrafo(p, url, muted=(i == len(parrafos) - 1 and len(parrafos) > 2 and not (url and url in p))))
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only">
+<title>{html_lib.escape(asunto)}</title></head>
+<body style="margin:0;padding:0;background:{K['bg']}" bgcolor="{K['bg']}">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{K['bg']}" style="background:{K['bg']}"><tr><td align="center" style="padding:20px 10px">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;border-radius:14px;overflow:hidden;border:1px solid {K['borde']}">
+<tr><td bgcolor="{K['brand']}" style="background:{K['brand']};padding:20px 24px">
+<div style="font:700 22px {FUENTE};color:#ffffff;letter-spacing:-.5px">kondu</div>
+<div style="font:700 17px {FUENTE};color:#ffffff;margin-top:10px">Aislamiento cerca del umbral</div>
+<div style="font:13px {FUENTE};color:{K['dim']};margin-top:2px">Monitoreo de las plantas de BSF · FusionSolar</div></td></tr>
+<tr><td height="4" bgcolor="{K['hi']}" style="height:4px;line-height:4px;font-size:0;background:{K['hi']};background-image:linear-gradient(90deg,#e11d73,#f37828)">&nbsp;</td></tr>
+<tr><td bgcolor="{K['panel']}" style="background:{K['panel']};padding:24px">{"".join(bloques)}</td></tr>
+<tr><td bgcolor="{K['bg']}" style="background:{K['bg']};padding:12px 24px;border-top:1px solid {K['borde']};font:12px {FUENTE};color:{K['fg3']}">Aviso automático · Kondu · FusionSolar</td></tr>
+</table></td></tr></table></body></html>"""
 
 
 def _resumen(avisos: list[dict]) -> str:
@@ -151,18 +227,14 @@ def _resumen(avisos: list[dict]) -> str:
 
 
 def componer(cfg: dict, avisos: list[dict], ahora: datetime) -> tuple[str, str, str]:
-    """(asunto, cuerpo_texto, cuerpo_html). El HTML es el mismo texto en monoespaciado (alinea el recuadro) con el enlace activo."""
+    """(asunto, cuerpo_texto, cuerpo_html). Texto plano legible como respaldo; HTML con tablas e inline styles (Outlook)."""
     c, plantilla = _cfg(cfg), cargar_plantilla(cfg)
     datos = _Seguro(cantidad=len(avisos), n_inversores=f"{len(avisos)} inversor" + ("es" if len(avisos) != 1 else ""), inversores=_resumen(avisos), porcentaje=f"{c['porcentaje_sobre_umbral']:g}",
                     fecha_hora=ahora.strftime("%d/%m/%Y %H:%M"), recuadro=_recuadro(avisos), dashboard=c["dashboard_url"])
     asunto = " ".join(plantilla["ASUNTO"].format_map(datos).split())
     cuerpo = plantilla["CUERPO"].format_map(datos).strip() + "\n"
-    html = html_lib.escape(cuerpo)
-    if c["dashboard_url"]:
-        url = html_lib.escape(c["dashboard_url"])
-        html = html.replace(url, f'<a href="{url}">{url}</a>')
-    return asunto, cuerpo, ('<pre style="font-family:Consolas,\'Courier New\',monospace;font-size:13px;line-height:1.45;'
-                            f'white-space:pre-wrap">{html}</pre>')
+    html = _html_correo(plantilla["CUERPO"].format_map(datos | {"recuadro": _MARCA}).strip(), avisos, c["dashboard_url"], asunto)
+    return asunto, cuerpo, html
 
 
 def enviar_correo(asunto: str, cuerpo: str, para: list[str], html: str | None = None, cc: list[str] | None = None) -> None:
@@ -233,6 +305,8 @@ def enviar_prueba(cfg: dict, ahora: datetime) -> None:
     para = destinatarios(cfg)
     if not para:
         raise SystemExit("No hay destinatarios (config alertas.destinatarios o ALERTA_DESTINATARIOS).")
-    enviar_correo("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + cuerpo, para,
-                  "<p><i>(Correo de prueba con datos de ejemplo)</i></p>" + html, copia(cfg))
+    banner = ('<tr><td bgcolor="#fff1cf" style="background:#fff1cf;padding:6px 24px;font:12px Arial,sans-serif;color:#8a5a00">'
+              'Correo de prueba con datos de ejemplo</td></tr>')
+    html = html.replace('<tr><td height="4"', banner + '<tr><td height="4"', 1)
+    enviar_correo("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + cuerpo, para, html, copia(cfg))
     log.info("Correo de prueba enviado a %s (copia: %s)", ", ".join(para), ", ".join(copia(cfg)) or "-")
