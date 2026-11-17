@@ -14,7 +14,7 @@ from .common import CAMPOS_BESS, STATE_DIR, leer_json
 SITE_DIR = STATE_DIR / "site"
 DIAS_SERIE = 45          # resolucion completa (cada lectura) en el dashboard
 MAX_ALARMAS = 200
-DIAS_SERIE_BESS = 7      # temperaturas BESS: 6 valores x 5 equipos x 48 lecturas/dia; 7 dias mantienen data.json liviano
+DIAS_SERIE_BESS = 90     # temperaturas BESS: 6 valores x 5 equipos x 48 lecturas/dia (~12 KB/dia); 90 dias cubre todo el historico disponible
 
 
 def _bess(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
