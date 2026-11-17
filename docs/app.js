@@ -441,7 +441,6 @@
     { k: "agua_pot_ret", l: "Agua de retorno · lado potencia", c: "--s4", w: 1.6 },
     { k: "temp_ext", l: "Temperatura en exteriores", c: "--s6", w: 1.6 },
   ];
-  const DIAS_BESS = 7;
 
   function pintarBess() {
     const sec = $("#sec-bess");
@@ -456,7 +455,7 @@
     av.hidden = !ks.length;
     av.textContent = ks.length ? "Última corrida sin lectura BESS: " + ks.map(k => `${k} (${errs[k]})`).join(", ") + "." : "";
 
-    const xmax = tMax(), xmin = xmax - Math.min(S.dias || DIAS_BESS, DIAS_BESS) * 86400;
+    const xmax = tMax(), xmin = S.dias ? xmax - S.dias * 86400 : 0;
     const serieB = id => ((B.serie || {})[id] || []).filter(p => p[0] >= xmin);
     const bessVigente = u => !!u && (naive(D.generado) - naive(u.t)) / 60000 <= (D.intervalo_min || 30) * 3;
 
