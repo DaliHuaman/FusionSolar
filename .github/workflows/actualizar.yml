@@ -101,7 +101,7 @@ jobs:
         run: |
           mkdir -p site
           cp -r docs/. site/
-          cp "${{ runner.temp }}/fusionsolar/site/data/data.json" site/data/data.json
+          cp -r "${{ runner.temp }}/fusionsolar/site/data/." site/data/     # data.json + alarmas_historicas.json
           touch site/.nojekyll
 
       - uses: actions/configure-pages@v5

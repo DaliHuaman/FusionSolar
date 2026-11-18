@@ -111,25 +111,26 @@ def guardar_bess(filas: list[dict], ahora: datetime, dias: int) -> list[dict]:
 
 
 def escribir_excel(filas: list[dict], inversores: list[dict], filas_bess: list[dict] | None = None,
-                   disp: dict | None = None, bcd: dict | None = None) -> Path:
-    return excel_indicadores.escribir(filas, inversores, historico_completo=leer_historico, filas_bess=filas_bess, disp=disp, bcd=bcd)
+                   disp: dict | None = None, bcd: dict | None = None, alarmas: dict | None = None) -> Path:
+    return excel_indicadores.escribir(filas, inversores, historico_completo=leer_historico, filas_bess=filas_bess, disp=disp, bcd=bcd,
+                                      alarmas=alarmas)
 
 
 def guardar(filas: list[dict], inversores: list[dict], filas_bess: list[dict] | None = None, disp: dict | None = None,
-            bcd: dict | None = None) -> dict:
+            bcd: dict | None = None, alarmas: dict | None = None) -> dict:
     """CSV maestro siempre; Excel con cola de pendientes si esta bloqueado (abierto / OneDrive).
 
     `filas_bess` es el historial BESS completo (ya acotado): la hoja "BESS" se reconstruye entera desde el, asi que
     no necesita cola de pendientes (el CSV BESS ya lo tiene todo). `disp` (filas de disponibilidad + desde + horas de referencia)
     funciona igual: la hoja "Disponibilidad" se reconstruye entera desde disponibilidad.csv, y `bcd` (filas de bess_carga_descarga.csv + ids de
-    los BESS) para la hoja "BESS carga-descarga".
+    los BESS) para la hoja "BESS carga-descarga"; `alarmas` ({planta: filas}) para las hojas "Alarma Histórica *" (también desde su CSV).
     """
     if filas:
         anexar_csv(filas)
     pend = _leer_csv(PENDIENTES)
     total = pend + filas
     try:
-        ruta = escribir_excel(total, inversores, filas_bess, disp, bcd)
+        ruta = escribir_excel(total, inversores, filas_bess, disp, bcd, alarmas)
         if PENDIENTES.exists():
             PENDIENTES.unlink()
         return {"excel": str(ruta), "pendientes": 0}

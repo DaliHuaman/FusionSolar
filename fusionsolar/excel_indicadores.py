@@ -22,6 +22,9 @@ Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (
 columna vacía y con los mismos encabezados (morado / amarillo) de "Indicadores". Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
 agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
 
+Hojas "Alarma Histórica PL / LC / VES": alarmas históricas de FusionSolar acumuladas semana a semana (ver fusionsolar/alarmas_historicas.py);
+se reconstruyen enteras desde `alarmas_historicas.csv`.
+
 Si el archivo existente tiene un diseño anterior (otra VERSION_DISENO), se reconstruye desde el CSV maestro.
 """
 from __future__ import annotations
@@ -38,6 +41,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
+from . import alarmas_historicas as ah
 from .common import CAMPOS_BESS, COLUMNAS, ROOT
 
 HOJA_WIDE = "Indicadores"
@@ -310,6 +314,46 @@ def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref
     ws.freeze_panes = "B4"
 
 
+ANCHOS_ALARMA = [13, 29, 17, 24, 16, 12, 11, 44, 44, 20, 20]     # un ancho por columna de ah.COLUMNAS_HOJA
+
+
+def _hoja_alarmas(wb: Workbook, codigo: str, filas: list[dict]) -> None:
+    """(Re)crea la hoja «Alarma Histórica PL / LC / VES» (tras «Disponibilidad») con las alarmas históricas acumuladas de esa planta.
+
+    Mismas columnas que el Excel de «Alarmas históricas» del portal, pero «Fecha y hora en que ha ocurrido» va ANTES de «Fecha y hora de
+    eliminación». Encabezado morado con letra amarilla (formato Kondu de las demás hojas); lo más reciente arriba; con filtros. Se reconstruye
+    entera desde `alarmas_historicas.csv` en cada corrida (ver fusionsolar/alarmas_historicas.py), así que nunca pierde filas.
+    """
+    nombre = ah.HOJAS[codigo]
+    if nombre in wb.sheetnames:
+        del wb[nombre]
+    anclas = [n for n in (HOJA_BESS, HOJA_BCD, HOJA_DISP, *ah.HOJAS.values()) if n in wb.sheetnames]   # tras la última de estas (PL, LC, VES en ese orden)
+    pos = max((wb.sheetnames.index(n) for n in anclas), default=0) + 1
+    ws = wb.create_sheet(nombre, pos)
+    ws.sheet_view.showGridLines = False
+    fill = PatternFill("solid", fgColor="7B1490")
+    fuente = Font(name="Calibri", size=11, bold=True, color="FFFF00")
+    lado = Side(style="thin")
+    borde = Border(left=lado, right=lado, top=lado, bottom=lado)
+    for j, (titulo, ancho) in enumerate(zip(ah.COLUMNAS_HOJA, ANCHOS_ALARMA), start=1):
+        c = ws.cell(1, j, titulo)
+        c.fill, c.font, c.border = fill, fuente, borde
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        ws.column_dimensions[get_column_letter(j)].width = ancho
+    ws.row_dimensions[1].height = 32
+    fmt_fecha = "yyyy-mm-dd hh:mm:ss"
+    izq = Alignment(horizontal="left", vertical="center")
+    for i, f in enumerate(filas, start=2):
+        for j, (titulo, v) in enumerate(zip(ah.COLUMNAS_HOJA, ah.fila_hoja(f)), start=1):
+            c = ws.cell(i, j, v)
+            if titulo in ah.COLUMNAS_FECHA:
+                c.number_format, c.alignment = fmt_fecha, Alignment(horizontal="center", vertical="center")
+            else:
+                c.alignment = izq
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(ah.COLUMNAS_HOJA))}{max(2, len(filas) + 1)}"
+
+
 def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     """(Re)crea la hoja "BESS" como segunda hoja, con los encabezados morados de "Indicadores":
     fila 1 = BESS (combinada), fila 2 = magnitud, fila 3 = °C; A3 = Horario; datos desde la fila 4."""
@@ -481,13 +525,15 @@ def _actualizar_umbrales(wb: Workbook, umbrales: dict[str, float]) -> None:
 
 def escribir(filas: list[dict], inversores: list[dict],
              historico_completo: Callable[[], list[dict]] | None = None,
-             filas_bess: list[dict] | None = None, disp: dict | None = None, bcd: dict | None = None) -> Path:
+             filas_bess: list[dict] | None = None, disp: dict | None = None, bcd: dict | None = None,
+             alarmas: dict[str, list[dict]] | None = None) -> Path:
     """Anexa las lecturas al Excel. Lanza PermissionError/OSError si el archivo está bloqueado.
 
     `historico_completo` devuelve todas las filas del CSV maestro (que ya incluye `filas`): se usa solo
     para reconstruir el Excel cuando el archivo existente tiene un diseño antiguo.
     `disp` = {"filas": filas de disponibilidad.csv, "desde": "AAAA-MM-DD", "ref": horas de referencia, "pnom": {id: kW}}: si viene,
     se recrea la hoja «Disponibilidad». `bcd` = {"filas": filas de bess_carga_descarga.csv, "ids": [BESS]}: recrea «BESS carga-descarga».
+    `alarmas` = {código de planta: filas de alarmas_historicas.csv (lo más reciente primero)}: recrea «Alarma Histórica PL / LC / VES».
     """
     umbrales = {i["id"]: i["umbral"] for i in inversores}
     ruta = ruta_excel()
@@ -512,6 +558,12 @@ def escribir(filas: list[dict], inversores: list[dict],
         _hoja_disponibilidad(wb, disp["filas"], disp.get("desde"), disp.get("ref", 12), disp.get("pnom"))
     if bcd is not None:
         _hoja_bess_cd(wb, bcd["filas"], bcd.get("ids") or [])
+    if alarmas is not None:
+        for nombre in ah.HOJAS.values():             # se recrean las tres juntas para que queden en orden PL, LC, VES
+            if nombre in wb.sheetnames:
+                del wb[nombre]
+        for codigo in ah.HOJAS:
+            _hoja_alarmas(wb, codigo, alarmas.get(codigo, []))
     if historico_completo:
         _hoja_inicio_temp(wb, historico_completo())
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")

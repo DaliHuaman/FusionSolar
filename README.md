@@ -10,6 +10,8 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
 |---|---|
 | `.github/workflows/actualizar.yml` | **El programador**: ejecuta todo cada 30 min en GitHub |
 | `.github/workflows/disponibilidad.yml` | Cada día a las **06:00 de Lima** lee las horas operativas del día anterior (Disponibilidad) |
+| `.github/workflows/alarmas_historicas.yml` | Cada **domingo 12:00 de Lima** exporta las *Alarmas históricas* del portal (LC, PL y VES) y las acumula |
+| `fusionsolar/alarmas_historicas.py` | Lectura del Excel exportado, acumulado sin pisar nada (`alarmas_historicas.csv`) y relleno inicial |
 | `fusionsolar/disponibilidad.py` | Fórmula de disponibilidad, lectura del Informe de inversores y `disponibilidad.csv` |
 | `run.py` | El código principal que se ejecuta (orquesta todo) |
 | `fusionsolar/scraper.py` | Entra al portal y lee los valores (scraping) |
@@ -40,6 +42,20 @@ Salen de *Real-Time Device Data* del portal («Temperatura interna» y «Fecha y
 - **Historial**: dos columnas nuevas al FINAL de `historico.csv` y de la hoja `Historico` del Excel: `Inicio_Inversor` y `Temp_Interna_C`. El historial anterior no se pierde: al primer guardado el CSV se reescribe con las columnas nuevas (vacías en las filas viejas) y el Excel se reconstruye solo desde el CSV.
 - **Dashboard**: cada tarjeta muestra la temperatura y la hora de inicio actuales; debajo de «Estado de ajuste de potencia activa» hay una gráfica de temperatura interna en el tiempo y otra con la hora del día a la que arrancó cada inversor (un punto por arranque).
 - Si el portal devuelve `--` (por ejemplo de noche), esa lectura queda vacía y la gráfica deja un hueco.
+
+## Alarmas históricas (acumuladas para siempre)
+
+FusionSolar **borra periódicamente** las alarmas históricas por límite de almacenamiento. Para conservarlas todas, cada domingo a las 12:00 (Lima) el workflow `alarmas_historicas.yml` entra a *Alarmas › Alarmas históricas* de cada planta, pulsa **Exportar** (el mismo Excel que se baja a mano) y **suma** lo nuevo a `alarmas_historicas.csv` (rama `data`):
+
+- **Excel**: tres hojas, `Alarma Histórica PL`, `Alarma Histórica LC` y `Alarma Histórica VES`, con el encabezado morado/amarillo de Kondu. Mismas columnas que el portal, pero **«Fecha y hora en que ha ocurrido» va antes de «Fecha y hora de eliminación»**. Lo más reciente arriba, con filtros.
+- **Dashboard**: en *Datos del Excel* hay una pestaña por hoja, con búsqueda, filtro de gravedad, filtro por mes y paginación (50 filas). Las filas van en `data/alarmas_historicas.json`, que el navegador solo descarga al abrir esas pestañas (textos repetidos en diccionario; ~1 MB sin comprimir por cada 10 000 alarmas).
+- **Nunca se pierde ni se pisa una alarma**: clave = planta + SN + ID de alarma + causa + fecha y hora de ocurrencia. Una alarma ya guardada no se reemplaza (solo se rellenan celdas vacías). Antes de reescribir el CSV queda una copia (`alarmas_historicas.csv.bak`) y nunca se escribe un resultado con menos filas.
+- **Primera corrida (relleno)**: recorre el histórico hacia atrás en ventanas de 31 días hasta `inicio_busqueda` (2025-01-01). Si se corta, la siguiente continúa donde quedó (`alarmas_historicas_estado.json`). Para forzarla: *Actions → Alarmas históricas FusionSolar → Run workflow*.
+- **Cada semana**: repasa desde 45 días antes de la última revisión (una alarma entra al histórico cuando se elimina, así que una que ocurrió antes y se eliminó esta semana también se captura) y agrega lo nuevo.
+- **Integridad**: tras Buscar, el portal muestra «Total: N»; el Excel exportado debe traer exactamente N filas dentro de la ventana pedida. Si no cuadra, esa ventana se repite y, si sigue sin cuadrar, no se da por revisada y el workflow termina en error (se relanza solo). Una ventana con 5 000 filas o más se parte en dos.
+- **Errores**: 3 intentos dentro del job (60 s y 120 s de espera) y, si aun así falla, `reintentar.yml` relanza el workflow una vez. Lo ya guardado se conserva y la revisión no avanza sobre lo que falló. Para diagnosticar, lanzarlo a mano con *depurar* (adjunta capturas del portal; el repo es público, no dejarlo activado).
+- **Configuración**: `alarmas_historicas` en `config/inversores.json` (`plantas`, `inicio_busqueda`, `ventana_dias`, `solape_dias`, `max_filas_ventana`, `verificar_total`, `presupuesto_segundos`). Rango manual: `python run.py --alarmas-historicas --desde 2026-01-01 --hasta 2026-03-31`.
+- El Excel y el dashboard muestran lo nuevo en la siguiente corrida de 30 min (igual que *Disponibilidad*). Pruebas sin portal: `python -m unittest discover -s tests -v`.
 
 ## Dashboard: filtro por mes
 

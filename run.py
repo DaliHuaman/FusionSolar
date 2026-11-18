@@ -7,6 +7,8 @@ Uso:
     python run.py --probar-correo # envia un correo de prueba (requiere SMTP_USER / SMTP_PASSWORD) y termina
     python run.py --disponibilidad                 # lee del Informe de inversores las horas operativas de AYER (y repasa los ultimos dias)
     python run.py --disponibilidad --desde 2025-01-01 [--hasta 2026-11-04]   # recorre un rango (la primera vez recorre todo el historial solo)
+    python run.py --alarmas-historicas             # exporta las Alarmas históricas de LC, PL y VES y las suma a alarmas_historicas.csv (semanal)
+    python run.py --alarmas-historicas --desde 2026-01-01 [--hasta 2026-03-31]   # idem, pero solo ese rango de fechas
 """
 from __future__ import annotations
 
@@ -20,9 +22,9 @@ import time
 from datetime import date
 from pathlib import Path
 
-from fusionsolar import alertas, bess_cd, disponibilidad, potencia, sitedata, store, umbrales
+from fusionsolar import alarmas_historicas, alertas, bess_cd, disponibilidad, potencia, sitedata, store, umbrales
 from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
-from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores
+from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores, emparejar_plantas
 
 log = logging.getLogger("fusionsolar")
 LOCK = STATE_DIR / "run.lock"
@@ -158,14 +160,34 @@ def extraer_disponibilidad(cfg: dict, visible: bool, desde: date | None = None, 
         return disponibilidad.actualizar(sc, cfg, ts, desde, hasta)
 
 
+def extraer_alarmas_historicas(cfg: dict, visible: bool, desde: date | None = None, hasta: date | None = None) -> dict:
+    """Alarmas > Alarmas históricas de cada planta: exporta el Excel del portal y suma lo nuevo a alarmas_historicas.csv (sin pisar nada)."""
+    cred = credenciales()
+    ts = now_local(cfg)
+    with Scraper(cred.usuario, cred.clave, headless=not visible) as sc:
+        for intento in (1, 2):
+            try:
+                sc.login()
+                sc.abrir_control()
+                break
+            except ErrorPortal:
+                if intento == 2:
+                    raise
+                log.warning("reintentando login...")
+        plantas = emparejar_plantas(sc.expandir_arbol(), cfg)
+        log.info("Plantas encontradas para alarmas históricas: %s", {c: n["nombre"] for c, n in plantas.items()})
+        return alarmas_historicas.actualizar(sc, cfg, ts, desde, hasta, plantas_nodos=plantas)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--visible", action="store_true")
     ap.add_argument("--descubrir", action="store_true")
     ap.add_argument("--probar-correo", action="store_true")
     ap.add_argument("--disponibilidad", action="store_true", help="solo la disponibilidad diaria (horas operativas del Informe de inversores)")
-    ap.add_argument("--desde", type=date.fromisoformat, help="con --disponibilidad: primer dia a consultar (AAAA-MM-DD)")
-    ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad: ultimo dia a consultar (por defecto ayer)")
+    ap.add_argument("--desde", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: primer dia a consultar (AAAA-MM-DD)")
+    ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: ultimo dia a consultar (por defecto ayer / hoy)")
+    ap.add_argument("--alarmas-historicas", action="store_true", help="solo las alarmas históricas (exporta de cada planta y suma al CSV acumulado)")
     a = ap.parse_args()
 
     load_env()
@@ -184,6 +206,10 @@ def main() -> int:
         if a.descubrir:
             extraer(cfg, a.visible, solo_descubrir=True)
             return 0
+        if a.alarmas_historicas:
+            res = extraer_alarmas_historicas(cfg, a.visible, a.desde, a.hasta)
+            print(json.dumps(res, ensure_ascii=False, default=str))
+            return 1 if res.get("error") else 0
         if a.disponibilidad:
             res = extraer_disponibilidad(cfg, a.visible, a.desde, a.hasta)
             print(json.dumps(res, ensure_ascii=False))
@@ -225,8 +251,16 @@ def main() -> int:
                                   "pnom": {i["id"]: i.get("pnom_kw") for i in cfg["inversores"]}}
                 except Exception as e:
                     log.exception("no se pudo leer disponibilidad.csv: %s", e)
+            filas_alarmas: list[dict] = []
+            alarmas_excel = None
+            if (cfg.get("alarmas_historicas") or {}).get("activo", True):
+                try:                                       # lo escribe aparte `run.py --alarmas-historicas` (semanal); aqui solo se lee
+                    filas_alarmas = alarmas_historicas.leer_filas()
+                    alarmas_excel = alarmas_historicas.por_planta(filas_alarmas)
+                except Exception as e:
+                    log.exception("no se pudo leer alarmas_historicas.csv: %s", e)
             if filas or filas_bess:
-                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp, bcd))
+                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp, bcd, alarmas_excel))
             info["leidos"] = len(filas)
             info.update(extra)
             if filas:                                      # aviso por correo; no lanza y nunca altera la corrida
@@ -240,8 +274,12 @@ def main() -> int:
             if errores:
                 info["errores"] = errores
 
-        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp, filas_cd)
+        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp, filas_cd, filas_alarmas)
         sitedata.escribir(data)
+        try:                                               # vista previa de las hojas «Alarma Histórica *» (archivo aparte, se descarga al abrir la pestaña)
+            sitedata.escribir_alarmas(sitedata.construir_alarmas(filas_alarmas, ts))
+        except Exception as e:
+            log.exception("no se pudo escribir alarmas_historicas.json: %s", e)
         return 0 if info.get("ok", True) else 1
     finally:
         LOCK.unlink(missing_ok=True)
