@@ -143,6 +143,28 @@ JS_TOTAL = """() => {
   return null;
 }"""
 
+# Localiza los dos campos de fecha del filtro «Hora de incidencia» (ver Scraper._campos_fecha).
+JS_CAMPOS_FECHA = """() => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const re = /^\\d{4}-\\d{2}-\\d{2}/;
+  document.querySelectorAll("[data-fs-fecha]").forEach(i => i.removeAttribute("data-fs-fecha"));
+  const inputs = [...document.querySelectorAll("input")].filter(vis);
+  let c = inputs.filter(i => re.test(i.value || ""));
+  if (c.length < 2) {                                   // por la etiqueta «Hora de incidencia»
+    const lab = [...document.querySelectorAll("label, span, div, p")].find(e => e.children.length === 0 && /hora de incidencia|occurrence time|incident time|time of occurrence/i.test(e.textContent || ""));
+    let n = lab && lab.parentElement;
+    for (let k = 0; k < 5 && n; k++, n = n.parentElement) {
+      const f = [...n.querySelectorAll("input")].filter(vis);
+      if (f.length >= 2) { c = f.slice(0, 2); break; }
+    }
+  }
+  if (c.length < 2) c = inputs.filter(i => /fecha|date|inicio|start|fin\\b|end|hasta/i.test(i.placeholder || ""));
+  c.slice(0, 2).forEach((i, k) => i.setAttribute("data-fs-fecha", String(k)));
+  return {n: Math.min(c.length, 2),
+          campos: inputs.slice(0, 20).map(i => ({v: i.value, ph: i.placeholder, t: i.type, c: (i.className || "").toString().slice(0, 50)})),
+          texto: (document.body.innerText || "").replace(/\\s+/g, " ").slice(0, 700)};
+}"""
+
 # Si tras pulsar Exportar aparece una ventana de confirmación, pulsa su botón principal (nunca uno de cancelar/cerrar).
 JS_CONFIRMAR_EXPORTACION = """(textos) => {
   const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
@@ -529,10 +551,19 @@ class Scraper:
         raise ErrorPortal(f"No se pudo abrir Alarmas > Alarmas históricas de la planta {ne}")
 
     def _campos_fecha(self):
-        campos = self.page.locator('input[value^="20"]:visible')
-        if campos.count() < 2:
+        """Los dos campos de «Hora de incidencia» (inicio y fin). Se buscan por el VALOR que muestran (AAAA-MM-DD…), por la etiqueta del filtro o por su
+        placeholder, y se marcan con data-fs-fecha=0/1. Si no aparecen, se deja en el log qué campos y qué texto hay en pantalla (para ajustar)."""
+        pg = self.page
+        r = pg.evaluate(JS_CAMPOS_FECHA)
+        for _ in range(8):                               # la pestaña puede tardar unos segundos en dibujar el filtro
+            if r["n"] >= 2:
+                break
+            pg.wait_for_timeout(1000)
+            r = pg.evaluate(JS_CAMPOS_FECHA)
+        if r["n"] < 2:
+            log.warning("filtro «Hora de incidencia» no encontrado. Campos visibles: %s | Texto de la pantalla: %s", r["campos"], r["texto"])
             raise ErrorPortal("no se encontró el filtro «Hora de incidencia» (inicio y fin)")
-        return campos.nth(0), campos.nth(1)
+        return pg.locator('[data-fs-fecha="0"]'), pg.locator('[data-fs-fecha="1"]')
 
     def _escribir_fecha(self, campo, valor: str) -> None:
         campo.click()
