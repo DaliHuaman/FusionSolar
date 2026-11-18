@@ -177,6 +177,31 @@ JS_CONFIRMAR_EXPORTACION = """(textos) => {
   return false;
 }"""
 
+# Diagnóstico tras pulsar Exportar: textos de ventanas, menús desplegables, avisos y botones visibles (para ajustar sin capturas).
+JS_DIAG_EXPORTAR = """() => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const cut = (e, n) => (e.innerText || e.textContent || "").replace(/\\s+/g, " ").trim().slice(0, n);
+  const sel = '[role="dialog"], [class*="modal"], [class*="dialog"], [class*="popover"], [class*="dropdown"], [class*="menu"], [class*="message"], [class*="notice"], [class*="notification"], [class*="toast"], [class*="drawer"], [class*="popup"]';
+  const capas = [...document.querySelectorAll(sel)].filter(vis).map(e => ({c: (e.className || "").toString().slice(0, 60), t: cut(e, 220)})).filter(x => x.t).slice(0, 12);
+  const botones = [...document.querySelectorAll("button, [role=button], a")].filter(vis).map(b => cut(b, 40)).filter(Boolean);
+  return {capas, botones: [...new Set(botones)].slice(0, 40)};
+}"""
+
+# Si Exportar abre un menú (p. ej. «Exportar todo» / «Excel») pulsa la opción de exportar todo o Excel; nunca una de cancelar.
+JS_ELEGIR_FORMATO = """() => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  const capas = [...document.querySelectorAll('[class*="dropdown"], [class*="popover"], [class*="menu"], [role="menu"], [role="listbox"]')].filter(vis);
+  for (const c of capas) {
+    for (const it of c.querySelectorAll('li, [role="menuitem"], [role="option"], a, button, span')) {
+      if (!vis(it) || it.children.length > 0) continue;
+      const t = norm(it.textContent);
+      if (t && t.length < 40 && /(todo|all|excel|xlsx|\\.xls|completo)/.test(t) && !/(cancel|cerrar|close)/.test(t)) { it.click(); return t; }
+    }
+  }
+  return null;
+}"""
+
 JS_CONFIG = """([labelsUmbral, labelsNombre]) => {
   const norm = s => (s || "").replace(/\\s+/g, " ").replace(/\\s*[:：]\\s*$/, "").trim().toLowerCase();
   const input = labels => {
@@ -611,28 +636,99 @@ class Scraper:
         log.info("Alarmas históricas %s → %s: Total=%s", ini, fin, total)
         return total
 
-    def exportar_alarmas(self, carpeta: Path, espera_s: int = 90) -> Path:
-        """Pulsa Exportar y guarda el Excel descargado en `carpeta`. Si el portal pide confirmar la exportación, la confirma."""
+    def exportar_alarmas(self, carpeta: Path, espera_s: int = 60) -> Path:
+        """Pulsa Exportar y guarda el Excel descargado en `carpeta`.
+
+        Recoge la descarga venga de donde venga: evento de descarga de la página o de una pestaña emergente, o la respuesta
+        de red con adjunto/Excel (se guarda su cuerpo). Si aparece una ventana de confirmación o un menú de formato, los
+        resuelve; si no baja nada, deja en el log lo que muestra el portal para poder ajustarlo.
+        """
         pg = self.page
+        ctx = pg.context
         iniciada: list = []
-        pg.once("download", lambda d: iniciada.append(d))
-        pg.get_by_role("button", name=BOTON_EXPORTAR).first.click()
-        fin = datetime.now().timestamp() + espera_s
-        while not iniciada and datetime.now().timestamp() < fin:
-            pg.wait_for_timeout(1000)
+        respuestas: list = []                            # (url, estado, tipo, disposicion) de las llamadas relevantes
+        cuerpos: list = []                               # respuestas que parecen un archivo
+
+        def al_descargar(d):
+            iniciada.append(d)
+
+        def al_responder(r):
+            try:
+                h = r.headers
+                tipo, disp = h.get("content-type", ""), h.get("content-disposition", "")
+                url = r.url
+                if "attachment" in disp.lower() or re.search(r"sheet|excel|octet-stream|zip", tipo, re.I):
+                    cuerpos.append(r)
+                if len(respuestas) < 25 and (re.search(r"export|download|alarm|defect|task", url, re.I) or disp):
+                    respuestas.append((url.split("?")[0][-90:], r.status, tipo[:50], disp[:60]))
+            except Exception:
+                pass
+
+        def al_abrir_pagina(p):
+            p.on("download", al_descargar)
+
+        pg.on("download", al_descargar)
+        pg.on("response", al_responder)
+        ctx.on("page", al_abrir_pagina)
+        try:
+            pg.get_by_role("button", name=BOTON_EXPORTAR).first.click()
+            t0 = datetime.now().timestamp()
+            fin = t0 + espera_s
+            diag, pulsados = False, set()
+            while not iniciada and not cuerpos and datetime.now().timestamp() < fin:
+                pg.wait_for_timeout(1000)
+                if iniciada or cuerpos:
+                    break
+                for js, arg in ((JS_CONFIRMAR_EXPORTACION, CONFIRMAR_EXPORT), (JS_ELEGIR_FORMATO, None)):
+                    if js in pulsados:                   # cada paso se pulsa una sola vez (no duplicar exportaciones)
+                        continue
+                    try:
+                        r = pg.evaluate(js, arg) if arg is not None else pg.evaluate(js)
+                        if r:
+                            pulsados.add(js)
+                            log.info("Exportar: pulsado «%s»", r if isinstance(r, str) else "confirmar")
+                    except Exception:
+                        pass
+                if not diag and datetime.now().timestamp() - t0 > 6:
+                    diag = True
+                    try:
+                        log.info("Exportar (a los 6 s) sin descarga aún; pantalla: %s", pg.evaluate(JS_DIAG_EXPORTAR))
+                    except Exception:
+                        pass
+            if not iniciada and cuerpos:                 # una respuesta con adjunto casi siempre trae también el evento de descarga
+                for _ in range(8):
+                    if iniciada:
+                        break
+                    pg.wait_for_timeout(500)
+            if not iniciada and cuerpos:
+                r = cuerpos[0]
+                nombre = re.sub(r"[^\w.\- ]", "_", (re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)', r.headers.get("content-disposition", "")) or [None, "alarmas.xlsx"])[1])
+                ruta = carpeta / f"{datetime.now():%H%M%S%f}_{nombre}"
+                ruta.write_bytes(r.body())
+                return ruta
             if not iniciada:
                 try:
-                    pg.evaluate(JS_CONFIRMAR_EXPORTACION, CONFIRMAR_EXPORT)
+                    log.warning("Exportar sin descarga. Pantalla: %s", pg.evaluate(JS_DIAG_EXPORTAR))
                 except Exception:
                     pass
-        if not iniciada:
-            self.captura("alarmas_exportar_fallo")
-            raise ErrorPortal("el portal no descargó el Excel de alarmas históricas tras pulsar Exportar")
-        d = iniciada[0]
-        nombre = re.sub(r"[^\w.\- ]", "_", d.suggested_filename or "alarmas.xlsx")
-        ruta = carpeta / f"{datetime.now():%H%M%S%f}_{nombre}"
-        d.save_as(str(ruta))
-        return ruta
+                log.warning("Exportar sin descarga. Llamadas de red: %s", respuestas)
+                self.captura("alarmas_exportar_fallo")
+                raise ErrorPortal("el portal no descargó el Excel de alarmas históricas tras pulsar Exportar")
+            d = iniciada[0]
+            nombre = re.sub(r"[^\w.\- ]", "_", d.suggested_filename or "alarmas.xlsx")
+            ruta = carpeta / f"{datetime.now():%H%M%S%f}_{nombre}"
+            d.save_as(str(ruta))
+            return ruta
+        finally:
+            for ev, fn in (("download", al_descargar), ("response", al_responder)):
+                try:
+                    pg.remove_listener(ev, fn)
+                except Exception:
+                    pass
+            try:
+                ctx.remove_listener("page", al_abrir_pagina)
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------ lectura de un BESS
     def leer_bess(self, ne: str, nombre: str) -> dict:
