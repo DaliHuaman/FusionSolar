@@ -239,3 +239,17 @@ h2{letter-spacing:-.01em}
 
 /* Encabezados de inversor y de columnas centrados (el primero de cada fila heredaba la alineación izquierda) */
 .tabla.excel thead th.i,.tabla.excel thead th.u{text-align:center}
+
+/* Hojas «Alarma Histórica PL / LC / VES»: barra de búsqueda, filtro de gravedad y paginación */
+.ah-barra{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 10px}
+.ah-barra input[type=search],.ah-barra select{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--fg);min-width:0}
+.ah-barra input[type=search]{flex:1 1 220px;max-width:340px}
+.ah-barra .ah-info{color:var(--fg-3);font-size:13px;margin-left:auto}
+.ah-barra .ah-pag{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--fg-2)}
+.ah-barra .ah-pag button{font:inherit;font-size:13px;padding:5px 11px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--fg);cursor:pointer}
+.ah-barra .ah-pag button:disabled{opacity:.45;cursor:default}
+.ah-barra .ah-pag button:not(:disabled):hover{border-color:var(--accent-hi)}
+.tabla.excel td.ah-t{text-align:left}
+.tabla.excel td.ah-w{white-space:normal;min-width:220px}
+.tabla.excel th.g.ah-h{white-space:normal;min-width:90px;line-height:1.25}
+@media (max-width:640px){.ah-barra .ah-info{margin-left:0;flex-basis:100%}}

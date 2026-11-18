@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import calendar
 import json
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
+from . import alarmas_historicas as ah
 from . import disponibilidad as disp
 from .common import CAMPOS_BESS, STATE_DIR, leer_json
 
@@ -81,13 +83,59 @@ def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
     return out
 
 
+def _alarmas_meta(filas: list[dict]) -> dict:
+    """Bloque «alarmas_hist» de data.json: solo lo mínimo (cuántas hay y desde cuándo); las filas van aparte en alarmas_historicas.json,
+    que el dashboard descarga únicamente al abrir esa pestaña. `v` cambia cuando hay alarmas nuevas (rompe la caché de ese archivo)."""
+    n = {c: 0 for c in ah.HOJAS}
+    ult: dict[str, str] = {}
+    prim: dict[str, str] = {}
+    for f in filas:
+        c = f["Planta"]
+        n[c] = n.get(c, 0) + 1
+        o = f[ah.C_FOCURRE][:10]
+        ult[c] = max(ult.get(c, o), o)
+        prim[c] = min(prim.get(c, o), o)
+    cap = max((f.get("Capturado", "") for f in filas), default="")
+    return {"hojas": ah.HOJAS, "n": n, "desde": prim, "hasta": ult, "v": f"{sum(n.values())}-{re.sub(r'[^0-9]', '', cap)}"}
+
+
+def construir_alarmas(filas: list[dict], ahora: datetime) -> dict:
+    """alarmas_historicas.json: filas compactas por planta (lo más reciente primero) con los textos repetidos en diccionarios.
+
+    fila = [gravedad, tipo de dispositivo, dispositivo, SN, causa, ID de alarma, nombre, tipo de eliminación, ocurrió, eliminada]
+    donde gravedad, tipo, dispositivo, nombre y tipo de eliminación son índices de `dic`. Así 10 000 alarmas pesan ~1 MB sin comprimir
+    (~150 KB con la compresión de GitHub Pages) y el navegador las pagina sin dibujarlas todas.
+    """
+    dic: dict[str, list[str]] = {k: [] for k in ("grav", "tipo", "disp", "nombre", "elim")}
+    pos: dict[str, dict[str, int]] = {k: {} for k in dic}
+
+    def i(k: str, v: str) -> int:
+        d = pos[k]
+        if v not in d:
+            d[v] = len(dic[k])
+            dic[k].append(v)
+        return d[v]
+
+    plantas = {c: [] for c in ah.HOJAS}
+    nombres: dict[str, str] = {}
+    for c, lst in ah.por_planta(filas).items():
+        for f in lst:
+            nombres.setdefault(c, f.get(ah.C_PLANTA, ""))
+            plantas.setdefault(c, []).append([
+                i("grav", f[ah.C_GRAVEDAD]), i("tipo", f[ah.C_TIPO]), i("disp", f[ah.C_DISP]), f[ah.C_SN], f[ah.C_CAUSA], f[ah.C_ID],
+                i("nombre", f[ah.C_NOMBRE]), i("elim", f[ah.C_ELIM]), f[ah.C_FOCURRE], f[ah.C_FELIM]])
+    return {"generado": ahora.strftime("%Y-%m-%d %H:%M:%S"), "meta": _alarmas_meta(filas), "columnas": ah.COLUMNAS_HOJA,
+            "planta": nombres, "dic": dic, "filas": plantas}
+
+
 def _num(x):
     return None if pd.isna(x) else float(x)
 
 
 def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: datetime,
               info_corrida: dict | None = None, filas_bess: list[dict] | None = None,
-              filas_disp: list[dict] | None = None, filas_cd: list[dict] | None = None) -> dict:
+              filas_disp: list[dict] | None = None, filas_cd: list[dict] | None = None,
+              filas_alarmas: list[dict] | None = None) -> dict:
     invs = cfg["inversores"]
     out: dict = {
         "generado": ahora.strftime("%Y-%m-%d %H:%M:%S"),
@@ -101,6 +149,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "ultima": {}, "serie": {}, "inicio": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
         "bess": {**_bess(cfg, filas_bess or [], ahora), "cd": _carga_descarga(cfg, filas_cd or [])},
         "disponibilidad": _disponibilidad(cfg, filas_disp or []),
+        "alarmas_hist": _alarmas_meta(filas_alarmas or []),
     }
     df = pd.DataFrame(filas)
     if df.empty:
@@ -171,6 +220,11 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         for r in lim.itertuples()
     ]
     return out
+
+
+def escribir_alarmas(data: dict, destino: Path | None = None) -> Path:
+    """Escribe alarmas_historicas.json junto a data.json (de forma atómica)."""
+    return escribir(data, destino or (SITE_DIR / "data" / "alarmas_historicas.json"))
 
 
 def escribir(data: dict, destino: Path | None = None) -> Path:

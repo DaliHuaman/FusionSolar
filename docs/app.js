@@ -731,12 +731,115 @@
   const fHms = ts => { const d = new Date(ts * 1000); return pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds()); };
 
   function pintarExcel() {
+    const hayAh = !!D.alarmas_hist;
+    document.querySelectorAll("#tabs-excel .ah-tab").forEach(b => { b.hidden = !hayAh; });
+    if (!hayAh && S.tabla.startsWith("ah-")) S.tabla = "inv";
     document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
-    $("#nota-excel").textContent = NOTAS_TABLA[S.tabla];
+    const esAh = S.tabla.startsWith("ah-");
+    $("#ah-barra").hidden = !esAh;
+    $("#nota-excel").textContent = esAh ? notaAh(S.tabla.slice(3)) : NOTAS_TABLA[S.tabla];
     const t = $("#t-excel");
+    if (esAh) { tablaAlarmasHist(t, S.tabla.slice(3)); return; }
     if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t); else if (S.tabla === "bcd") tablaBcd(t);
     else if (S.tabla === "disp") tablaDisp(t, ordenGrupos(), (D.disponibilidad || {}).excel_desde, 800, "excel-disp");
     else tablaInversores(t);
+  }
+
+  // ---------------------------------------------------------------- hojas «Alarma Histórica PL / LC / VES»
+  // Las filas (pueden ser miles) viven en data/alarmas_historicas.json, que solo se descarga al abrir una de estas pestañas (y solo se vuelve a
+  // bajar cuando hay alarmas nuevas). Se muestran de a AH_PAG filas con búsqueda, filtro de gravedad y de mes: el navegador nunca dibuja miles de filas.
+  const AH_PAG = 50;
+  const AH = { v: null, datos: null, estado: "", pag: 1, q: "", grav: "", clave: "" };
+  const claseGrav = g => { const x = (g || "").toLowerCase(); return /cr[ií]tic/.test(x) ? "bad" : /mayor|grave/.test(x) ? "warn" : "nd"; };
+  const fFechaN = n => n == null ? "" : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  function notaAh(cod) {
+    const m = D.alarmas_hist || {}, n = (m.n || {})[cod] || 0, nom = (m.hojas || {})[cod] || "Alarma Histórica " + cod;
+    const rango = n && m.desde && m.desde[cod] ? ` ${fFechaN(n)} alarma${n === 1 ? "" : "s"}, del ${m.desde[cod].split("-").reverse().join("/")} al ${m.hasta[cod].split("-").reverse().join("/")}.` : "";
+    return `Misma vista de la hoja «${nom}» del Excel: alarmas históricas de FusionSolar acumuladas (el portal las borra periódicamente; aquí se conservan todas). ` +
+      `Se actualiza los domingos a las 12:00 (Lima) sumando las alarmas nuevas; lo más reciente arriba.${rango}`;
+  }
+
+  async function cargarAlarmasHist() {
+    const v = (D.alarmas_hist || {}).v || "0";
+    if (AH.datos && AH.v === v) return;
+    AH.estado = "cargando";
+    try {
+      const r = await fetch("data/alarmas_historicas.json?v=" + encodeURIComponent(v), { cache: "default" });
+      if (!r.ok) throw new Error(r.status);
+      AH.datos = await r.json();
+      AH.v = v;
+      AH.estado = "ok";
+    } catch (e) {
+      AH.estado = "error";
+    }
+    if (D && S.tabla.startsWith("ah-")) pintarExcel();
+  }
+
+  function tablaAlarmasHist(t, cod) {
+    const barra = $("#ah-barra");
+    if (!AH.datos || AH.v !== (D.alarmas_hist || {}).v) {
+      barra.replaceChildren();
+      vacioTabla(t, AH.estado === "error" ? "No se pudieron cargar las alarmas históricas (data/alarmas_historicas.json). Se reintenta al volver a abrir la pestaña." : "Cargando alarmas históricas…");
+      if (AH.estado !== "cargando") cargarAlarmasHist();
+      return;
+    }
+    const d = AH.datos, dic = d.dic, cols = d.columnas;
+    const todas = (d.filas || {})[cod] || [];
+    if (AH.clave !== cod) { AH.clave = cod; AH.pag = 1; AH.q = ""; AH.grav = ""; }
+    if (!todas.length) {
+      barra.replaceChildren();
+      vacioTabla(t, "Aún no hay alarmas históricas guardadas: la primera extracción (domingo 12:00, hora de Lima) trae todo el histórico que tenga el portal.");
+      return;
+    }
+    const clv = "excel-ah-" + cod;
+    const fm = aplicarMes(clv, todas, r => r[8].slice(0, 7));
+    const q = AH.q.trim().toLowerCase();
+    const filas = fm.filas.filter(r => (!AH.grav || dic.grav[r[0]] === AH.grav) &&
+      (!q || [dic.disp[r[2]], r[3], r[4], r[5], dic.nombre[r[6]], dic.elim[r[7]], dic.tipo[r[1]], r[8], r[9]].join(" ").toLowerCase().includes(q)));
+    const paginas = Math.max(1, Math.ceil(filas.length / AH_PAG));
+    AH.pag = Math.min(Math.max(1, AH.pag), paginas);
+    const desde = (AH.pag - 1) * AH_PAG, vista = filas.slice(desde, desde + AH_PAG);
+
+    const rep = () => tablaAlarmasHist(t, cod);
+    const busca = el("input", { type: "search", placeholder: "Buscar dispositivo, SN, alarma…", "aria-label": "Buscar en las alarmas", value: AH.q });
+    busca.addEventListener("input", () => { AH.q = busca.value; AH.pag = 1; clearTimeout(busca._t); busca._t = setTimeout(() => { rep(); const n = $("#ah-barra input[type=search]"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 250); });
+    const grav = el("select", { "aria-label": "Gravedad" }, el("option", { value: "", text: "Todas las gravedades" }),
+      ...dic.grav.map(g => el("option", { value: g, text: g, ...(g === AH.grav ? { selected: "" } : {}) })));
+    grav.addEventListener("change", () => { AH.grav = grav.value; AH.pag = 1; rep(); });
+    const ant = el("button", { type: "button", text: "‹ Anterior", ...(AH.pag <= 1 ? { disabled: "" } : {}) });
+    const sig = el("button", { type: "button", text: "Siguiente ›", ...(AH.pag >= paginas ? { disabled: "" } : {}) });
+    ant.addEventListener("click", () => { AH.pag--; rep(); });
+    sig.addEventListener("click", () => { AH.pag++; rep(); });
+    const info = filas.length === todas.length ? `${fFechaN(filas.length)} alarmas` : `${fFechaN(filas.length)} de ${fFechaN(todas.length)} alarmas`;
+    const enfocado = document.activeElement === $("#ah-barra input[type=search]");
+    barra.replaceChildren(busca, grav, el("span", { class: "ah-pag" }, ant, el("span", { text: `Página ${AH.pag} de ${paginas}` }), sig),
+      el("span", { class: "ah-info", text: info + (filas.length ? ` · mostrando ${fFechaN(desde + 1)}–${fFechaN(desde + vista.length)}` : "") }));
+    if (enfocado) { busca.focus(); busca.setSelectionRange(busca.value.length, busca.value.length); }
+
+    if (!filas.length) { vacioTabla(t, "Ninguna alarma coincide con el filtro."); return; }
+    const h = el("tr");
+    cols.forEach((c, j) => {
+      const th = el("th", { class: "g ah-h", text: c });
+      h.append(j === 9 ? filtroMes(th, clv, fm.meses, fm.sel, rep) : th);       // el mes se filtra por «Fecha y hora en que ha ocurrido»
+    });
+    const body = el("tbody");
+    vista.forEach(r => {
+      const gv = dic.grav[r[0]];
+      body.append(el("tr", {},
+        el("td", { class: "ah-t" }, el("span", { class: "pill " + claseGrav(gv), text: gv })),
+        el("td", { class: "ah-t", text: (d.planta || {})[cod] || cod }),
+        el("td", { class: "ah-t", text: dic.tipo[r[1]] }),
+        el("td", { class: "ah-t", text: dic.disp[r[2]] }),
+        el("td", { class: "ah-t", text: r[3] }),
+        el("td", { text: r[4] }),
+        el("td", { text: r[5] }),
+        el("td", { class: "ah-t ah-w", text: dic.nombre[r[6]] }),
+        el("td", { class: "ah-t ah-w", text: dic.elim[r[7]] }),
+        el("td", { text: r[8] }),
+        el("td", { text: r[9] })));
+    });
+    t.replaceChildren(el("thead", {}, h), body);
   }
 
   function tablaBess(t) {

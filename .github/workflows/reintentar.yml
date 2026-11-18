@@ -1,11 +1,11 @@
 name: Relanzar corrida fallida
 
-# Red de seguridad: si "Actualizar indicadores" o "Disponibilidad diaria" terminan en falla aun con los reintentos
+# Red de seguridad: si "Actualizar indicadores" o "Disponibilidad diaria" o "Alarmas históricas" terminan en falla aun con los reintentos
 # internos (p. ej. el runner se quedó sin red en un paso que no se reintenta), se vuelven a lanzar UNA vez.
 # Solo relanza el primer intento (run_attempt 1), así que no puede entrar en bucle.
 on:
   workflow_run:
-    workflows: ["Actualizar indicadores FusionSolar", "Disponibilidad diaria FusionSolar"]
+    workflows: ["Actualizar indicadores FusionSolar", "Disponibilidad diaria FusionSolar", "Alarmas históricas FusionSolar"]
     types: [completed]
 
 permissions:
