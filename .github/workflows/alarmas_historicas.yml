@@ -1,0 +1,107 @@
+name: Alarmas históricas FusionSolar
+
+# Cada domingo a las 12:00 (mediodía) de Lima se exportan de FusionSolar (Alarmas > Alarmas históricas > Exportar) las alarmas de las
+# plantas LC, PL y VES y se SUMAN a alarmas_historicas.csv (rama "data"): nunca se pisa ni se pierde una fila ya guardada (el portal borra
+# periódicamente las alarmas históricas por límite de almacenamiento). La primera corrida recorre todo el histórico que tenga el portal
+# (relleno hacia atrás); las siguientes solo repasan las últimas semanas (con solape) y agregan lo nuevo. Ver fusionsolar/alarmas_historicas.py.
+# El Excel («Alarma Histórica PL / LC / VES») y la vista previa del dashboard se actualizan en la siguiente corrida de 30 min.
+#
+# Hora: Lima es UTC-5 todo el año (sin horario de verano), así que 12:00 Lima = 17:00 UTC. Se usa el minuto 7 para evitar el pico de las 17:00
+# en punto, donde GitHub retrasa más las ejecuciones. Como GitHub puede demorar los "schedule", conviene además crear en cron-job.org un
+# trabajo semanal (domingos 12:00, America/Lima) con la misma llamada workflow_dispatch que ya usa "actualizar.yml" pero apuntando a este
+# archivo (alarmas_historicas.yml); si ambos coinciden, el segundo solo repasa lo ya guardado (no duplica nada).
+on:
+  schedule:
+    - cron: "7 17 * * 0"
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Solo ese rango: primer día a consultar (AAAA-MM-DD). Vacío = lo normal (relleno inicial o repaso semanal)"
+        type: string
+        default: ""
+      hasta:
+        description: "Último día a consultar (AAAA-MM-DD). Vacío = hoy"
+        type: string
+        default: ""
+      depurar:
+        description: "Si falla, adjuntar capturas de pantalla del portal (solo para diagnosticar; el repo es público, no dejar activado)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write                # publicar la rama "data"
+
+# Misma cola que la corrida de cada 30 min: las dos escriben la rama "data" y no deben pisarse.
+concurrency:
+  group: fusionsolar-actualizar
+  cancel-in-progress: false
+
+jobs:
+  alarmas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias y navegador
+        run: |
+          bash .github/scripts/reintentar.sh 3 15 pip install -r requirements.txt
+          bash .github/scripts/reintentar.sh 3 15 python -m playwright install chromium
+          timeout 180 python -m playwright install-deps chromium \
+            || echo "::warning::No se pudieron instalar dependencias apt de Playwright (espejos Ubuntu); se continúa con las de la imagen."
+
+      - name: Traer histórico (rama data)
+        run: |
+          REMOTE="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" data >/dev/null 2>&1; then
+            bash .github/scripts/reintentar.sh 3 10 git clone --depth 1 --branch data "$REMOTE" datos
+          else
+            mkdir datos && git -C datos init -q -b data && git -C datos remote add origin "$REMOTE"
+          fi
+
+      - name: Exportar las alarmas históricas de FusionSolar
+        id: extraer
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+        # Si falla (portal caído, login, red) se repite hasta 2 veces más tras 60 s y 120 s; lo ya guardado se conserva y cada intento
+        # continúa donde quedó. Cada intento tiene tope de 25 min y se borra el candado de run.py (si timeout cortó el anterior, quedaría).
+        run: |
+          ARGS=""
+          if [ -n "$DESDE" ]; then ARGS="$ARGS --desde $DESDE"; fi
+          if [ -n "$HASTA" ]; then ARGS="$ARGS --hasta $HASTA"; fi
+          export ARGS          # se expande dentro del bash -c (sin eval): las fechas las valida argparse
+          bash .github/scripts/reintentar.sh 3 60 \
+            bash -c 'rm -f "$FUSIONSOLAR_STATE/run.lock"; timeout 1500 python run.py --alarmas-historicas $ARGS'
+
+      # Se guarda también si la extracción falló a medias: lo ya sumado se conserva y la revisión no avanza sobre lo que falló.
+      # (Si ni siquiera se pudo traer la rama "data", la extracción se omite y aquí no se publica nada.)
+      - name: Guardar histórico (rama data)
+        if: ${{ always() && (steps.extraer.outcome == 'success' || steps.extraer.outcome == 'failure') }}
+        run: |
+          test -f datos/historico.csv || { echo "::error::No hay histórico.csv en la rama data traída; no se publica nada."; exit 1; }
+          cd datos
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+            commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (alarmas históricas)" 2>/dev/null \
+            || git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+                 commit -q -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (alarmas históricas)"
+          bash "$GITHUB_WORKSPACE/.github/scripts/reintentar.sh" 3 10 git push -q --force origin HEAD:data
+
+      - name: Capturas del portal (solo si se pidió depurar)
+        if: ${{ failure() && inputs.depurar }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-portal
+          path: ${{ runner.temp }}/fusionsolar/debug
+          retention-days: 3
+          if-no-files-found: ignore

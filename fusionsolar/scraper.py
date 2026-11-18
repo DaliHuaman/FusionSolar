@@ -55,6 +55,10 @@ API_INFORME = "/rest/pvms/web/report/v1/inverter/energy-generate-kpi-list"
 ETIQ_HORAS_RED = ["duración de conexión a la red", "grid connection duration", "grid connected duration"]
 ETIQ_RENDIMIENTO = ["rendimiento", "yield", "energy yield"]      # kWh del día: distingue "sin datos" de "no se conectó a la red"
 BOTON_BUSCAR = re.compile(r"^(Buscar|Search)$")
+# Alarmas > Alarmas históricas: pestaña, botón de exportación y confirmación (por si el portal la pide)
+TAB_ALARMAS_HIST = re.compile(r"^\s*(Alarmas históricas|Historical alarms)\s*$", re.I)
+BOTON_EXPORTAR = re.compile(r"^\s*(Exportar|Export)\s*$", re.I)
+CONFIRMAR_EXPORT = ["exportar", "export", "aceptar", "accept", "confirmar", "confirm", "ok", "sí", "si", "yes", "descargar", "download"]
 
 JS_NODOS = """els => els.map(e => {
   const li = e.closest("li.node-line");
@@ -126,6 +130,29 @@ JS_TABLA_INFORME = """([etiquetas, etiquetasRend]) => {
   const filas = [...document.querySelectorAll("tr.dpdesign-table-row")].map(tr => [...tr.querySelectorAll("td")].map(td => td.textContent.trim()))
     .filter(f => f.some(x => x));
   return {col: i, colRend: j, nombres: ths, filas};
+}"""
+
+# «Total: 4» al pie de la tabla de alarmas (el portal lo muestra tras Buscar); None si no se encuentra.
+JS_TOTAL = """() => {
+  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  for (const e of document.querySelectorAll("div, span, p, li")) {
+    if (e.children.length > 1) continue;
+    const m = /^\\s*(?:Total|Total de)\\s*:?\\s*([\\d.,]+)\\s*(?:elementos|items|alarmas)?\\s*$/i.exec((e.textContent || "").replace(/\\u00a0/g, " "));
+    if (m && vis(e)) return parseInt(m[1].replace(/[.,]/g, ""), 10);
+  }
+  return null;
+}"""
+
+# Si tras pulsar Exportar aparece una ventana de confirmación, pulsa su botón principal (nunca uno de cancelar/cerrar).
+JS_CONFIRMAR_EXPORTACION = """(textos) => {
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  for (const m of document.querySelectorAll('[role="dialog"], [class*="modal"][class*="wrap"], .ant-modal, .dpdesign-modal')) {
+    if (!vis(m)) continue;
+    const b = [...m.querySelectorAll("button, [role=button]")].filter(vis).find(x => textos.includes(norm(x.textContent)));
+    if (b) { b.click(); return true; }
+  }
+  return false;
 }"""
 
 JS_CONFIG = """([labelsUmbral, labelsNombre]) => {
@@ -478,6 +505,104 @@ class Scraper:
         return [{"planta": f[0], "dispositivo": f[1], "horas": parse_num(f[t["col"]]),
                  "rend": parse_num(f[t["colRend"]]) if t["colRend"] >= 0 else None} for f in t["filas"]]
 
+    # ------------------------------------------------------------------ Alarmas > Alarmas históricas (exportar)
+    def abrir_alarmas_historicas(self, ne: str) -> None:
+        """Abre la planta `ne` (nodo del árbol, p. ej. 'NE=61778848') > Alarmas > Alarmas históricas, con el filtro y el botón Buscar a la vista."""
+        pg = self.page
+        ne = ne if ne.upper().startswith("NE=") else f"NE={ne}"
+        for intento in range(3):
+            try:
+                self._cerrar_avisos()
+                pg.evaluate(f"location.hash = {('#/view/station/' + ne + '/defect-manage')!r}")
+                tab = pg.get_by_text(TAB_ALARMAS_HIST).last
+                tab.wait_for(state="visible", timeout=30000)
+                tab.click()
+                pg.get_by_role("button", name=BOTON_BUSCAR).first.wait_for(state="visible", timeout=20000)
+                pg.wait_for_timeout(1500)
+                self._cerrar_avisos()
+                log.info("Alarmas históricas abiertas (%s)", ne)
+                return
+            except (PWTimeout, PWError):
+                log.warning("abrir_alarmas_historicas %s intento %s fallo", ne, intento + 1)
+                pg.wait_for_timeout(2000)
+        self.captura("alarmas_hist_fallo")
+        raise ErrorPortal(f"No se pudo abrir Alarmas > Alarmas históricas de la planta {ne}")
+
+    def _campos_fecha(self):
+        campos = self.page.locator('input[value^="20"]:visible')
+        if campos.count() < 2:
+            raise ErrorPortal("no se encontró el filtro «Hora de incidencia» (inicio y fin)")
+        return campos.nth(0), campos.nth(1)
+
+    def _escribir_fecha(self, campo, valor: str) -> None:
+        campo.click()
+        self.page.keyboard.press("Control+A")
+        self.page.keyboard.type(valor)
+        self.page.keyboard.press("Enter")
+        self.page.wait_for_timeout(300)
+
+    def buscar_alarmas(self, desde: datetime, hasta: datetime) -> int | None:
+        """Pone «Hora de incidencia» = [desde, hasta], pulsa Buscar y devuelve el «Total: N» que muestra el portal (None si no se pudo leer)."""
+        pg = self.page
+        ini, fin = desde.strftime("%Y-%m-%d %H:%M:%S"), hasta.strftime("%Y-%m-%d %H:%M:%S")
+        for intento in range(3):
+            self._cerrar_avisos(intentos=1)
+            a, b = self._campos_fecha()
+            self._escribir_fecha(a, ini)
+            a, b = self._campos_fecha()
+            self._escribir_fecha(b, fin)
+            for txt in ("Aceptar", "OK", "Confirmar", "Accept"):      # algunos selectores de rango piden confirmar
+                btn = pg.locator(f'[class*="picker"] button:visible:text-is("{txt}")')
+                if btn.count():
+                    btn.first.click()
+                    break
+            pg.wait_for_timeout(300)
+            a, b = self._campos_fecha()
+            if a.input_value().strip() == ini and b.input_value().strip() == fin:
+                break
+            log.warning("filtro de fechas no quedó en %s → %s (%r / %r); reintento", ini, fin, a.input_value(), b.input_value())
+            pg.keyboard.press("Escape")
+        else:
+            self.captura("alarmas_filtro_fecha")
+            raise ErrorPortal(f"no se pudo fijar la «Hora de incidencia» {ini} → {fin}")
+        pg.get_by_role("button", name=BOTON_BUSCAR).first.click()
+        try:
+            pg.wait_for_load_state("networkidle", timeout=20000)
+        except PWTimeout:
+            pass
+        total = previo = None
+        for _ in range(8):                               # espera a que «Total» se estabilice (dos lecturas iguales)
+            pg.wait_for_timeout(800)
+            total = pg.evaluate(JS_TOTAL)
+            if total is not None and total == previo:
+                break
+            previo = total
+        log.info("Alarmas históricas %s → %s: Total=%s", ini, fin, total)
+        return total
+
+    def exportar_alarmas(self, carpeta: Path, espera_s: int = 90) -> Path:
+        """Pulsa Exportar y guarda el Excel descargado en `carpeta`. Si el portal pide confirmar la exportación, la confirma."""
+        pg = self.page
+        iniciada: list = []
+        pg.once("download", lambda d: iniciada.append(d))
+        pg.get_by_role("button", name=BOTON_EXPORTAR).first.click()
+        fin = datetime.now().timestamp() + espera_s
+        while not iniciada and datetime.now().timestamp() < fin:
+            pg.wait_for_timeout(1000)
+            if not iniciada:
+                try:
+                    pg.evaluate(JS_CONFIRMAR_EXPORTACION, CONFIRMAR_EXPORT)
+                except Exception:
+                    pass
+        if not iniciada:
+            self.captura("alarmas_exportar_fallo")
+            raise ErrorPortal("el portal no descargó el Excel de alarmas históricas tras pulsar Exportar")
+        d = iniciada[0]
+        nombre = re.sub(r"[^\w.\- ]", "_", d.suggested_filename or "alarmas.xlsx")
+        ruta = carpeta / f"{datetime.now():%H%M%S%f}_{nombre}"
+        d.save_as(str(ruta))
+        return ruta
+
     # ------------------------------------------------------------------ lectura de un BESS
     def leer_bess(self, ne: str, nombre: str) -> dict:
         """Temperaturas de un BESS (Control > BESS > Detalles). Reintenta una vez si todo viene vacio."""
@@ -560,6 +685,17 @@ def emparejar_inversores(nodos: list[dict], cfg: dict) -> tuple[dict[str, dict],
         else:
             faltan.append(inv["id"])
     return encontrados, faltan
+
+
+def emparejar_plantas(nodos: list[dict], cfg: dict) -> dict[str, dict]:
+    """{código de planta: nodo del árbol} (icono 20801) usando `plantas[].buscar`; las plantas que no se ven simplemente no aparecen."""
+    out: dict[str, dict] = {}
+    for p in cfg["plantas"]:
+        nodo = next((n for n in nodos if n["icono"].startswith("20801")
+                     and any(b.lower() in n["nombre"].lower() for b in p["buscar"])), None)
+        if nodo:
+            out[p["codigo"]] = nodo
+    return out
 
 
 def emparejar_bess(nodos: list[dict], cfg: dict) -> tuple[dict[str, dict], list[str]]:
