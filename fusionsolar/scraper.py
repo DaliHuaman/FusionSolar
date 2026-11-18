@@ -207,17 +207,29 @@ JS_ELEGIR_FORMATO = """() => {
 JS_TAREA_EXPORTACION = """(accion) => {
   const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
   const cut = (e, n) => (e.innerText || e.textContent || "").replace(/\\s+/g, " ").trim().slice(0, n);
+  const clase = e => ((e.className && e.className.baseVal !== undefined ? e.className.baseVal : e.className) || "").toString();
   const raiz = [...document.querySelectorAll(".nco-download-task-list-modal, [class*='download-task']")].find(vis);
   if (!raiz) return null;
-  const filas = [...raiz.querySelectorAll("tbody tr, .ant-table-row")].filter(f => vis(f) && cut(f, 5) && !/measure-row/.test(f.className || ""));
-  const f = filas[0];
-  if (!f) return {filas: 0};
-  const re = /descargar|download/i;
-  const cand = [...f.querySelectorAll("a, button, [role=button], span, i, svg, [class*='download']")].filter(vis);
-  const dl = cand.find(c => re.test((c.textContent || "") + " " + (c.getAttribute("title") || "") + " " + (c.getAttribute("aria-label") || "") + " " + ((c.className && c.className.baseVal !== undefined ? c.className.baseVal : c.className) || "")));
-  const out = {filas: filas.length, fila: cut(f, 160), descarga: dl ? (cut(dl, 30) || (dl.getAttribute("title") || "")) : null};
-  if (!dl && accion === "diag") out.html = f.outerHTML.slice(0, 900);
-  if (dl && accion === "clic") { (dl.closest("a, button, [role=button]") || dl).click(); out.clic = true; }
+  // La tabla del portal no usa <tr>: la fila se localiza por su «Fecha de creación» (AAAA-MM-DD hh:mm:ss); la más alta es la más reciente.
+  const fechas = [...raiz.querySelectorAll("*")].filter(e => e.children.length === 0 && vis(e) && /^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/.test((e.textContent || "").trim()))
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+  if (!fechas.length) return {filas: 0, texto: cut(raiz, 200)};
+  let f = fechas[0];
+  while (f.parentElement && f.parentElement !== raiz && fechas.filter(x => f.parentElement.contains(x)).length === 1) f = f.parentElement;
+  const re = /descargar|download/i, malo = /delet|elimin|remove|trash|cancel|borrar/i;
+  const todos = [...f.querySelectorAll("*")].filter(vis);
+  const etiqueta = c => (c.textContent || "") + " " + (c.getAttribute("title") || "") + " " + (c.getAttribute("aria-label") || "") + " " + clase(c);
+  const hit = todos.filter(c => re.test(etiqueta(c)));
+  const dl = hit.find(c => !hit.some(o => o !== c && c.contains(o))) || null;      // el más interno (no su contenedor)
+  const out = {filas: fechas.length, fila: cut(f, 160), descarga: dl ? (cut(dl, 30) || dl.getAttribute("title") || clase(dl)) : null};
+  if (accion === "diag") out.html = f.outerHTML.slice(0, 1600);
+  const pulsar = c => { (c.closest("a, button, [role=button]") || c).click(); out.clic = true; };
+  if (dl && accion !== "diag") pulsar(dl);
+  else if (!dl && accion === "adivinar") {
+    // Sin texto «Descargar» (p. ej. un icono): se prueba el último elemento pulsable que no sea de borrar/cancelar.
+    const c = todos.filter(e => e.matches("a, button, [role=button], svg, i, [class*='icon'], [class*='download']") && !malo.test(etiqueta(e))).pop();                           // la columna de operaciones es la última
+    if (c) { out.adivinado = clase(c).slice(0, 60); pulsar(c); }
+  }
   return out;
 }"""
 
@@ -718,10 +730,10 @@ class Scraper:
                 if "tareas" not in pulsados and _lista_tras_exportar(respuestas):
                     try:                                 # exportación asíncrona: descargar desde la fila más reciente de «Tareas»
                         pg.wait_for_timeout(1500)
-                        t = pg.evaluate(JS_TAREA_EXPORTACION, "clic")
+                        t = pg.evaluate(JS_TAREA_EXPORTACION, "adivinar" if datetime.now().timestamp() - t0 > 25 else "clic")
                         if t and t.get("clic"):
                             pulsados.add("tareas")
-                            log.info("Exportar: pulsado «Descargar» en Tareas: %s", t)
+                            log.info("Exportar: pulsado en Tareas: %s", t)
                         elif t and not diag_t:
                             log.info("Exportar: esperando que la tarea termine: %s", t)
                             diag_t = True
