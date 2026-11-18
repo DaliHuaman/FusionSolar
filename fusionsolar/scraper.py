@@ -208,12 +208,13 @@ JS_TAREA_EXPORTACION = """(accion) => {
   const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
   const cut = (e, n) => (e.innerText || e.textContent || "").replace(/\\s+/g, " ").trim().slice(0, n);
   const clase = e => ((e.className && e.className.baseVal !== undefined ? e.className.baseVal : e.className) || "").toString();
-  const raiz = [...document.querySelectorAll(".nco-download-task-list-modal, [class*='download-task']")].find(vis);
+  // La ventana «Tareas»: el contenedor visible que trae las columnas de la tabla (no un icono suelto con «download-task» en la clase).
+  const raiz = [...document.querySelectorAll(".nco-download-task-list-modal, .ant-modal-wrap, [class*='download-task']")].find(e => vis(e) && /fecha de creaci/i.test(e.textContent || ""));
   if (!raiz) return null;
   // La tabla del portal no usa <tr>: la fila se localiza por su «Fecha de creación» (AAAA-MM-DD hh:mm:ss); la más alta es la más reciente.
   const fechas = [...raiz.querySelectorAll("*")].filter(e => e.children.length === 0 && vis(e) && /^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/.test((e.textContent || "").trim()))
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-  if (!fechas.length) return {filas: 0, texto: cut(raiz, 200)};
+  if (!fechas.length) return {filas: 0, texto: cut(raiz, 300), html: accion === "diag" ? (raiz.querySelector(".ant-modal-body") || raiz).outerHTML.slice(0, 2000) : null};
   let f = fechas[0];
   while (f.parentElement && f.parentElement !== raiz && fechas.filter(x => f.parentElement.contains(x)).length === 1) f = f.parentElement;
   const re = /descargar|download/i, malo = /delet|elimin|remove|trash|cancel|borrar/i;
