@@ -73,6 +73,7 @@ jobs:
           FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
           DESDE: ${{ inputs.desde }}
           HASTA: ${{ inputs.hasta }}
+          DEPURAR: ${{ inputs.depurar }}
         # Si falla (portal caído, login, red) se repite hasta 2 veces más tras 60 s y 120 s; lo ya guardado se conserva y cada intento
         # continúa donde quedó. Cada intento tiene tope de 25 min y se borra el candado de run.py (si timeout cortó el anterior, quedaría).
         run: |
@@ -80,7 +81,9 @@ jobs:
           if [ -n "$DESDE" ]; then ARGS="$ARGS --desde $DESDE"; fi
           if [ -n "$HASTA" ]; then ARGS="$ARGS --hasta $HASTA"; fi
           export ARGS          # se expande dentro del bash -c (sin eval): las fechas las valida argparse
-          bash .github/scripts/reintentar.sh 3 60 \
+          INTENTOS=3
+          if [ "$DEPURAR" = "true" ]; then INTENTOS=1; fi      # diagnosticando: un solo intento para ver el log cuanto antes
+          bash .github/scripts/reintentar.sh "$INTENTOS" 60 \
             bash -c 'rm -f "$FUSIONSOLAR_STATE/run.lock"; timeout 1500 python run.py --alarmas-historicas $ARGS'
 
       # Se guarda también si la extracción falló a medias: lo ya sumado se conserva y la revisión no avanza sobre lo que falló.
