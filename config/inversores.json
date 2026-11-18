@@ -48,7 +48,7 @@
     "activo": true,
     "plantas": ["PL", "LC", "VES"],
     "inicio_busqueda": "2025-01-01",
-    "ventana_dias": 31,
+    "ventana_dias": 28,
     "solape_dias": 45,
     "max_filas_ventana": 5000,
     "verificar_total": true,
