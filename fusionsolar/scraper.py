@@ -170,9 +170,9 @@ JS_CONFIRMAR_EXPORTACION = """(textos) => {
   const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
   const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
   for (const m of document.querySelectorAll('[role="dialog"], [class*="modal"][class*="wrap"], .ant-modal, .dpdesign-modal')) {
-    if (!vis(m)) continue;
+    if (!vis(m) || m.matches(".nco-download-task-list-modal") || m.querySelector(".nco-download-task-list-modal")) continue;   // la lista de Tareas se trata aparte
     const b = [...m.querySelectorAll("button, [role=button]")].filter(vis).find(x => textos.includes(norm(x.textContent)));
-    if (b) { b.click(); return true; }
+    if (b) { const t = norm(b.textContent); b.click(); return t; }
   }
   return false;
 }"""
@@ -200,6 +200,25 @@ JS_ELEGIR_FORMATO = """() => {
     }
   }
   return null;
+}"""
+
+# El portal exporta de forma asíncrona: Exportar crea una tarea y abre la ventana «Tareas» (la más reciente arriba).
+# Lee esa primera fila y, cuando trae su botón/enlace «Descargar», lo pulsa (si accion == "clic").
+JS_TAREA_EXPORTACION = """(accion) => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const cut = (e, n) => (e.innerText || e.textContent || "").replace(/\\s+/g, " ").trim().slice(0, n);
+  const raiz = [...document.querySelectorAll(".nco-download-task-list-modal, [class*='download-task']")].find(vis);
+  if (!raiz) return null;
+  const filas = [...raiz.querySelectorAll("tbody tr, .ant-table-row")].filter(f => vis(f) && cut(f, 5) && !/measure-row/.test(f.className || ""));
+  const f = filas[0];
+  if (!f) return {filas: 0};
+  const re = /descargar|download/i;
+  const cand = [...f.querySelectorAll("a, button, [role=button], span, i, svg, [class*='download']")].filter(vis);
+  const dl = cand.find(c => re.test((c.textContent || "") + " " + (c.getAttribute("title") || "") + " " + (c.getAttribute("aria-label") || "") + " " + ((c.className && c.className.baseVal !== undefined ? c.className.baseVal : c.className) || "")));
+  const out = {filas: filas.length, fila: cut(f, 160), descarga: dl ? (cut(dl, 30) || (dl.getAttribute("title") || "")) : null};
+  if (!dl && accion === "diag") out.html = f.outerHTML.slice(0, 900);
+  if (dl && accion === "clic") { (dl.closest("a, button, [role=button]") || dl).click(); out.clic = true; }
+  return out;
 }"""
 
 JS_CONFIG = """([labelsUmbral, labelsNombre]) => {
@@ -241,6 +260,13 @@ JS_CERRAR_MODALES = """([cierres, avisos]) => {
 CIERRES_MODAL = ["cancelar", "cancel", "cerrar", "close", "más tarde", "mas tarde", "later", "omitir", "skip",
                  "ahora no", "not now", "no, gracias", "entendido", "got it"]
 AVISOS_MODAL = ["aceptar", "accept", "ok"]
+
+
+def _lista_tras_exportar(respuestas: list) -> bool:
+    """True cuando, tras la llamada que crea la exportación, el portal ya refrescó la lista de tareas (así la primera fila es la nueva)."""
+    urls = [u for u, *_ in respuestas]
+    idx = next((i for i, u in enumerate(urls) if u.endswith("/exportall")), None)
+    return idx is not None and any(u.endswith("/export/tasks") for u in urls[idx + 1:])
 
 
 class ErrorPortal(RuntimeError):
@@ -636,7 +662,7 @@ class Scraper:
         log.info("Alarmas históricas %s → %s: Total=%s", ini, fin, total)
         return total
 
-    def exportar_alarmas(self, carpeta: Path, espera_s: int = 60) -> Path:
+    def exportar_alarmas(self, carpeta: Path, espera_s: int = 90) -> Path:
         """Pulsa Exportar y guarda el Excel descargado en `carpeta`.
 
         Recoge la descarga venga de donde venga: evento de descarga de la página o de una pestaña emergente, o la respuesta
@@ -674,7 +700,7 @@ class Scraper:
             pg.get_by_role("button", name=BOTON_EXPORTAR).first.click()
             t0 = datetime.now().timestamp()
             fin = t0 + espera_s
-            diag, pulsados = False, set()
+            diag, diag_t, pulsados = False, False, set()
             while not iniciada and not cuerpos and datetime.now().timestamp() < fin:
                 pg.wait_for_timeout(1000)
                 if iniciada or cuerpos:
@@ -689,10 +715,22 @@ class Scraper:
                             log.info("Exportar: pulsado «%s»", r if isinstance(r, str) else "confirmar")
                     except Exception:
                         pass
+                if "tareas" not in pulsados and _lista_tras_exportar(respuestas):
+                    try:                                 # exportación asíncrona: descargar desde la fila más reciente de «Tareas»
+                        pg.wait_for_timeout(1500)
+                        t = pg.evaluate(JS_TAREA_EXPORTACION, "clic")
+                        if t and t.get("clic"):
+                            pulsados.add("tareas")
+                            log.info("Exportar: pulsado «Descargar» en Tareas: %s", t)
+                        elif t and not diag_t:
+                            log.info("Exportar: esperando que la tarea termine: %s", t)
+                            diag_t = True
+                    except Exception:
+                        pass
                 if not diag and datetime.now().timestamp() - t0 > 6:
                     diag = True
                     try:
-                        log.info("Exportar (a los 6 s) sin descarga aún; pantalla: %s", pg.evaluate(JS_DIAG_EXPORTAR))
+                        log.info("Exportar (a los 6 s) sin descarga aún; tareas: %s", pg.evaluate(JS_TAREA_EXPORTACION, "diag"))
                     except Exception:
                         pass
             if not iniciada and cuerpos:                 # una respuesta con adjunto casi siempre trae también el evento de descarga
@@ -709,6 +747,10 @@ class Scraper:
             if not iniciada:
                 try:
                     log.warning("Exportar sin descarga. Pantalla: %s", pg.evaluate(JS_DIAG_EXPORTAR))
+                except Exception:
+                    pass
+                try:
+                    log.warning("Exportar sin descarga. Tareas: %s", pg.evaluate(JS_TAREA_EXPORTACION, "diag"))
                 except Exception:
                     pass
                 log.warning("Exportar sin descarga. Llamadas de red: %s", respuestas)
