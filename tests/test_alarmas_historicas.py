@@ -73,7 +73,7 @@ class Base(unittest.TestCase):
             del sys.modules[m]
         self.ah = importlib.import_module("fusionsolar.alarmas_historicas")
         self.cfg = {"zona_horaria": "America/Lima", "plantas": [{"codigo": "PL"}, {"codigo": "LC"}, {"codigo": "VES"}],
-                    "alarmas_historicas": {"inicio_busqueda": "2025-01-01", "ventana_dias": 31, "solape_dias": 45,
+                    "alarmas_historicas": {"inicio_busqueda": "2025-01-01", "ventana_dias": 28, "solape_dias": 45,
                                            "max_filas_ventana": 5000}}
 
     def tearDown(self):
@@ -180,6 +180,13 @@ class TestCorrida(Base):
         filas = self.ah.leer_filas()
         self.assertEqual(sum(f["Planta"] == "PL" for f in filas), 61)           # ninguna perdida, una nueva
         self.assertLessEqual(len([c for c in portal2.consultas if c[0] == "PL"]), 3)    # solo repasa las últimas semanas
+
+    def test_ventanas_nunca_superan_un_mes(self):
+        self.cfg["alarmas_historicas"]["ventana_dias"] = 90          # aunque la configuración pida más, se limita a 28 días
+        portal = PortalFalso({"PL": [], "LC": [], "VES": []})
+        self.correr(portal, datetime(2026, 11, 17, 12))
+        for _, d, h in portal.consultas:
+            self.assertLessEqual((datetime.strptime(h, "%Y-%m-%d %H:%M:%S") - datetime.strptime(d, "%Y-%m-%d %H:%M:%S")).days, 28)
 
     def test_total_distinto_no_avanza_y_no_guarda(self):
         datos = {"PL": self.datos("PL", 10), "LC": [], "VES": []}
