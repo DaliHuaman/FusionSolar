@@ -8,7 +8,7 @@ exporta del portal el histórico de cada planta (LC, PL y VES) y se AGREGA a `al
   · Clave estable por alarma: planta + número SN + ID de la alarma + identificador de la causa + fecha y hora en que ocurrió.
   · Ventanas con solape: cada semana se vuelve a consultar desde `solape_dias` antes de la última revisión (una alarma entra al
     histórico cuando se elimina, así que una que ocurrió hace días y recién se eliminó también se captura).
-  · Primera vez (relleno): se recorre el histórico hacia atrás, por ventanas de `ventana_dias`, hasta `inicio_busqueda` (las ventanas sin
+  · Primera vez (relleno): se recorre el histórico hacia atrás, por ventanas de `ventana_dias` (máx. 28: el portal solo deja 1 mes en «Hora de incidencia»), hasta `inicio_busqueda` (las ventanas sin
     alarmas son una sola consulta, sin exportar, y no cortan el recorrido: así no se queda fuera historia por un periodo tranquilo). Si la
     corrida se corta, la siguiente continúa donde quedó (`alarmas_historicas_estado.json`).
   · Integridad: tras Buscar el portal muestra «Total: N»; el Excel exportado debe traer exactamente N filas y todas dentro de la
@@ -45,6 +45,7 @@ COLUMNAS_FECHA = (C_FOCURRE, C_FELIM)
 # CSV: código de planta (LC / PL / VES), las 11 columnas de la hoja y cuándo se guardó por primera vez (auditoría)
 COLUMNAS_CSV = ["Planta", *COLUMNAS_HOJA, "Capturado"]
 HOJAS = {"PL": "Alarma Histórica PL", "LC": "Alarma Histórica LC", "VES": "Alarma Histórica VES"}   # orden de las hojas / pestañas
+MAX_VENTANA_DIAS = 28    # el filtro «Hora de incidencia» del portal admite como máximo 1 mes entre inicio y fin; 28 días cabe en cualquier mes
 REQUERIDAS = (C_SN, C_ID, C_FOCURRE)       # sin estas columnas no se puede identificar una alarma: el archivo se rechaza
 
 
@@ -289,7 +290,7 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
     de una ventana que falló, y un fallo en una planta no impide procesar las demás. Devuelve un resumen; `error` si algo quedó pendiente.
     """
     acfg = cfg.get("alarmas_historicas") or {}
-    ventana = max(1, int(acfg.get("ventana_dias", 31)))
+    ventana = max(1, min(MAX_VENTANA_DIAS, int(acfg.get("ventana_dias", MAX_VENTANA_DIAS))))
     solape = max(0, int(acfg.get("solape_dias", 45)))
     inicio = date.fromisoformat(acfg.get("inicio_busqueda", "2025-01-01"))
     presupuesto_s = presupuesto_s if presupuesto_s is not None else float(acfg.get("presupuesto_segundos", 1200))
