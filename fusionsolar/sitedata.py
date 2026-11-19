@@ -11,6 +11,7 @@ import pandas as pd
 
 from . import alarmas_historicas as ah
 from . import disponibilidad as disp
+from . import energia_exportada as ee
 from .common import CAMPOS_BESS, STATE_DIR, leer_json
 
 SITE_DIR = STATE_DIR / "site"
@@ -83,6 +84,14 @@ def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
     return out
 
 
+def _energia(cfg: dict, filas: list[dict]) -> dict:
+    """Bloque «energia_exportada» de data.json: filas[código] = [[«AAAA-MM-DD HH:MM», kWh], ...] (solo > 0, lo más reciente primero)."""
+    c = ee.config(cfg)
+    est = leer_json(ee.ruta_estado(), {})
+    return {"activo": bool(c.get("activo", True)), "plantas": ee.plantas(cfg), "revisado": est.get("ultima_revision_ok") or est.get("ultima_revision"),
+            "filas": {cod: [[fh[:16], kwh] for fh, kwh in lst] for cod, lst in ee.por_planta(filas).items()}}
+
+
 def _alarmas_meta(filas: list[dict]) -> dict:
     """Bloque «alarmas_hist» de data.json: solo lo mínimo (cuántas hay y desde cuándo); las filas van aparte en alarmas_historicas.json,
     que el dashboard descarga únicamente al abrir esa pestaña. `v` cambia cuando hay alarmas nuevas (rompe la caché de ese archivo)."""
@@ -135,7 +144,7 @@ def _num(x):
 def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: datetime,
               info_corrida: dict | None = None, filas_bess: list[dict] | None = None,
               filas_disp: list[dict] | None = None, filas_cd: list[dict] | None = None,
-              filas_alarmas: list[dict] | None = None) -> dict:
+              filas_alarmas: list[dict] | None = None, filas_energia: list[dict] | None = None) -> dict:
     invs = cfg["inversores"]
     out: dict = {
         "generado": ahora.strftime("%Y-%m-%d %H:%M:%S"),
@@ -150,6 +159,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "bess": {**_bess(cfg, filas_bess or [], ahora), "cd": _carga_descarga(cfg, filas_cd or [])},
         "disponibilidad": _disponibilidad(cfg, filas_disp or []),
         "alarmas_hist": _alarmas_meta(filas_alarmas or []),
+        "energia_exportada": _energia(cfg, filas_energia or []),
     }
     df = pd.DataFrame(filas)
     if df.empty:

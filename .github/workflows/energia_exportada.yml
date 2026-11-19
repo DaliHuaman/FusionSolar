@@ -1,0 +1,99 @@
+name: Energía exportada FusionSolar
+
+# Cada hora, al minuto 15 (hora de Lima), se lee de FusionSolar (Informes > Informe de plantas > cada planta > «Por día») la columna
+# «Energía exportada (kWh)» de hoy y de ayer. Solo las horas con energía exportada > 0 se guardan en energia_exportada.csv (rama "data") y
+# cada hora NUEVA se avisa por correo (config energia_exportada.destinatarios). Ver fusionsolar/energia_exportada.py.
+# El Excel (hoja «Energía Exportada kWh») y el dashboard se actualizan en la siguiente corrida de 30 min.
+#
+# Hora: Lima es UTC-5 todo el año, así que el minuto 15 de cada hora UTC es también el minuto 15 en Lima (14:15, 15:15...). El portal publica
+# cada hora con ~2 h de retraso, por eso cada corrida relee el día completo. Como GitHub puede demorar los "schedule", conviene además crear en
+# cron-job.org un trabajo cada hora al minuto 15 (America/Lima) con la misma llamada workflow_dispatch que ya usa "actualizar.yml" pero
+# apuntando a este archivo (energia_exportada.yml); si ambos coinciden, el segundo no duplica nada (cada hora se avisa una sola vez).
+on:
+  schedule:
+    - cron: "15 * * * *"
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Recorrer además un rango (sin aviso por correo): primer día (AAAA-MM-DD). Vacío = lo normal (hoy, ayer y el relleno pendiente)"
+        type: string
+        default: ""
+      hasta:
+        description: "Último día del rango (AAAA-MM-DD). Vacío = hoy"
+        type: string
+        default: ""
+      prueba:
+        description: "Solo leer y mostrar en el log lo que encuentra (no guarda ni envía correos)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write                # publicar la rama "data"
+
+# Misma cola que la corrida de cada 30 min: las dos escriben la rama "data" y no deben pisarse.
+concurrency:
+  group: fusionsolar-actualizar
+  cancel-in-progress: false
+
+jobs:
+  energia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias y navegador
+        run: |
+          bash .github/scripts/reintentar.sh 3 15 pip install -r requirements.txt
+          bash .github/scripts/reintentar.sh 3 15 python -m playwright install chromium
+          timeout 180 python -m playwright install-deps chromium \
+            || echo "::warning::No se pudieron instalar dependencias apt de Playwright (espejos Ubuntu); se continúa con las de la imagen."
+
+      - name: Traer histórico (rama data)
+        run: |
+          REMOTE="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" data >/dev/null 2>&1; then
+            bash .github/scripts/reintentar.sh 3 10 git clone --depth 1 --branch data "$REMOTE" datos
+          else
+            mkdir datos && git -C datos init -q -b data && git -C datos remote add origin "$REMOTE"
+          fi
+
+      - name: Leer la energía exportada de FusionSolar y avisar
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_HOST: ${{ vars.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+          PRUEBA: ${{ inputs.prueba }}
+        run: |
+          ARGS=""
+          if [ -n "$DESDE" ]; then ARGS="$ARGS --desde $DESDE"; fi
+          if [ -n "$HASTA" ]; then ARGS="$ARGS --hasta $HASTA"; fi
+          if [ "$PRUEBA" = "true" ]; then ARGS="$ARGS --prueba"; fi
+          # Si falla (portal caído, login, red) se repite hasta 2 veces más; lo ya guardado no se duplica y cada hora se avisa una sola vez.
+          bash .github/scripts/reintentar.sh 3 60 \
+            bash -c 'rm -f "$FUSIONSOLAR_STATE/run.lock"; timeout 1200 python run.py --energia-exportada '"$ARGS"
+
+      - name: Guardar histórico (rama data)
+        if: ${{ always() && inputs.prueba != true }}
+        run: |
+          cd datos
+          [ -f energia_exportada.csv ] || exit 0
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+            commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (energía exportada)" 2>/dev/null \
+            || git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+                 commit -q -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (energía exportada)"
+          bash "$GITHUB_WORKSPACE/.github/scripts/reintentar.sh" 3 10 git push -q --force origin HEAD:data
