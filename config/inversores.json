@@ -58,7 +58,7 @@
     "activo": true,
     "planta": "PL",
     "dias_historial": 90,
-    "carga_descarga": {"activo": true, "hora_extraccion": 12, "tolerancia_min": 10, "umbral_c": 0.1, "recalcular_dias": 7},
+    "carga_descarga": {"activo": true, "hora_extraccion": 12, "tolerancia_min": 10, "salto_c": 3.0, "hfp_extremos": "t1_tn", "recalcular_dias": 7},
     "equipos": [
       {"id": "BESS-01", "nombre": "BESS-01", "dispositivo": "(?i)bess\\W*0*1$"},
       {"id": "BESS-02", "nombre": "BESS-02", "dispositivo": "(?i)bess\\W*0*2$"},
