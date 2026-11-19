@@ -33,6 +33,7 @@ log = logging.getLogger("fusionsolar.energia_exportada")
 COLUMNAS = ["Planta", "Fecha_Hora", "Energia_kWh", "Capturado", "Alertado"]
 HOJA = "Energía Exportada kWh"
 SIN_AVISO = "relleno"
+INTENTOS_RELLENO = 3                 # corridas en que se reintenta una fecha de relleno que el portal devuelve sin filas
 POR_DEFECTO = {"activo": True, "plantas": [], "dias_releer": 2, "presupuesto_segundos": 900, "alertar_horas": 48,
                "destinatarios": [], "copia": [], "plantilla": "config/alerta_energia.txt", "fechas_relleno": {}}
 PLANTILLA_RESPALDO = {
@@ -262,6 +263,7 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
     limite = time.monotonic() + float(c["presupuesto_segundos"])
     filas = leer_filas()
     hecho = set(estado.get("relleno_hecho") or [])
+    intentos: dict[str, int] = dict(estado.get("relleno_intentos") or {})
     info: dict = {"consultas": len(consultas), "dias": 0, "nuevas": 0, "errores": {}}
     planta_actual = None
     for cod, dia, relleno in consultas:
@@ -288,7 +290,14 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
         filas, nuevas = fusionar(filas, [(cod, fh, v) for fh, v in horas], ahora, sin_aviso=relleno)
         info["nuevas"] += len(nuevas)
         if relleno and dia.isoformat() in (c["fechas_relleno"] or {}).get(cod, []):
-            hecho.add(f"{cod}|{dia.isoformat()}")
+            clave = f"{cod}|{dia.isoformat()}"
+            if horas:
+                hecho.add(clave)
+            else:                                             # el portal no trajo filas: se reintenta en las próximas corridas (máx. 3 veces)
+                intentos[clave] = intentos.get(clave, 0) + 1
+                if intentos[clave] >= INTENTOS_RELLENO:
+                    log.warning("Relleno %s: el portal no tiene datos por hora de ese día tras %s intentos; se deja de consultar", clave, intentos[clave])
+                    hecho.add(clave)
     if getattr(sc, "urls_informe", None):
         log.info("Llamadas REST del Informe de plantas: %s", ", ".join(sc.urls_informe))
     if prueba:
@@ -298,6 +307,7 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
         info["aviso"] = res
     escribir_filas(filas)
     estado["relleno_hecho"] = sorted(hecho)
+    estado["relleno_intentos"] = {k: v for k, v in intentos.items() if k not in hecho}
     estado["ultima_revision"] = ahora.strftime(FMT_TS)
     if not info["errores"]:
         estado["ultima_revision_ok"] = ahora.strftime(FMT_TS)
