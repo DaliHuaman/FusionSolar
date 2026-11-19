@@ -512,7 +512,7 @@
   const fPct2 = v => v == null ? "–" : (v * 100).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " %";
   const fH3 = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   const fKwh = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  // nombre del inversor con su potencia nominal fija: «Inv1 - 115 kW»
+  // nombre del inversor con su potencia activa máxima (fija en config): «InvA.1 - 125 kW»
   const nomPnom = i => { const kw = ((D.disponibilidad || {}).pnom || {})[i.id]; return kw ? `${i.nombre} - ${kw.toLocaleString("es-PE")} kW` : i.nombre; };
   const isoDia = k => new Date(Date.parse(D.disponibilidad.d0 + "T00:00:00Z") + k * DIA_MS).toISOString().slice(0, 10);
   const fFechaIso = iso => iso.slice(8) + " " + MES[+iso.slice(5, 7) - 1] + " " + iso.slice(0, 4);
@@ -563,9 +563,9 @@
     $("#disp-rango").hidden = S.dg !== "dia";
     pintarKpisDisp();
     $("#nota-disp").textContent = `Disponibilidad diaria de un inversor = horas de conexión a la red ÷ ${dispRef()} h (máximo 100 %); la de una planta es el promedio de sus inversores, y la mensual/anual el promedio de sus días. ` +
-      (B.d0 ? `Datos de FusionSolar del ${fFechaIso(B.d0)} al ${fFechaIso(B.hasta)}; cada día a las 06:00 (Lima) se agrega el día anterior. ` : "") +
+      (B.d0 ? `Datos de FusionSolar del ${fFechaIso(B.d0)} al ${fFechaIso(B.hasta)}; cada día a las 12:00 (Lima) se agrega el día anterior. ` : "") +
       "Un día sin conexión a la red cuenta como 0 %; un día sin datos en el portal (antes de la puesta en marcha) no se grafica. " +
-      "Rendimiento = energía producida por el inversor ese día (kWh, Informe de inversores); junto al nombre va su potencia nominal.";
+      "Rendimiento = energía producida por el inversor ese día (kWh, Informe de inversores); junto al nombre va su potencia activa máxima (kW).";
     const box = $("#disp-chart"), tabla = $("#t-disp");
     box.replaceChildren(); box.className = "chart";
     if (!B.d0) {
@@ -657,7 +657,7 @@
   // Colores de la disponibilidad (fracción 0–1): 0 ≤ d < 70 % rojo · 70 ≤ d < 98,5 % amarillo · 98,5 ≤ d ≤ 100 % blanco (sin resaltar)
   const claseDisp = a => a == null ? "" : a * 100 + 1e-9 < 70 ? " rojo" : a * 100 + 1e-9 < 98.5 ? " amarillo" : "";
 
-  // Tabla como la hoja «Disponibilidad» del Excel: por inversor (con su potencia nominal), horas operativas, rendimiento (kWh) y
+  // Tabla como la hoja «Disponibilidad» del Excel: por inversor (con su potencia activa máxima), horas operativas, rendimiento (kWh) y
   // disponibilidad (fórmula). Un renglón por día, el más reciente arriba.
   function tablaDisp(t, gr, desde, max, clave = "disp") {
     const B = D.disponibilidad;
