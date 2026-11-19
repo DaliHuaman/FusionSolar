@@ -116,11 +116,19 @@ class TestLogica(Base):
         self.assertEqual(len(self.enviados), 1)
 
     def test_fallo_de_un_dia_no_marca_relleno(self):
-        sc = PortalFalso({}, falla={("LC", "2025-07-25")})
+        sc = PortalFalso({("VES", "2026-11-01"): horas("2026-11-01", {12: 7.0})}, falla={("LC", "2025-07-25")})
         info = self.ee.actualizar(sc, self.cfg, datetime(2026, 11, 18, 15, 15), enviar=self.enviar)
         self.assertIn("LC 2025-07-25", info["errores"])
         est = self.ee.leer_json(self.ee.ruta_estado(), {})
         self.assertNotIn("LC|2025-07-25", est["relleno_hecho"])
+        self.assertIn("VES|2026-11-01", est["relleno_hecho"])
+
+    def test_relleno_sin_filas_se_reintenta(self):
+        datos = {("VES", "2026-11-01"): horas("2026-11-01", {12: 7.0})}
+        for k in range(3):
+            self.ee.actualizar(PortalFalso(datos), self.cfg, datetime(2026, 11, 18, 15 + k, 15), enviar=self.enviar)
+            est = self.ee.leer_json(self.ee.ruta_estado(), {})
+            self.assertEqual("LC|2025-07-25" in est["relleno_hecho"], k == 2)
         self.assertIn("VES|2026-11-01", est["relleno_hecho"])
 
     def test_prueba_no_guarda(self):

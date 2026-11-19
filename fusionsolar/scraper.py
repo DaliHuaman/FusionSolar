@@ -161,6 +161,12 @@ JS_GRANULARIDAD = """() => {
   return null;
 }"""
 
+# Texto que muestra la tabla cuando no trae filas (p. ej. «Sin datos»), para el log.
+JS_TABLA_VACIA = """() => {
+  const e = document.querySelector('[class*="table-placeholder"], [class*="empty-description"], [class*="empty"]');
+  return e ? (e.innerText || e.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 120) : "sin aviso de tabla vacía";
+}"""
+
 # Paginación de la tabla: pulsa «siguiente» si está habilitado. Devuelve true si avanzó.
 JS_PAGINA_SIGUIENTE = """() => {
   const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
@@ -726,7 +732,8 @@ class Scraper:
                     break
             else:
                 vacio += 1
-                if vacio >= 8:                                 # 4 s sin filas: el portal no tiene datos ese día
+                if vacio >= 24:                                # 12 s sin filas: el portal no tiene datos ese día
+                    log.info("informe de plantas %s sin filas (%s)", iso, pg.evaluate(JS_TABLA_VACIA))
                     return []
         if not t or not t["filas"]:
             return []

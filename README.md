@@ -11,6 +11,8 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
 | `.github/workflows/actualizar.yml` | **El programador**: ejecuta todo cada 30 min en GitHub |
 | `.github/workflows/disponibilidad.yml` | Cada día a las **06:00 de Lima** lee las horas operativas del día anterior (Disponibilidad) |
 | `.github/workflows/alarmas_historicas.yml` | Cada **domingo 12:00 de Lima** exporta las *Alarmas históricas* del portal (LC, PL y VES) y las acumula |
+| `.github/workflows/energia_exportada.yml` | Cada **hora al minuto 15 (Lima)** lee la *energía exportada a la red* de cada planta y avisa por correo |
+| `fusionsolar/energia_exportada.py` y `config/alerta_energia.txt` | Histórico de energía exportada (`energia_exportada.csv`, solo horas > 0), relleno inicial y texto del aviso |
 | `fusionsolar/alarmas_historicas.py` | Lectura del Excel exportado, acumulado sin pisar nada (`alarmas_historicas.csv`) y relleno inicial |
 | `fusionsolar/disponibilidad.py` | Fórmula de disponibilidad, lectura del Informe de inversores y `disponibilidad.csv` |
 | `run.py` | El código principal que se ejecuta (orquesta todo) |
@@ -56,6 +58,18 @@ FusionSolar **borra periódicamente** las alarmas históricas por límite de alm
 - **Errores**: 3 intentos dentro del job (60 s y 120 s de espera) y, si aun así falla, `reintentar.yml` relanza el workflow una vez. Lo ya guardado se conserva y la revisión no avanza sobre lo que falló. Para diagnosticar, lanzarlo a mano con *depurar* (adjunta capturas del portal; el repo es público, no dejarlo activado).
 - **Configuración**: `alarmas_historicas` en `config/inversores.json` (`plantas`, `inicio_busqueda`, `ventana_dias`, `solape_dias`, `max_filas_ventana`, `verificar_total`, `presupuesto_segundos`). Rango manual: `python run.py --alarmas-historicas --desde 2026-01-01 --hasta 2026-03-31`.
 - El Excel y el dashboard muestran lo nuevo en la siguiente corrida de 30 min (igual que *Disponibilidad*). Pruebas sin portal: `python -m unittest discover -s tests -v`.
+
+## Energía exportada a la red (cada hora)
+
+Registra las horas en que una planta exportó energía a la red y avisa por correo.
+
+- **De dónde sale**: FusionSolar › *Informes › Informe de plantas* › (planta) › granularidad **Por día** › columna **«Energía exportada (kWh)»** (una fila por hora, «Período estadístico»). El portal publica cada hora con ~2 h de retraso.
+- **Cuándo**: `energia_exportada.yml` corre **cada hora al minuto 15** (14:15, 15:15… hora de Lima) y relee hoy y ayer (`dias_releer`). Como GitHub puede demorar los `schedule`, conviene crear en cron-job.org un trabajo cada hora al minuto 15 (America/Lima) con la llamada `workflow_dispatch` apuntando a `energia_exportada.yml`.
+- **Qué se guarda**: `energia_exportada.csv` (rama `data`) con **solo las horas con energía exportada > 0** (`Planta, Fecha_Hora, Energia_kWh, Capturado, Alertado`). Una hora ya guardada no se duplica; si el portal corrige su valor se actualiza.
+- **Relleno inicial**: las fechas ya detectadas (`energia_exportada.fechas_relleno` en `config/inversores.json`: LC 2, VES 27 y PL 5) se consultan una sola vez (avance en `energia_exportada_estado.json`). Para recorrer un rango a mano: *Actions › Energía exportada FusionSolar › Run workflow* (`desde` / `hasta`), sin aviso por correo. Con *prueba* solo deja en el log lo que lee.
+- **Aviso por correo**: cada hora nueva con energía exportada se avisa **una sola vez** (las de una misma corrida en un solo correo, con planta, fecha y hora y kWh, mismo diseño Kondu que el de aislamiento). Para: `energia_exportada.destinatarios` (gestiondesoluciones@kondu.pe y Marcelo.Moreno@kg.com.pe); copia: `energia_exportada.copia`. Solo avisa horas de las últimas `alertar_horas` (48), así el relleno no dispara correos. Texto editable en `config/alerta_energia.txt`.
+- **Excel**: hoja **«Energía Exportada kWh»**: por planta dos columnas, «Fecha y hora» y «Energía exportada (kWh)», encabezado morado/amarillo Kondu, lo más reciente arriba.
+- **Dashboard**: tras «Mínimo diario de resistencia», sección **«Histórico de Energía exportada a la red por planta (kWh)»** con una pestaña por planta (en la vista de una planta, solo esa), totales y filtro por mes; y pestaña «Energía Exportada kWh» en *Datos del Excel*. El Excel y el dashboard toman lo nuevo en la siguiente corrida de 30 min.
 
 ## Dashboard: filtro por mes
 
@@ -117,7 +131,7 @@ El umbral de cada inversor se lee de FusionSolar (inversor › Control › Confi
 Se envía un correo cuando la resistencia de un inversor es **≤ `porcentaje_sobre_umbral` % por encima de su umbral, o menor** (`alertas` en `config/inversores.json`, 5 % por defecto).
 
 - **Sin spam**: un aviso por inversor al entrar en la condición; se repite solo si persiste tras `reenviar_cada_horas` (24), o si se recupera y vuelve a caer (con `enfriamiento_horas`, 2, mínimas desde el último aviso). Los inversores de una misma corrida salen en un solo correo. Si el envío falla, se reintenta en la siguiente corrida.
-- **Destinatarios**: `alertas.destinatarios` o, si existe, la variable de Actions `ALERTA_DESTINATARIOS` (separados por coma; útil para no dejar el correo en un repo público).
+- **Destinatarios**: `alertas.destinatarios` (gestiondesoluciones@kondu.pe y Marcelo.Moreno@kg.com.pe) **más** la variable de Actions `ALERTA_DESTINATARIOS` si existe (separados por coma; se suman sin repetir).
 - **Copia (CC)**: `alertas.copia` o, si existe, la variable `ALERTA_COPIA`. Los que ya estén en "Para" no se repiten.
 - **Texto**: `config/alerta_correo.txt` (asunto y cuerpo con `{marcadores}`; el recuadro con inversor, resistencia, umbral, diferencia y estado se genera solo). Se envía en texto plano y HTML monoespaciado para que el recuadro quede alineado.
 - **Secretos** (*Settings → Secrets and variables → Actions*): `SMTP_USER` (cuenta Gmail remitente) y `SMTP_PASSWORD` (contraseña de aplicación de 16 caracteres). Opcionales como *Variables*: `SMTP_HOST`, `SMTP_PORT`, `ALERTA_REMITENTE`, `ALERTA_DESTINATARIOS`. Sin secretos no se envía nada y el resto sigue igual.
