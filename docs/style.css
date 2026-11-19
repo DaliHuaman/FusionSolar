@@ -253,3 +253,11 @@ h2{letter-spacing:-.01em}
 .tabla.excel td.ah-w{white-space:normal;min-width:220px}
 .tabla.excel th.g.ah-h{white-space:normal;min-width:90px;line-height:1.25}
 @media (max-width:640px){.ah-barra .ah-info{margin-left:0;flex-basis:100%}}
+
+/* Histórico de energía exportada a la red */
+#tabs-energia{margin:0 0 12px;flex-wrap:wrap}
+.ee-resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:0 0 12px}
+.ee-resumen .kpi .v{font-size:24px}
+.ee-tabla{max-width:560px}
+.tabla td.ee-v{font-weight:650;color:var(--accent-hi)}
+.tabla tfoot td{position:sticky;bottom:0;background:var(--panel-2);font-weight:650;border-top:1px solid var(--border)}

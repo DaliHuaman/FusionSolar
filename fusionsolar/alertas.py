@@ -5,7 +5,7 @@ se recupera y vuelve a caer (con `enfriamiento_horas` minimas desde el ultimo av
 alrededor del limite). Varios inversores de la misma corrida salen juntos en un solo correo.
 
 Secretos (variables de entorno, en GitHub Actions = Secrets): SMTP_USER, SMTP_PASSWORD (y opcionales SMTP_HOST, SMTP_PORT,
-ALERTA_REMITENTE, ALERTA_DESTINATARIOS y ALERTA_COPIA que reemplazan a config). Sin ellos no se envia nada ni se pierde el aviso.
+ALERTA_REMITENTE y ALERTA_COPIA que reemplazan a config; ALERTA_DESTINATARIOS se SUMA a config). Sin ellos no se envia nada ni se pierde el aviso.
 """
 from __future__ import annotations
 
@@ -49,10 +49,25 @@ def _cfg(cfg: dict) -> dict:
     return POR_DEFECTO | (cfg.get("alertas") or {})
 
 
+def unir_correos(*listas) -> list[str]:
+    """Une listas de correos sin repetir (sin distinguir mayúsculas), en el orden en que aparecen; descarta lo que no es un correo."""
+    out, vistos = [], set()
+    for lista in listas:
+        for d in lista or []:
+            d = (d or "").strip()
+            if d and "@" in d and d.lower() not in vistos:
+                vistos.add(d.lower())
+                out.append(d)
+    return out
+
+
 def destinatarios(cfg: dict) -> list[str]:
+    """Para: la variable ALERTA_DESTINATARIOS (si existe) MÁS los de config `alertas.destinatarios` (sin repetir).
+
+    Antes la variable reemplazaba a la configuración; ahora se suman, para que un destinatario agregado en config (p. ej. Marcelo
+    Moreno) reciba el aviso aunque la variable de Actions no lo tenga."""
     env = os.environ.get("ALERTA_DESTINATARIOS", "")
-    lista = re.split(r"[,;\s]+", env) if env.strip() else _cfg(cfg)["destinatarios"]
-    return [d for d in lista if d and "@" in d]
+    return unir_correos(re.split(r"[,;\s]+", env) if env.strip() else [], _cfg(cfg)["destinatarios"])
 
 
 def copia(cfg: dict) -> list[str]:
@@ -63,11 +78,11 @@ def copia(cfg: dict) -> list[str]:
     return [d for d in lista if d and "@" in d and d.lower() not in para]
 
 
-def cargar_plantilla(cfg: dict) -> dict[str, str]:
-    """Lee las secciones ### ASUNTO / CABECERA / INVERSOR / PIE; lo que falte o falle usa el texto de respaldo."""
-    out = dict(PLANTILLA_RESPALDO)
+def cargar_plantilla(cfg: dict, archivo: str | None = None, respaldo: dict[str, str] | None = None) -> dict[str, str]:
+    """Lee las secciones ### ASUNTO / CUERPO; lo que falte o falle usa el texto de respaldo."""
+    out = dict(respaldo or PLANTILLA_RESPALDO)
     try:
-        ruta = ROOT / _cfg(cfg)["plantilla"]
+        ruta = ROOT / (archivo or _cfg(cfg)["plantilla"])
         actual, partes = None, {}
         for linea in ruta.read_text(encoding="utf-8").splitlines():
             if linea.startswith("### "):
@@ -192,13 +207,14 @@ def _parrafo(txt: str, url: str, muted: bool = False) -> str:
     return f'<p style="margin:0 0 16px;{estilo}">{esc}</p>'
 
 
-def _html_correo(cuerpo: str, avisos: list[dict], url: str, asunto: str) -> str:
+def _html_correo(cuerpo: str, avisos: list[dict], url: str, asunto: str, titulo: str = "Aislamiento cerca del umbral",
+                 tabla: str | None = None) -> str:
     """Correo HTML: cabecera Kondu, parrafos de la plantilla, tabla de inversores y pie. `cuerpo` lleva _MARCA donde va la tabla."""
     parrafos = [p.strip("\n") for p in re.split(r"\n\s*\n", cuerpo.strip()) if p.strip()]
     bloques = []
     for i, p in enumerate(parrafos):
         if p.strip() == _MARCA:
-            bloques.append(f'<div style="margin:2px 0 20px">{_tabla_html(avisos)}</div>')
+            bloques.append(f'<div style="margin:2px 0 20px">{tabla if tabla is not None else _tabla_html(avisos)}</div>')
         else:
             bloques.append(_parrafo(p, url, muted=(i == len(parrafos) - 1 and len(parrafos) > 2 and not (url and url in p))))
     return f"""<!DOCTYPE html>
@@ -210,7 +226,7 @@ def _html_correo(cuerpo: str, avisos: list[dict], url: str, asunto: str) -> str:
 <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;border-radius:14px;overflow:hidden;border:1px solid {K['borde']}">
 <tr><td bgcolor="{K['brand']}" style="background:{K['brand']};padding:20px 24px">
 <div style="font:700 22px {FUENTE};color:#ffffff;letter-spacing:-.5px">kondu</div>
-<div style="font:700 17px {FUENTE};color:#ffffff;margin-top:10px">Aislamiento cerca del umbral</div>
+<div style="font:700 17px {FUENTE};color:#ffffff;margin-top:10px">{html_lib.escape(titulo)}</div>
 <div style="font:13px {FUENTE};color:{K['dim']};margin-top:2px">Monitoreo de las plantas de BSF · FusionSolar</div></td></tr>
 <tr><td height="4" bgcolor="{K['hi']}" style="height:4px;line-height:4px;font-size:0;background:{K['hi']};background-image:linear-gradient(90deg,#e11d73,#f37828)">&nbsp;</td></tr>
 <tr><td bgcolor="{K['panel']}" style="background:{K['panel']};padding:24px">{"".join(bloques)}</td></tr>
