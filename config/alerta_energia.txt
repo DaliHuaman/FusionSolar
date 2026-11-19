@@ -1,0 +1,26 @@
+# Plantilla del correo de alerta de ENERGIA EXPORTADA A LA RED. Edita solo el texto; conserva las lineas "### ..." (marcan cada parte)
+# y los {marcadores}. Las lineas que empiezan con "# " se ignoran.
+#
+# Marcadores:
+#   {plantas}     resumen para el asunto: LC (3,512 kWh), PL (0,840 kWh)
+#   {n_registros} '1 registro horario' / '3 registros horarios'
+#   {total}       energia exportada total del aviso (kWh, 3 decimales)
+#   {fecha_hora}  fecha y hora de la revision (hora de Lima), dd/mm/aaaa hh:mm
+#   {recuadro}    lista (texto) / tabla (HTML) con planta, fecha y hora, y energia exportada (kWh)
+#   {dashboard}   enlace al dashboard (config: alertas.dashboard_url)
+# Un marcador mal escrito se deja tal cual en el texto (no rompe el envio).
+
+### ASUNTO
+FusionSolar - Energía exportada a la red: {plantas}
+
+### CUERPO
+Estimados,
+
+Se detectó energía exportada a la red en {n_registros} (total {total} kWh), según el Informe de plantas de FusionSolar (granularidad por día). Revisión del {fecha_hora} (hora de Lima).
+
+{recuadro}
+
+Pueden verificarlo en el dashboard del proyecto:  {dashboard}
+
+Este aviso se envía una sola vez por cada hora con energía exportada.
+El portal publica los datos con unas 2 horas de retraso.
