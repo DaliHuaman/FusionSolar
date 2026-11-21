@@ -46,6 +46,8 @@ TEXTO_DETALLES = ["Detalles", "Details"]
 # Inversor (pestaña "Configuración", solo lectura): el umbral es un <input> numerico dentro del bloque de su etiqueta.
 ETIQ_UMBRAL = ["Umbral de protección de resistencia de aislamiento", "Insulation resistance protection threshold"]
 TEXTO_CONFIG = ["Configuración", "Settings", "Configuration"]
+# Misma pestaña: «Potencia activa máxima (kW)» (se lee a mano con `run.py --potencia-maxima` y se fija en config/inversores.json).
+ETIQ_PMAX = ["Potencia activa máxima", "Maximum active power"]
 
 TEXTO_LOGIN = ["Iniciar sesión", "Log In", "Login"]
 
@@ -552,6 +554,28 @@ class Scraper:
                 self._abrir_pestana(TEXTO_CONFIG)
             pg.wait_for_timeout(800)
         log.warning("%s: la pestaña Configuración no mostró el umbral de este inversor", nombre)
+        return None
+
+    def leer_potencia_maxima(self, ne: str, nombre: str) -> float | None:
+        """«Potencia activa máxima (kW)» de un inversor (Control > inversor > Configuración). Solo lee; None si no se pudo."""
+        pg = self.page
+        self._clic_nodo(ne)
+        esperado = " ".join(nombre.split()).lower()
+        previo = None
+        for i in range(25):
+            datos = pg.evaluate(JS_CONFIG, [ETIQ_PMAX, ETIQ_NOMBRE])
+            if datos["texto"] is not None and " ".join((datos["nombre"] or "").split()).lower() == esperado:
+                num = datos["numero"]
+                valor = float(num) if num not in (None, "") else parse_mohm(datos["texto"])
+                if valor is not None and valor == previo:
+                    return valor if 1 <= valor <= 10_000 else None
+                previo = valor
+            else:
+                previo = None
+            if i % 4 == 0:
+                self._abrir_pestana(TEXTO_CONFIG)
+            pg.wait_for_timeout(800)
+        log.warning("%s: la pestaña Configuración no mostró la potencia activa máxima", nombre)
         return None
 
     def volver_a_detalles(self) -> None:
