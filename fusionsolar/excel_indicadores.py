@@ -1,12 +1,12 @@
 """Escritura en la plantilla "Indicadores_FusionSolar.xlsx".
 
-Hoja "Indicadores" (la tuya): una fila por corrida, hora en A y pares MΩ / % por inversor, con una
+Hoja "Indicadores" (la tuya): una fila por corrida (la más reciente arriba), hora en A y pares MΩ / % por inversor, con una
 columna vacía separando cada grupo:
     B:E LC (Inv1, Inv2) | F | G:J VES (Inv1, Inv2) | K | L:Q PL Planta A (A1-A3) | R | S:X PL Planta B (B1-B3)
     La tabla de umbrales queda en Z:AA.
 Hoja "Historico": formato plano, una fila por lectura e inversor. Es la mejor fuente para Power BI.
 
-Hoja "Inicio_Temp": un renglón por día y, por inversor, la hora de inicio de ese día y la temperatura interna máxima del día
+Hoja "Inicio_Temp": un renglón por día (el más reciente arriba) y, por inversor, la hora de inicio de ese día y la temperatura interna máxima del día
 (se reconstruye entera en cada corrida desde el CSV maestro).
 
 Hoja "Disponibilidad": una fila por día (desde `disponibilidad.excel_desde`) y, por inversor (con su potencia nominal en el
@@ -15,10 +15,10 @@ Informe de inversores) y la disponibilidad calculada con la fórmula =IF(horas>=
 `disponibilidad.csv`, así que tampoco cambia el diseño de las demás hojas.
 
 Hoja "BESS carga-descarga": una fila por día (la más reciente arriba) y, por BESS, HFP (fuera de punta) y HP (hora punta) con °C mín., °C máx.
-y «°C Concentración» (Al inicio / Al final / Sin predominio: dónde se concentró el aumento de temperatura). Se reconstruye entera desde
+Salto °C, Tramo y Fuera de Rango (metodología «Lógica de Temperaturas», ver fusionsolar/bess_cd.py). Se reconstruye entera desde
 `bess_carga_descarga.csv` (ver fusionsolar/bess_cd.py).
 
-Hoja "BESS" (segunda hoja): una fila por corrida y un bloque de 6 temperaturas (°C) por BESS, separados por una
+Hoja "BESS" (segunda hoja): una fila por corrida (la más reciente arriba) y un bloque de 6 temperaturas (°C) por BESS, separados por una
 columna vacía y con los mismos encabezados (morado / amarillo) de "Indicadores". Se reconstruye entera en cada corrida desde el CSV BESS (acotado a los últimos N días), así que
 agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción del archivo.
 
@@ -211,31 +211,42 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
         t.tableStyleInfo = TableStyleInfo(name="TableStyleLight1", showRowStripes=True)
         wp.add_table(t)
 
+    # Hoja ancha, la lectura más reciente arriba: se leen las filas que ya hay (columnas A:X; la tabla de umbrales en Z:AA no se
+    # toca), se suman las nuevas y se reescribe el bloque ordenado de la más reciente a la más antigua. Un archivo que venía en
+    # orden ascendente queda en descendente en la primera corrida.
     ws = wb[HOJA_WIDE]
+    ancho = COLS[ORDEN[-1]] + 1                                  # última columna de datos (X)
+    filas_ws: list[list] = []
+    for vals in ws.iter_rows(min_row=PRIMERA_FILA_DATOS, max_col=ancho, values_only=True):
+        if vals[0] is None:
+            break
+        filas_ws.append(list(vals))
     por_ts: dict[str, dict[str, dict]] = {}
     for f in filas:
         por_ts.setdefault(f["Fecha_Hora"], {})[f"{f['Planta']}-{f['Inversor']}"] = f
-    fila = PRIMERA_FILA_DATOS
-    while ws.cell(fila, 1).value is not None:
-        fila += 1
     for ts in sorted(por_ts):
-        ws.cell(fila, 1).value = datetime.strptime(ts, FMT).replace(second=0)
-        ws.cell(fila, 1).number_format = "dd/mm/yyyy hh:mm"
+        vals = [None] * ancho
+        vals[0] = datetime.strptime(ts, FMT).replace(second=0)
         for iid, f in por_ts[ts].items():
             c = COLS.get(iid)
             if not c:
                 continue
-            ws.cell(fila, c).value = _num(f["Resistencia_MOhm"])
-            ws.cell(fila, c).number_format = "0.000"
-            ws.cell(fila, c + 1).value = _num(f["Potencia_Activa_%"])
-            ws.cell(fila, c + 1).number_format = "0.0"
-        fila += 1
+            vals[c - 1], vals[c] = _num(f["Resistencia_MOhm"]), _num(f["Potencia_Activa_%"])
+        filas_ws.append(vals)
+    filas_ws.sort(key=lambda v: v[0], reverse=True)              # estable: dos lecturas del mismo minuto conservan su orden
+    fmt = {c: f for iid in ORDEN for c, f in ((COLS[iid], "0.000"), (COLS[iid] + 1, "0.0"))}
+    for fila, vals in enumerate(filas_ws, start=PRIMERA_FILA_DATOS):
+        a = ws.cell(fila, 1)
+        a.value, a.number_format = vals[0], "dd/mm/yyyy hh:mm"
+        for c, f in fmt.items():
+            cel = ws.cell(fila, c)
+            cel.value, cel.number_format = vals[c - 1], f
 
 
 def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref: float = 12,
                          pnom: dict[str, float | None] | None = None) -> None:
     """(Re)crea la hoja "Disponibilidad" (tras BESS) con el formato de Maestro: encabezados morados con letra amarilla, fila 1 = planta,
-    fila 2 = inversor y su potencia nominal («Inversor 1 - 115 kW»), fila 3 = «Horas operativas» / «Rendimiento (kWh)» /
+    fila 2 = inversor y su potencia activa máxima («InvA.1 - 125 kW», fija en config), fila 3 = «Horas operativas» / «Rendimiento (kWh)» /
     «Disponibilidad»; una fila por día desde `desde` (vacío = todo el histórico), la más reciente arriba.
 
     Horas y rendimiento son datos (vienen de FusionSolar); la disponibilidad es la fórmula =IF(horas>=12,1,horas/12). Si ese día
@@ -426,7 +437,7 @@ def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     por_ts: dict[str, dict[str, dict]] = {}
     for f in filas_bess:
         por_ts.setdefault(f["Fecha_Hora"], {})[f["BESS"]] = f
-    for fila, ts in enumerate(sorted(por_ts), start=PRIMERA_FILA_DATOS):
+    for fila, ts in enumerate(sorted(por_ts, reverse=True), start=PRIMERA_FILA_DATOS):
         a = ws.cell(fila, 1)
         a.value, a.number_format = datetime.strptime(ts, FMT).replace(second=0), "dd/mm/yyyy hh:mm"
         for bid, f in por_ts[ts].items():
@@ -436,9 +447,15 @@ def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     ws.freeze_panes = "B4"
 
 
+TIT_BCD = ("°C Min", "°C Máx", "Salto °C", "Tramo", "Fuera de Rango")     # HP; en HFP no hay «Fuera de Rango» (solo las 4 primeras)
+NB_G = (len(TIT_BCD) - 1, len(TIT_BCD))                                     # columnas de HFP y de HP
+NB = sum(NB_G)
+
+
 def _hoja_bess_cd(wb: Workbook, filas: list[dict], ids: list[str]) -> None:
     """(Re)crea la hoja "BESS carga-descarga" (después de "BESS") con el formato de Maestro: encabezados morados con letra amarilla;
-    fila 1 = BESS, fila 2 = HFP | HP, fila 3 = °C Min | °C Máx | °C Concentración; una fila por día, la más reciente arriba."""
+    fila 1 = BESS, fila 2 = HFP | HP, fila 3 = °C Min | °C Máx | Salto °C | Tramo (| Fuera de Rango solo en HP); una fila por día, la más
+    reciente arriba. «Fuera de Rango» se pinta de rojo si la temperatura queda por encima del rango y de azul si queda por debajo."""
     if HOJA_BCD in wb.sheetnames:
         del wb[HOJA_BCD]
     pos = wb.sheetnames.index(HOJA_BESS) + 1 if HOJA_BESS in wb.sheetnames else 1
@@ -470,33 +487,44 @@ def _hoja_bess_cd(wb: Workbook, filas: list[dict], ids: list[str]) -> None:
             c += 1
         col0[bid] = c
         for g, nombre in enumerate(("HFP", "HP")):
-            for j, tit in enumerate(("°C Min", "°C Máx", "°C Concentración")):
-                cc = c + g * 3 + j
+            for j, tit in enumerate(TIT_BCD[:NB_G[g]]):
+                cc = c + (NB_G[0] if g else 0) + j
                 enc(1, cc)
                 enc(2, cc)
                 enc(3, cc, tit)
-                ws.column_dimensions[get_column_letter(cc)].width = 18 if j == 2 else 10
-            ws.cell(2, c + g * 3).value = nombre
-            ws.merge_cells(start_row=2, start_column=c + g * 3, end_row=2, end_column=c + g * 3 + 2)
+                ws.column_dimensions[get_column_letter(cc)].width = 14 if j == 4 else 9.5
+            ini = c + (NB_G[0] if g else 0)
+            ws.cell(2, ini).value = nombre
+            ws.merge_cells(start_row=2, start_column=ini, end_row=2, end_column=ini + NB_G[g] - 1)
         ws.cell(1, c).value = bid
-        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + 5)
-        c += 6
+        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + NB - 1)
+        c += NB
     por_dia: dict[str, dict[str, dict]] = {}
     for f in filas:
         por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = f
     centrado = Alignment(horizontal="center")
+    color_fuera = {"alto": PatternFill("solid", fgColor="FF0000"), "bajo": PatternFill("solid", fgColor="4472C4")}
     for fila, dia in enumerate(sorted(por_dia, reverse=True), start=PRIMERA_FILA_DATOS):
         a = ws.cell(fila, 1)
         a.value, a.number_format, a.alignment = datetime.strptime(dia, "%Y-%m-%d"), "dd/mm/yyyy", Alignment(horizontal="right")
         for bid, f in por_dia[dia].items():
             if bid not in col0:
                 continue
-            for j, clave in enumerate(("HFP_Min", "HFP_Max", "HFP_Concentracion", "HP_Min", "HP_Max", "HP_Concentracion")):
-                cel = ws.cell(fila, col0[bid] + j)
-                v = f.get(clave)
-                cel.value, cel.alignment = (v or None) if j % 3 == 2 else _num(v), centrado
-                if j % 3 != 2:
-                    cel.number_format = "0.0"
+            for g, nombre in enumerate(("HFP", "HP")):
+                for j, campo in enumerate(("Min", "Max", "Salto", "Tramo", "Fuera")[:NB_G[g]]):
+                    cel = ws.cell(fila, col0[bid] + (NB_G[0] if g else 0) + j)
+                    v = f.get(f"{nombre}_{campo}")
+                    try:
+                        n = _num(v)                                      # número, o texto («normal» / «Sin datos»)
+                    except (TypeError, ValueError):
+                        n = None
+                    cel.value, cel.alignment = (n if n is not None else (v or None)), centrado
+                    if n is not None:
+                        cel.number_format = "0" if campo == "Tramo" else "0.0"
+                        if campo == "Tramo":
+                            cel.value = int(n)
+                    if campo == "Fuera" and n is not None and f.get(f"{nombre}_Fuera_Tipo") in color_fuera:
+                        cel.fill = color_fuera[f[f"{nombre}_Fuera_Tipo"]]
     ws.freeze_panes = "B4"
 
 
@@ -520,7 +548,7 @@ def _hoja_inicio_temp(wb: Workbook, filas: list[dict]) -> None:
         t = _num(f.get("Temp_Interna_C"))
         if t is not None and t > tmax.get(clave, float("-inf")):
             tmax[clave] = t
-    dias = sorted({d for _, d in inicio} | {d for _, d in tmax})
+    dias = sorted({d for _, d in inicio} | {d for _, d in tmax}, reverse=True)      # el día más reciente arriba
     ws.cell(3, 1).value, ws.cell(3, 1)._style = "Día", est_a
     ws.column_dimensions["A"].width = 12
     col0: dict[str, int] = {}

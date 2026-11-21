@@ -55,8 +55,12 @@ CAMPOS_BESS = {
 }
 
 
-# BESS carga-descarga: una fila por dia y BESS (HFP = fuera de punta, HP = hora punta). Lecturas_* = horarios con dato (de 36 / 6)
-COLUMNAS_BCD = ["Fecha", "BESS", "HFP_Min", "HFP_Max", "HFP_Concentracion", "HP_Min", "HP_Max", "HP_Concentracion", "Lecturas_HFP", "Lecturas_HP"]
+# BESS carga-descarga: una fila por dia y BESS (HFP = fuera de punta, HP = hora punta). Lecturas_* = horarios con dato (de 36 / 6).
+# Por periodo: °C Min (T1), °C Máx (T6 / T36), Salto °C, Tramo, Fuera de Rango y su tipo («alto» = rojo, «bajo» = azul). Ver bess_cd.py.
+COLUMNAS_BCD = ["Fecha", "BESS",
+                "HFP_Min", "HFP_Max", "HFP_Salto", "HFP_Tramo", "HFP_Fuera", "HFP_Fuera_Tipo",
+                "HP_Min", "HP_Max", "HP_Salto", "HP_Tramo", "HP_Fuera", "HP_Fuera_Tipo",
+                "Lecturas_HFP", "Lecturas_HP", "Metodo"]
 
 FMT_TS = "%Y-%m-%d %H:%M:%S"
 

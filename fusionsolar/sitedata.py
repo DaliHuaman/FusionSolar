@@ -44,12 +44,24 @@ def _bess(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
 
 
 def _carga_descarga(cfg: dict, filas: list[dict]) -> dict:
-    """Bloque "bess.cd" de data.json: dias[k] = [fecha, {id_BESS: [hfp_min, hfp_max, hfp_conc, hp_min, hp_max, hp_conc]}], el más reciente primero."""
-    num = lambda v: None if v in ("", None) else round(float(v), 1)
+    """Bloque "bess.cd" de data.json: dias[k] = [fecha, {id_BESS: [hfp..., hp...]}], el más reciente primero.
+
+    Por periodo 6 valores: [°C Min, °C Máx, Salto °C, Tramo, Fuera de Rango, tipo] (Salto / Tramo / Fuera = número o «normal»;
+    tipo = «alto» (rojo) / «bajo» (azul) / null). null = sin dato."""
+    def val(v, campo):
+        if v in ("", None):
+            return None
+        if campo == "Fuera_Tipo":
+            return v
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return v                                             # «normal» / «Sin datos»
+        return int(x) if campo == "Tramo" else round(x, 1)
     por_dia: dict[str, dict] = {}
     for f in filas:
-        por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = [num(f.get("HFP_Min")), num(f.get("HFP_Max")), f.get("HFP_Concentracion") or None,
-                                                         num(f.get("HP_Min")), num(f.get("HP_Max")), f.get("HP_Concentracion") or None]
+        por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = [val(f.get(f"{g}_{c}"), c)
+                                                         for g in ("HFP", "HP") for c in ("Min", "Max", "Salto", "Tramo", "Fuera", "Fuera_Tipo")]
     return {"dias": [[d, por_dia[d]] for d in sorted(por_dia, reverse=True)]}
 
 
@@ -58,12 +70,12 @@ def _disponibilidad(cfg: dict, filas: list[dict]) -> dict:
 
     h[id_inversor][k] = horas del día d0 + k (null = sin dato). El dashboard calcula con ellas la disponibilidad
     diaria, mensual y anual (la fórmula del Excel: 1 si horas >= horas_ref, si no horas / horas_ref).
-    r[id_inversor][k] = rendimiento (kWh) del mismo día (null = sin dato). pnom[id_inversor] = potencia nominal (kW, fija).
+    r[id_inversor][k] = rendimiento (kWh) del mismo día (null = sin dato). pnom[id_inversor] = potencia activa máxima (kW, fija en config/inversores.json: `potencia_activa_max_kw`).
     """
     dcfg = cfg.get("disponibilidad") or {}
     out: dict = {"activo": bool(dcfg.get("activo")), "horas_ref": dcfg.get("horas_referencia", disp.HORAS_REF),
                  "excel_desde": dcfg.get("excel_desde"), "d0": None, "hasta": None, "revisado": None, "h": {}, "r": {},
-                 "pnom": {i["id"]: i.get("pnom_kw") for i in cfg["inversores"] if i.get("pnom_kw")}}
+                 "pnom": {i["id"]: i.get("potencia_activa_max_kw") for i in cfg["inversores"] if i.get("potencia_activa_max_kw")}}
     if not out["activo"]:
         return out
     out["revisado"] = leer_json(disp.ruta_estado(), {}).get("revisado_hasta")
