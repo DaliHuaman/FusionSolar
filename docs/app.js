@@ -766,20 +766,26 @@
     const E = D.energia_exportada;
     if (!E || !E.activo) { vacioTabla(t, "La energía exportada no está activa."); return; }
     const pls = E.plantas || [], F = E.filas || {};
-    const n = Math.max(0, ...pls.map(p => (F[p.codigo] || []).length));
-    if (!n) { vacioTabla(t, "Aún no hay energía exportada registrada."); return; }
+    const todas = pls.flatMap(p => F[p.codigo] || []);
+    if (!todas.length) { vacioTabla(t, "Aún no hay energía exportada registrada."); return; }
+    // filtro por mes (en «Fecha y hora» de la primera planta): aplica a todas las plantas de la hoja
+    const fm = aplicarMes("excel-ee", todas, r => r[0].slice(0, 7));
+    const L = Object.fromEntries(pls.map(p => [p.codigo, fm.sel ? (F[p.codigo] || []).filter(r => r[0].slice(0, 7) === fm.sel) : (F[p.codigo] || [])]));
+    const n = Math.max(0, ...pls.map(p => L[p.codigo].length));
+    if (!n) { vacioTabla(t, "Sin energía exportada en el mes elegido."); return; }
     const h1 = el("tr"), h2 = el("tr");
     pls.forEach((p, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 2 }));
       h1.append(el("th", { class: "g", colspan: 2, text: p.titulo }));
-      h2.append(el("th", { class: "u", text: "Fecha y hora" }), el("th", { class: "u", text: "Energía exportada (kWh)" }));
+      const th = el("th", { class: "u", text: "Fecha y hora" });
+      h2.append(k ? th : filtroMes(th, "excel-ee", fm.meses, fm.sel, () => tablaEnergiaExcel(t)), el("th", { class: "u", text: "Energía exportada (kWh)" }));
     });
     const body = el("tbody");
     for (let i = 0; i < n; i++) {
       const tr = el("tr");
       pls.forEach((p, k) => {
         if (k) tr.append(el("td", { class: "sep" }));
-        const r = (F[p.codigo] || [])[i];
+        const r = L[p.codigo][i];
         tr.append(el("td", { class: "ee-fh", text: r ? fFH(r[0]) : "" }), el("td", { class: "p", text: r ? fKwh3(r[1]) : "" }));
       });
       body.append(tr);
