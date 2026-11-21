@@ -1,0 +1,4 @@
+﻿N.º,Gravedad,Dispositivo,Nombre de alarma,ID de la alarma,Hora de generación,Hora de fin,ID de razón,Armario,
+1, Menor, INVERSOR - A.3, Error al actualizar, 2065, 2025-09-23 18:23:23, 2025-09-29 16:33:36, 4, --
+2, Menor, INVERSOR - A.2, Error al actualizar, 2065, 2025-09-23 18:23:22, 2025-09-29 16:43:45, 4, --
+3, Menor, INVERSOR - A.1, Error al actualizar, 2065, 2025-09-23 18:23:24, 2025-09-29 16:57:39, 4, --

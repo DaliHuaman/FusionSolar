@@ -10,3 +10,4 @@ FusionSolar_dashboard.zip
 
 !config/plantilla/*.xlsx
 !plantilla/*.xlsx
+!alarmas_manuales/*.xlsx

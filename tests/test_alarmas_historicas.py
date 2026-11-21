@@ -235,6 +235,131 @@ class TestCorrida(Base):
         self.assertNotIn("PL", self.ah.leer_json(self.ah.ruta_estado(), {}).get("plantas", {}).get("PL", {}).get("revisado_hasta", "") and ["PL"])
 
 
+class TestSinRepetidas(Base):
+    """La misma alarma exportada en dos filas (solo cambia la hora de eliminación) se guarda UNA vez."""
+
+    def test_repetida_en_el_mismo_archivo_conserva_la_eliminacion_mas_tardia(self):
+        ah, p = self.ah, Path(self.tmp.name)
+        t = datetime(2026, 3, 22, 8, 59, 48)
+        a, b = alarma("PL", "SN1", 2032, t, dur_min=700), alarma("PL", "SN1", 2032, t, dur_min=691)     # 2 filas de la misma alarma
+        otra = alarma("PL", "SN1", 2032, t + timedelta(hours=30))                                        # otra alarma distinta
+        escribir_portal(p / "x.xlsx", [b, otra, a])
+        filas = ah.leer_exportacion(p / "x.xlsx", "PL")
+        unicas, descartadas = ah.deduplicar(filas)
+        self.assertEqual((len(unicas), len(descartadas)), (2, 1))
+        self.assertEqual(unicas[0]["Fecha y hora de eliminación"], a["Fecha y hora de eliminación"])
+        todas, n = ah.guardar_filas(filas)
+        self.assertEqual((n, len(todas)), (2, 2))
+        # al repetir el archivo no entra nada
+        self.assertEqual(ah.guardar_filas(filas)[1], 0)
+
+    def test_repetida_contra_lo_ya_guardado_no_entra(self):
+        ah, p = self.ah, Path(self.tmp.name)
+        t = datetime(2026, 3, 22, 8, 59, 48)
+        escribir_portal(p / "a.xlsx", [alarma("PL", "SN1", 2032, t, dur_min=10)])
+        ah.guardar_filas(ah.leer_exportacion(p / "a.xlsx", "PL"))
+        escribir_portal(p / "b.xlsx", [alarma("PL", "SN1", 2032, t, dur_min=500)])       # la misma alarma, otra hora de eliminación
+        todas, n = ah.guardar_filas(ah.leer_exportacion(p / "b.xlsx", "PL"))
+        self.assertEqual((n, len(todas)), (0, 1))
+        self.assertEqual(todas[0]["Fecha y hora de eliminación"], "2026-03-22 09:09:48")          # lo guardado manda
+
+    def test_corrida_semanal_con_filas_repetidas_del_portal(self):
+        datos = {"PL": self.datos("PL", 10), "LC": [], "VES": []}
+        datos["PL"] = datos["PL"] + [dict(datos["PL"][3], **{"Fecha y hora de eliminación": "2026-12-31 00:00:00"})]     # fila repetida
+        nodos = {c: {"ne": c, "nombre": c} for c in ("PL", "LC", "VES")}
+        res = self.ah.actualizar(PortalFalso(datos), self.cfg, datetime(2026, 11, 17, 12), plantas_nodos=nodos)
+        self.assertNotIn("error", res, res)          # el «Total» del portal cuenta las 11 filas y el Excel trae 11: cuadra
+        self.assertEqual(sum(f["Planta"] == "PL" for f in self.ah.leer_filas()), 10)
+
+
+MANUAL = ["N.º", "Gravedad", "Dispositivo", "Nombre de alarma", "ID de la alarma", "Hora de generación", "Hora de fin", "ID de razón", "Armario", ""]
+
+
+class TestManuales(Base):
+    """Archivos bajados a mano: encabezado con coma final, textos con espacios, fechas ISO o DD/MM/AAAA, Excel con hojas de más."""
+
+    def previas(self):
+        base = alarma("PL", "6T0001", 2032, datetime(2026, 11, 1, 6), grav="Mayor")
+        base.update({"Nombre del dispositivo": "INVERSOR - A.1", "Nombre de la alarma": "Fallo de la red eléctrica", "Planta": "PL"})
+        lc = alarma("LC", "6T0099", 2032, datetime(2026, 11, 1, 6), grav="Mayor")
+        lc.update({"Nombre del dispositivo": "INVERSOR N° 1", "Nombre de la alarma": "Fallo de la red eléctrica", "Planta": "LC"})
+        lg = alarma("PL", "1025", 1154, datetime(2026, 11, 2, 6), grav="Menores")
+        lg.update({"Nombre del dispositivo": "Logger-1025", "Tipo de dispositivo": "SmartLogger", "Planta": "PL"})
+        escribir_portal(Path(self.tmp.name) / "p.xlsx", [{k: v for k, v in x.items() if k != "Planta"} for x in (base, lg)])
+        self.ah.guardar_filas(self.ah.leer_exportacion(Path(self.tmp.name) / "p.xlsx", "PL"))
+        escribir_portal(Path(self.tmp.name) / "q.xlsx", [{k: v for k, v in lc.items() if k != "Planta"}])
+        self.ah.guardar_filas(self.ah.leer_exportacion(Path(self.tmp.name) / "q.xlsx", "LC"))
+
+    def csv(self, nombre, filas):
+        p = Path(self.tmp.name) / "man" / nombre
+        p.parent.mkdir(exist_ok=True)
+        with open(p, "w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(MANUAL)
+            w.writerows(filas)                       # una columna menos que el encabezado (coma final), como el portal
+        return p.parent
+
+    def test_pl_mayores_y_menores_juntos_y_sin_repetir(self):
+        self.previas()
+        d = self.csv("PL_mayores.csv", [
+            [1, " Grave", " INVERSOR - A.1", " Corte de red eléctrica", 2032, " 2025-09-12 06:49:48", " 2025-09-16 06:41:34", 1, " --"],
+            [2, " Grave", " INVERSOR - A.1", " Corte de red eléctrica", 2032, " 2025-09-12 06:49:48", " 2025-09-15 16:38:31", 1, " --"],   # misma alarma
+            [3, " Grave", " Logger(Local)", " Excepción de comunicación de dispositivo hacia el sur", 1154, " 2025-09-13 01:00:00", " 2025-09-13 02:00:00", 5, " --"]])
+        self.csv("PL_menores.csv", [[1, " Menor", " INVERSOR - A.1", " Error al actualizar", 2065, " 2025-09-23 18:23:24", " 2025-09-29 16:57:39", 4, " --"]])
+        res = self.ah.importar_manuales(d)
+        self.assertEqual(res["PL"], {"archivos": ["PL_mayores.csv", "PL_menores.csv"], "leidas": 4, "repetidas_en_archivos": 1, "ya_estaban": 0, "nuevas": 3})
+        filas = [f for f in self.ah.leer_filas() if f["Fecha y hora en que ha ocurrido"] == "2025-09-12 06:49:48"]
+        self.assertEqual(len(filas), 1)
+        self.assertEqual((filas[0]["Número SN"], filas[0]["Fecha y hora de eliminación"], filas[0]["Gravedad de la alarma"]),
+                         ("6T0001", "2025-09-16 06:41:34", "Mayor"))                  # SN del portal y eliminación más tardía
+        self.assertEqual(filas[0]["Nombre de la alarma"], "Fallo de la red eléctrica")      # nombre del portal para ese ID
+        lg = [f for f in self.ah.leer_filas() if f["ID de la alarma"] == "1154" and f["Fecha y hora en que ha ocurrido"].startswith("2025")][0]
+        self.assertEqual((lg["Número SN"], lg["Tipo de dispositivo"], lg["Gravedad de la alarma"]), ("1025", "SmartLogger", "Mayor"))
+        menor = [f for f in self.ah.leer_filas() if f["ID de la alarma"] == "2065"][0]
+        self.assertEqual(menor["Gravedad de la alarma"], "Menores")
+        # repetir la importación no agrega nada
+        self.assertEqual(self.ah.importar_manuales(d)["PL"]["nuevas"], 0)
+
+    def test_manual_contra_lo_ya_guardado(self):
+        self.previas()
+        d = self.csv("PL_mayores.csv", [[1, " Grave", " INVERSOR - A.1", " Corte de red eléctrica", 2032, " 2026-11-01 06:00:00", " 2026-11-01 07:00:00", 1, " --"]])
+        r = self.ah.importar_manuales(d)["PL"]
+        self.assertEqual((r["ya_estaban"], r["nuevas"]), (1, 0))
+
+    def test_lc_excel_con_dos_hojas_y_fechas_dia_mes(self):
+        from openpyxl import Workbook
+        self.previas()
+        wb = Workbook()
+        o = wb.active
+        o.title = "ORIGINAL"
+        o.append(["N.º,Gravedad,Dispositivo,Nombre de alarma,ID de la alarma,Hora de generación,Hora de fin,ID de razón,Armario,"])
+        o.append(["1, Grave, Inversor 1, Corte de red eléctrica, 2032, 2025-02-18 14:48:25, 2025-02-18 16:36:39, 1, --"])
+        h = wb.create_sheet("ORGANIZADA POR COLUMNAS")
+        h.append(MANUAL[:9])
+        h.append([1, " Grave", " Inversor 1", " Corte de red eléctrica", 2032, "18/02/2025 14:48:25", "18/02/2025 16:36:39", 1, " --"])
+        d = Path(self.tmp.name) / "man"
+        d.mkdir()
+        wb.save(d / "LC.xlsx")
+        self.assertEqual(self.ah.importar_manuales(d)["LC"]["nuevas"], 1)
+        f = [x for x in self.ah.leer_filas() if x["Planta"] == "LC" and x["Fecha y hora en que ha ocurrido"].startswith("2025")][0]
+        self.assertEqual((f["Número SN"], f["Nombre del dispositivo"], f["Fecha y hora de eliminación"]), ("6T0099", "INVERSOR N° 1", "2025-02-18 16:36:39"))
+
+    def test_dispositivo_desconocido_no_guarda_nada(self):
+        self.previas()
+        d = self.csv("PL_mayores.csv", [
+            [1, " Grave", " INVERSOR - A.1", " Corte de red eléctrica", 2032, " 2025-09-12 06:49:48", " 2025-09-16 06:41:34", 1, " --"],
+            [2, " Grave", " Medidor X", " Corte de red eléctrica", 2032, " 2025-09-12 06:49:48", " 2025-09-16 06:41:34", 1, " --"]])
+        antes = len(self.ah.leer_filas())
+        with self.assertRaises(self.ah.ErrorFormato):
+            self.ah.importar_manuales(d)
+        self.assertEqual(len(self.ah.leer_filas()), antes)
+
+    def test_nombre_de_archivo_sin_planta_se_rechaza(self):
+        d = self.csv("otra.csv", [])
+        with self.assertRaises(self.ah.ErrorFormato):
+            self.ah.importar_manuales(d)
+
+
 class TestSalidas(Base):
     def test_excel_y_dashboard(self):
         from openpyxl import load_workbook
