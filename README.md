@@ -15,7 +15,7 @@ También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detal
 | `fusionsolar/disponibilidad.py` | Fórmula de disponibilidad, lectura del Informe de inversores y `disponibilidad.csv` |
 | `run.py` | El código principal que se ejecuta (orquesta todo) |
 | `fusionsolar/scraper.py` | Entra al portal y lee los valores (scraping) |
-| `fusionsolar/bess_cd.py` | Hoja «BESS carga-descarga»: dónde se concentra el aumento de temperatura de cada BESS (HFP / HP) |
+| `fusionsolar/bess_cd.py` | Hoja «BESS carga-descarga»: °C Min / Máx, Salto °C, Tramo y Fuera de Rango de cada BESS (HFP / HP) |
 | `fusionsolar/excel_indicadores.py` y `store.py` | Escriben las lecturas en el Excel |
 | `fusionsolar/sitedata.py` | Prepara los datos del dashboard web |
 | `config/inversores.json` | Lista de inversores, sus **umbrales** (valor inicial) y la configuración de umbrales y alertas |
@@ -86,14 +86,35 @@ disponibilidad = SI(horas >= 12; 1; horas / 12)      # 12 h = horas de sol de re
 
 ## BESS carga-descarga
 
-Hoja `BESS carga-descarga` del Excel (y pestaña del mismo nombre en «Datos del Excel» del dashboard): una fila por día, la más reciente arriba, y por BESS dos grupos, **HFP** (fuera de punta) y **HP** (hora punta), con `°C Min`, `°C Máx` y `°C Concentración`.
+Hoja `BESS carga-descarga` del Excel (y pestaña del mismo nombre en «Datos del Excel» del dashboard): una fila por día, la más reciente arriba, y por BESS dos grupos, **HFP** (fuera de punta) y **HP** (hora punta), con `°C Min`, `°C Máx`, `Salto °C`, `Tramo` y, solo en HP, `Fuera de Rango` (metodología del Excel «Lógica de Temperaturas»).
 
 - **De dónde salen los datos**: de las lecturas de 30 min que ya se guardan en `historico_bess.csv` (campo «Temperatura más alta del grupo»); no hay otra consulta al portal, así que no puede fallar por login o red. Se toma, para cada horario, la lectura más cercana (tolerancia ±10 min).
-- **HP**: 18:00, 18:30, 19:00, 19:30, 20:00 y 20:30 → 5 incrementos de 30 min. Se compara el promedio de los 2 primeros (18:00–19:00) con el de los 2 últimos (19:30–20:30).
-- **HFP**: 00:00 a 17:30 (no incluye lo posterior a la descarga en HP), con la misma comparación (2 primeros vs 2 últimos incrementos del rango).
-- **Concentración**: `Al inicio` si el promedio inicial es mayor, `Al final` si el final es mayor, `Sin predominio` si la diferencia es menor a 0,1 °C por 30 min, `Sin datos` si falta algún grupo de incrementos. `°C Min` / `°C Máx` son el mínimo y el máximo de las temperaturas del grupo.
-- **Cuándo**: cada día se cierra y se agrega a las 12:00 (Lima) del día siguiente, en la primera corrida de 30 min después de esa hora; los últimos 7 días se recalculan por si llegaron lecturas tardías. Datos faltantes no rompen nada: el incremento que los necesita se omite. Es idempotente (no duplica filas) y no se acota a 90 días: queda en `bess_carga_descarga.csv` (rama `data`).
-- **Configuración**: `bess.carga_descarga` en `config/inversores.json` (`activo`, `hora_extraccion`, `tolerancia_min`, `umbral_c`, `recalcular_dias`).
+- **Puntos**: HP = 18:00, 18:30 … 20:30 → 6 puntos (T1…T6) y 5 tramos incrementales. HFP = 00:00 … 17:30 → 36 puntos (T1…T36) y 35 tramos. Tramo k = T(k+1) − T(k) (1 = T1→T2).
+- **°C Min / °C Máx**: en **HP**, la temperatura del primer punto (T1) y del último (T6), que no siempre son la mínima y la máxima; si falta esa lectura se usa la primera / última disponible. En **HFP**, la temperatura mínima y la máxima del periodo, en cualquier punto (no necesariamente T1 ni T36).
+- **Salto °C**: el tramo de mayor valor absoluto, de subida o de bajada (con su signo), si es de 3 °C o más; si no, `normal`. Si hay dos saltos se escoge el de mayor valor absoluto.
+- **Tramo**: número del tramo donde ocurrió ese salto; `normal` si el salto es normal.
+- **Fuera de Rango** (**solo HP**; en HFP no aplica): temperatura de un punto intermedio (ni T1 ni T6) que queda fuera del rango entre °C Min y °C Máx: la más alta en **rojo** si queda por encima, la más baja en **azul** si queda por debajo; `normal` si ninguna sale. Si hay una por encima y otra por debajo se muestra la que más se aleja del rango (empate: la de arriba).
+- **Cuándo**: `disponibilidad.yml` corre **todos los días a las 06:07 de Lima** (11:07 UTC; Lima no tiene horario de verano) y guarda las horas de **ayer**. También repasa los últimos `releer_dias` (3) por si el portal completa datos tardíos. Como GitHub puede demorar los `schedule`, conviene crear en cron-job.org un trabajo diario a las 06:00 (zona America/Lima) con la misma llamada `workflow_dispatch` que usa `actualizar.yml`, apuntando a `disponibilidad.yml`.
+- **Historial**: la primera ejecución recorre todo desde `inicio_busqueda` (2025-01-01) hasta ayer y descubre sola la primera fecha con datos (Logiscity desde feb 2025, Villa el Salvador desde sep 2025 y PL desde oct 2026); tarda unos 3 minutos. Si un día falla, la revisión no avanza y la corrida siguiente lo recupera. Para recorrer un rango a mano: *Actions › Disponibilidad diaria › Run workflow* (`desde` / `hasta`) o `python run.py --disponibilidad --desde 2025-01-01`.
+- **Qué se guarda**: `disponibilidad.csv` y `disponibilidad_estado.json` en la rama `data` (una fila por día e inversor: `Fecha, Planta, Grupo, Inversor, Horas, Leido, Rendimiento_kWh`).
+- **Rendimiento (kWh)**: en la misma consulta de las horas se guarda la columna «Rendimiento» del Informe de inversores (energía producida por el inversor ese día). Si el portal no lo trae, la celda queda vacía. La primera corrida después de agregarlo vuelve a recorrer una sola vez el historial desde `primer_dato` para completarlo (`rendimiento_hasta` en `disponibilidad_estado.json` guarda el avance).
+- **Potencia nominal**: junto al nombre de cada inversor («Inv1 - 115 kW»). Se lee en la corrida de 30 min de *Control › inversor › Detalles › Potencia nominal del inversor* y se guarda en `potencia_nominal.json` (rama `data`); mientras no haya lectura se usa `potencia_nominal_kw` de `config/inversores.json`.
+- **Día sin conexión**: si el inversor aparece ese día en el informe con rendimiento pero **sin** «Duración de conexión a la red», se toma como **0 h** (0 %). Si el portal no trae nada del inversor (antes de su puesta en marcha o sin comunicación), el día queda **sin dato** y no se grafica.
+- **Excel**: hoja `Disponibilidad` (tercera, tras `BESS`) con el formato de Maestro: una fila por día desde `disponibilidad.excel_desde` (vacío = todo el histórico, desde feb 2025), **la más reciente arriba**, por inversor (con su potencia nominal) «Horas operativas», «Rendimiento (kWh)» y «Disponibilidad» (la fórmula `=IF(B4>=12,1,B4/12)`, formato 0,00 %). Se reconstruye entera en cada corrida desde el CSV, así que nunca duplica filas; el histórico ya está en `disponibilidad.csv` (para volver a leerlo del portal: `python run.py --disponibilidad --desde 2025-01-01`).
+- **Dashboard**: botón **Disponibilidad** junto a BESS: gráfico de barras por planta (promedio de sus inversores) **por día, mes o año** con el zoom de las demás gráficas, tarjetas con el último día y el mes, y la tabla diaria. En «Datos del Excel» hay una pestaña nueva **Disponibilidad** (igual que la hoja del archivo). Colores de la disponibilidad en las tablas: 0 ≤ d < 70 % rojo · 70 ≤ d < 98,5 % amarillo · 98,5 ≤ d ≤ 100 % sin resaltar (blanco).
+
+## BESS carga-descarga
+
+Hoja `BESS carga-descarga` del Excel (y pestaña del mismo nombre en «Datos del Excel» del dashboard): una fila por día, la más reciente arriba, y por BESS dos grupos, **HFP** (fuera de punta) y **HP** (hora punta), con `°C Min`, `°C Máx`, `Salto °C`, `Tramo` y, solo en HP, `Fuera de Rango` (metodología del Excel «Lógica de Temperaturas»).
+
+- **De dónde salen los datos**: de las lecturas de 30 min que ya se guardan en `historico_bess.csv` (campo «Temperatura más alta del grupo»); no hay otra consulta al portal, así que no puede fallar por login o red. Se toma, para cada horario, la lectura más cercana (tolerancia ±10 min).
+- **Puntos**: HP = 18:00, 18:30 … 20:30 → 6 puntos (T1…T6) y 5 tramos incrementales. HFP = 00:00 … 17:30 → 36 puntos (T1…T36) y 35 tramos. Tramo k = T(k+1) − T(k) (1 = T1→T2).
+- **°C Min / °C Máx**: en **HP**, la temperatura del primer punto (T1) y del último (T6), que no siempre son la mínima y la máxima; si falta esa lectura se usa la primera / última disponible. En **HFP**, la temperatura mínima y la máxima del periodo, en cualquier punto (no necesariamente T1 ni T36).
+- **Salto °C**: el tramo de mayor valor absoluto, de subida o de bajada (con su signo), si es de 3 °C o más; si no, `normal`. Si hay dos saltos se escoge el de mayor valor absoluto.
+- **Tramo**: número del tramo donde ocurrió ese salto; `normal` si el salto es normal.
+- **Fuera de Rango**: temperatura de un punto intermedio (ni el primero ni el último) que queda fuera del rango entre °C Min y °C Máx: la más alta en **rojo** si queda por encima, la más baja en **azul** si queda por debajo; `normal` si ninguna sale. Si hay una por encima y otra por debajo se muestra la que más se aleja del rango (empate: la de arriba).
+- **Cuándo**: cada día se cierra y se agrega a las 12:00 (Lima) del día siguiente, en la primera corrida de 30 min después de esa hora; los últimos 7 días se recalculan por si llegaron lecturas tardías. Datos faltantes no rompen nada: el tramo que los necesita se omite. Es idempotente (no duplica filas) y no se acota a 90 días: queda en `bess_carga_descarga.csv` (rama `data`). Cada fila guarda su metodología (`Metodo`): si cambia, la siguiente corrida recalcula una vez todos los días que tengan lecturas en el historial.
+- **Configuración**: `bess.carga_descarga` en `config/inversores.json` (`activo`, `hora_extraccion`, `tolerancia_min`, `salto_c`, `recalcular_dias`).
 
 ## Temperaturas BESS
 
