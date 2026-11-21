@@ -1,0 +1,619 @@
+﻿N.º,Gravedad,Dispositivo,Nombre de alarma,ID de la alarma,Hora de generación,Hora de fin,ID de razón,Armario,
+1, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-12 06:49:48, 2025-09-16 06:41:34, 1, --
+2, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-11 01:45:39, 2025-09-15 16:38:08, 1, --
+3, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-12 06:38:52, 2025-09-12 06:47:24, 1, --
+4, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-12 06:47:45, 2025-09-15 16:38:31, 1, --
+5, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-13 07:23:02, 2025-09-13 07:32:33, 1, --
+6, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-13 07:32:56, 2025-09-13 10:11:19, 1, --
+7, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-18 16:17:37, 2025-09-19 08:40:58, 1, --
+8, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-13 07:31:38, 2025-09-12 22:11:43, 1, --
+9, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-13 07:24:22, 2025-09-13 07:31:15, 1, --
+10, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-18 04:43:35, 2025-09-18 20:41:22, 1, --
+11, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-18 22:13:44, 2025-09-18 22:14:22, 1, --
+12, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-18 22:15:27, 2025-09-18 22:16:08, 1, --
+13, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-13 07:29:47, 2025-09-14 00:23:52, 1, --
+14, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-18 16:30:13, 2025-09-18 16:31:41, 1, --
+15, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-18 16:32:04, 2025-09-18 16:35:52, 1, --
+16, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-18 16:36:15, 2025-09-18 16:37:27, 1, --
+17, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-19 06:38:31, 2025-09-19 06:43:01, 1, --
+18, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-18 16:38:00, 2025-09-19 08:40:16, 1, --
+19, Grave, INVERSOR - A.3, Sobrefrecuencia de red eléctrica, 2036, 2025-09-19 13:45:35, 2025-09-19 13:47:32, 1, --
+20, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-19 13:47:33, 2025-09-19 13:48:36, 1, --
+21, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-19 13:47:33, 2025-09-19 13:48:37, 1, --
+22, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-19 13:47:33, 2025-09-19 13:49:51, 1, --
+23, Grave, INVERSOR - A.3, Sobrefrecuencia de red eléctrica, 2036, 2025-09-19 13:48:38, 2025-09-19 14:07:51, 1, --
+24, Grave, INVERSOR - B.1, Conexión inversa de cadena, 2011, 2025-09-19 14:41:19, 2025-09-19 14:41:30, 20, --
+25, Grave, INVERSOR - B.2, Conexión inversa de cadena, 2011, 2025-09-19 14:41:30, 2025-09-19 14:41:40, 20, --
+26, Grave, INVERSOR - B.3, Conexión inversa de cadena, 2011, 2025-09-19 14:41:55, 2025-09-19 14:42:05, 20, --
+27, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-19 17:00:06, 2025-09-20 09:41:01, 1, --
+28, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-19 17:00:05, 2025-09-20 09:41:04, 1, --
+29, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-19 16:59:24, 2025-09-20 09:41:06, 1, --
+30, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-19 17:07:58, 2025-09-20 10:30:33, 1, --
+31, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-19 17:07:59, 2025-09-20 10:30:37, 1, --
+32, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-19 17:08:00, 2025-09-20 10:30:39, 1, --
+33, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-20 11:59:20, 2025-09-20 12:14:10, 1, --
+34, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-20 11:59:18, 2025-09-20 12:14:13, 1, --
+35, Grave, INVERSOR - B.3, Fallo de dispositivo, 2064, 2025-09-20 12:17:23, 2025-09-20 12:18:40, 10, --
+36, Grave, INVERSOR - B.2, Fallo en arco de CC, 2003, 2025-09-20 13:02:30, 2025-09-20 13:02:35, 3, --
+37, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-22 13:47:37, 2025-09-22 13:47:41, 1, --
+38, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-22 13:47:36, 2025-09-22 13:47:41, 1, --
+39, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-22 13:47:36, 2025-09-22 13:47:41, 1, --
+40, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-22 13:47:39, 2025-09-23 14:03:57, 1, --
+41, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-22 13:47:40, 2025-09-23 14:03:58, 1, --
+42, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-22 13:47:40, 2025-09-23 14:03:59, 1, --
+43, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-24 07:12:17, 2025-09-24 11:49:47, 1, --
+44, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-24 07:12:17, 2025-09-24 11:49:46, 1, --
+45, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-24 07:12:18, 2025-09-24 11:49:46, 1, --
+46, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-24 12:03:40, 2025-09-24 12:57:17, 1, --
+47, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-24 12:03:40, 2025-09-24 12:57:18, 1, --
+48, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-24 12:03:40, 2025-09-24 12:57:17, 1, --
+49, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 12:58:51, 2025-09-24 13:00:09, 10, --
+50, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-24 13:49:48, 2025-09-24 13:49:53, 1, --
+51, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-24 13:49:48, 2025-09-24 13:49:53, 1, --
+52, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-24 13:49:48, 2025-09-24 13:49:53, 1, --
+53, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-24 13:59:17, 2025-09-24 13:59:22, 1, --
+54, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-24 13:59:17, 2025-09-24 13:59:22, 1, --
+55, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-24 13:59:18, 2025-09-24 13:59:22, 1, --
+56, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 16:25:16, 2025-09-24 16:27:31, 12, --
+57, Grave, INVERSOR - B.3, Fallo de dispositivo, 2064, 2025-09-24 16:25:59, 2025-09-24 16:28:30, 12, --
+58, Grave, INVERSOR - B.2, Fallo de dispositivo, 2064, 2025-09-24 16:26:32, 2025-09-24 16:28:51, 12, --
+59, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 16:27:45, 2025-09-24 16:30:13, 12, --
+60, Grave, INVERSOR - B.2, Fallo de dispositivo, 2064, 2025-09-24 16:29:13, 2025-09-24 16:31:02, 12, --
+61, Grave, INVERSOR - B.3, Fallo de dispositivo, 2064, 2025-09-24 16:29:52, 2025-09-24 16:32:18, 12, --
+62, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 16:30:32, 2025-09-24 16:32:46, 12, --
+63, Grave, INVERSOR - B.2, Fallo de dispositivo, 2064, 2025-09-24 16:31:25, 2025-09-24 16:33:33, 12, --
+64, Grave, INVERSOR - B.3, Fallo de dispositivo, 2064, 2025-09-24 16:32:48, 2025-09-24 16:34:56, 12, --
+65, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 16:33:04, 2025-09-24 16:35:30, 12, --
+66, Grave, INVERSOR - B.2, Fallo de dispositivo, 2064, 2025-09-24 16:33:53, 2025-09-24 16:36:15, 12, --
+67, Grave, INVERSOR - B.3, Fallo de dispositivo, 2064, 2025-09-24 16:35:10, 2025-09-24 16:37:37, 12, --
+68, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 16:35:46, 2025-09-24 16:38:17, 12, --
+69, Grave, INVERSOR - B.1, Fallo de dispositivo, 2064, 2025-09-24 16:38:31, 2025-09-24 16:40:44, 12, --
+70, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-28 07:57:55, 2025-09-28 07:58:00, 1, --
+71, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-28 07:57:55, 2025-09-28 07:58:00, 1, --
+72, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-28 07:57:55, 2025-09-28 07:58:00, 1, --
+73, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-28 07:57:58, 2025-09-29 15:34:53, 1, --
+74, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-28 07:57:59, 2025-09-29 15:34:53, 1, --
+75, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-28 07:57:58, 2025-09-29 15:34:53, 1, --
+76, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-29 16:45:39, 2025-09-29 16:45:57, 1, --
+77, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-29 16:45:38, 2025-09-29 16:45:56, 1, --
+78, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-29 16:45:38, 2025-09-29 16:45:57, 1, --
+79, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-09-29 16:46:02, 2025-09-29 16:47:57, 1, --
+80, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-09-29 16:46:02, 2025-09-29 16:47:58, 1, --
+81, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-09-29 16:46:02, 2025-09-29 16:47:58, 1, --
+82, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-29 17:27:31, 2025-09-29 17:31:02, 1, --
+83, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-29 17:27:30, 2025-09-29 17:31:02, 1, --
+84, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-29 17:27:30, 2025-09-29 17:31:01, 1, --
+85, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-30 06:11:04, 2025-09-30 15:26:58, 1, --
+86, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-30 06:11:04, 2025-09-30 15:27:03, 1, --
+87, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-30 06:11:04, 2025-09-30 15:27:06, 1, --
+88, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-09-30 15:47:50, 2025-09-30 15:50:01, 1, --
+89, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-09-30 15:47:50, 2025-09-30 15:50:02, 1, --
+90, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-09-30 15:47:50, 2025-09-30 15:50:02, 1, --
+91, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 07:55:49, 2025-10-11 07:57:24, 1, --
+92, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:01:24, 2025-10-11 08:02:54, 1, --
+93, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:02:01, 2025-10-11 08:03:35, 1, --
+94, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:04:08, 2025-10-11 08:05:38, 1, --
+95, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:05:09, 2025-10-11 08:06:42, 1, --
+96, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:05:07, 2025-10-11 08:06:48, 1, --
+97, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:06:12, 2025-10-11 08:07:46, 1, --
+98, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:07:34, 2025-10-11 08:09:02, 1, --
+99, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:09:41, 2025-10-11 08:11:13, 1, --
+100, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:10:00, 2025-10-11 08:11:31, 1, --
+101, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:11:29, 2025-10-11 08:13:03, 1, --
+102, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:11:51, 2025-10-11 08:13:24, 1, --
+103, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:12:11, 2025-10-11 08:13:45, 1, --
+104, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:13:41, 2025-10-11 08:15:12, 1, --
+105, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:14:02, 2025-10-11 08:15:37, 1, --
+106, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:14:18, 2025-10-11 08:15:54, 1, --
+107, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:15:43, 2025-10-11 08:17:18, 1, --
+108, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:16:11, 2025-10-11 08:17:43, 1, --
+109, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:16:27, 2025-10-11 08:18:02, 1, --
+110, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:17:42, 2025-10-11 08:19:12, 1, --
+111, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:18:17, 2025-10-11 08:19:53, 1, --
+112, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:18:31, 2025-10-11 08:20:04, 1, --
+113, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:19:47, 2025-10-11 08:21:22, 1, --
+114, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:20:23, 2025-10-11 08:21:51, 1, --
+115, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:20:36, 2025-10-11 08:22:09, 1, --
+116, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:21:19, 2025-10-11 08:22:18, 1, --
+117, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:21:57, 2025-10-11 08:23:34, 1, --
+118, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:22:48, 2025-10-11 08:23:45, 1, --
+119, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:22:19, 2025-10-11 08:23:50, 1, --
+120, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:22:43, 2025-10-11 08:24:21, 1, --
+121, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:23:42, 2025-10-11 08:24:39, 1, --
+122, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:24:22, 2025-10-11 08:25:20, 1, --
+123, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:24:03, 2025-10-11 08:25:34, 1, --
+124, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:24:22, 2025-10-11 08:25:59, 1, --
+125, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:24:54, 2025-10-11 08:26:21, 1, --
+126, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:25:28, 2025-10-11 08:26:29, 1, --
+127, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:26:02, 2025-10-11 08:27:40, 1, --
+128, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:26:34, 2025-10-11 08:28:06, 1, --
+129, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:26:54, 2025-10-11 08:28:24, 1, --
+130, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:27:35, 2025-10-11 08:28:37, 1, --
+131, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:27:41, 2025-10-11 08:28:38, 1, --
+132, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:27:48, 2025-10-11 08:28:45, 1, --
+133, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:28:14, 2025-10-11 08:29:44, 1, --
+134, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:28:39, 2025-10-11 08:30:08, 1, --
+135, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:29:24, 2025-10-11 08:30:24, 1, --
+136, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:28:56, 2025-10-11 08:30:31, 1, --
+137, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:29:25, 2025-10-11 08:30:27, 1, --
+138, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:29:38, 2025-10-11 08:30:34, 1, --
+139, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:30:19, 2025-10-11 08:31:55, 1, --
+140, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:30:37, 2025-10-11 08:32:09, 1, --
+141, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:31:07, 2025-10-11 08:32:45, 1, --
+142, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:32:20, 2025-10-11 08:33:53, 1, --
+143, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:32:41, 2025-10-11 08:34:09, 1, --
+144, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:33:17, 2025-10-11 08:34:47, 1, --
+145, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:34:25, 2025-10-11 08:36:03, 1, --
+146, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:34:40, 2025-10-11 08:36:15, 1, --
+147, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:35:23, 2025-10-11 08:36:53, 1, --
+148, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:36:38, 2025-10-11 08:38:06, 1, --
+149, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:36:44, 2025-10-11 08:38:15, 1, --
+150, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:37:26, 2025-10-11 08:38:57, 1, --
+151, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:38:31, 2025-10-11 08:40:05, 1, --
+152, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:38:49, 2025-10-11 08:40:23, 1, --
+153, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:39:29, 2025-10-11 08:40:59, 1, --
+154, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:40:39, 2025-10-11 08:42:13, 1, --
+155, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:40:55, 2025-10-11 08:42:22, 1, --
+156, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:41:33, 2025-10-11 08:43:05, 1, --
+157, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:42:46, 2025-10-11 08:44:22, 1, --
+158, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:42:46, 2025-10-11 08:44:21, 1, --
+159, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:44:06, 2025-10-11 08:45:05, 1, --
+160, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:43:40, 2025-10-11 08:45:11, 1, --
+161, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:44:23, 2025-10-11 08:45:20, 1, --
+162, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:44:58, 2025-10-11 08:45:56, 1, --
+163, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:44:47, 2025-10-11 08:46:20, 1, --
+164, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:44:51, 2025-10-11 08:46:21, 1, --
+165, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:46:02, 2025-10-11 08:47:02, 1, --
+166, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:46:08, 2025-10-11 08:47:05, 1, --
+167, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:45:45, 2025-10-11 08:47:16, 1, --
+168, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:46:44, 2025-10-11 08:47:43, 1, --
+169, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:46:53, 2025-10-11 08:48:24, 1, --
+170, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:46:45, 2025-10-11 08:48:21, 1, --
+171, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:47:56, 2025-10-11 08:48:56, 1, --
+172, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:47:52, 2025-10-11 08:48:57, 1, --
+173, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:47:42, 2025-10-11 08:49:12, 1, --
+174, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:48:31, 2025-10-11 08:49:29, 1, --
+175, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:48:52, 2025-10-11 08:50:22, 1, --
+176, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:48:58, 2025-10-11 08:50:29, 1, --
+177, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:49:44, 2025-10-11 08:50:43, 1, --
+178, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:49:46, 2025-10-11 08:50:48, 1, --
+179, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:50:20, 2025-10-11 08:51:16, 1, --
+180, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:49:45, 2025-10-11 08:51:18, 1, --
+181, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:50:58, 2025-10-11 08:52:26, 1, --
+182, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:51:30, 2025-10-11 08:52:34, 1, --
+183, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:51:01, 2025-10-11 08:52:38, 1, --
+184, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:51:47, 2025-10-11 08:52:41, 1, --
+185, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:52:03, 2025-10-11 08:53:05, 1, --
+186, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:51:52, 2025-10-11 08:53:22, 1, --
+187, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:53:22, 2025-10-11 08:54:24, 1, --
+188, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 08:53:28, 2025-10-11 08:54:31, 1, --
+189, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-11 08:53:02, 2025-10-11 08:54:36, 1, --
+190, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:53:15, 2025-10-11 08:54:42, 1, --
+191, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 08:53:54, 2025-10-11 08:54:55, 1, --
+192, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:53:58, 2025-10-11 08:55:28, 1, --
+193, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:55:10, 2025-10-11 08:56:15, 1, --
+194, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:55:17, 2025-10-11 08:56:47, 1, --
+195, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:56:04, 2025-10-11 08:57:42, 1, --
+196, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:57:15, 2025-10-11 08:58:53, 1, --
+197, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 08:58:10, 2025-10-11 08:59:41, 1, --
+198, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 08:58:37, 2025-10-11 08:59:37, 1, --
+199, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 08:59:24, 2025-10-11 09:01:00, 1, --
+200, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 09:00:25, 2025-10-11 09:01:26, 1, --
+201, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-11 09:00:09, 2025-10-11 09:01:39, 1, --
+202, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 09:01:01, 2025-10-11 09:01:58, 1, --
+203, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 09:01:05, 2025-10-11 09:02:05, 1, --
+204, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 09:01:34, 2025-10-11 09:03:05, 1, --
+205, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 09:02:15, 2025-10-11 09:03:16, 1, --
+206, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 09:02:50, 2025-10-11 09:03:50, 1, --
+207, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 09:02:50, 2025-10-11 09:03:54, 1, --
+208, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-11 09:03:38, 2025-10-11 09:05:08, 1, --
+209, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 09:04:38, 2025-10-11 09:05:42, 1, --
+210, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-11 09:06:55, 2025-10-11 09:07:58, 1, --
+211, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-11 09:07:56, 2025-10-11 09:08:59, 1, --
+212, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-11 09:07:58, 2025-10-11 09:09:04, 1, --
+213, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:09:45, 2025-10-12 08:11:18, 1, --
+214, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:10:41, 2025-10-12 08:12:11, 1, --
+215, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:11:28, 2025-10-12 08:13:04, 1, --
+216, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:13:39, 2025-10-12 08:15:14, 1, --
+217, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:15:15, 2025-10-12 08:16:45, 1, --
+218, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:16:02, 2025-10-12 08:17:34, 1, --
+219, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:17:05, 2025-10-12 08:18:36, 1, --
+220, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:17:23, 2025-10-12 08:18:56, 1, --
+221, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:18:10, 2025-10-12 08:19:49, 1, --
+222, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:19:34, 2025-10-12 08:21:05, 1, --
+223, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:19:42, 2025-10-12 08:21:14, 1, --
+224, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:20:45, 2025-10-12 08:22:12, 1, --
+225, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:21:53, 2025-10-12 08:23:28, 1, --
+226, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:22:38, 2025-10-12 08:24:10, 1, --
+227, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:23:08, 2025-10-12 08:24:40, 1, --
+228, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:25:08, 2025-10-12 08:26:38, 1, --
+229, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:25:11, 2025-10-12 08:26:45, 1, --
+230, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:27:24, 2025-10-12 08:28:54, 1, --
+231, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:27:40, 2025-10-12 08:29:10, 1, --
+232, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:27:55, 2025-10-12 08:29:27, 1, --
+233, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:29:46, 2025-10-12 08:31:25, 1, --
+234, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:30:02, 2025-10-12 08:31:34, 1, --
+235, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:30:13, 2025-10-12 08:31:49, 1, --
+236, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:32:13, 2025-10-12 08:33:44, 1, --
+237, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:32:25, 2025-10-12 08:33:58, 1, --
+238, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:32:26, 2025-10-12 08:34:02, 1, --
+239, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:34:18, 2025-10-12 08:35:52, 1, --
+240, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:34:37, 2025-10-12 08:36:12, 1, --
+241, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:34:39, 2025-10-12 08:36:09, 1, --
+242, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:36:27, 2025-10-12 08:37:59, 1, --
+243, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:36:38, 2025-10-12 08:38:09, 1, --
+244, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:36:59, 2025-10-12 08:38:34, 1, --
+245, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:38:39, 2025-10-12 08:40:15, 1, --
+246, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-10-12 08:39:29, 2025-10-12 08:41:04, 1, --
+247, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-10-12 08:39:49, 2025-10-12 08:41:27, 1, --
+248, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:40:49, 2025-10-12 08:42:22, 1, --
+249, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-10-12 08:41:39, 2025-10-12 08:42:36, 1, --
+250, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:43:01, 2025-10-12 08:44:37, 1, --
+251, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-12 08:48:07, 2025-10-12 08:49:06, 1, --
+252, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-10-12 08:47:40, 2025-10-12 08:49:13, 1, --
+253, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-12 08:50:13, 2025-10-12 08:51:14, 1, --
+254, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-10-12 08:52:12, 2025-10-12 08:53:12, 1, --
+255, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2025-10-12 08:53:26, 2025-10-12 08:54:28, 1, --
+256, Grave, INVERSOR - B.3, Sobretensión en la red eléctrica, 2034, 2025-10-18 10:32:00, 2025-10-18 10:32:05, 1, --
+257, Grave, INVERSOR - B.1, Sobretensión en la red eléctrica, 2034, 2025-10-18 10:34:01, 2025-10-18 10:34:06, 1, --
+258, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-11-05 06:23:40, 2025-11-05 06:24:40, 1, --
+259, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-12-04 07:19:58, 2025-12-04 07:21:02, 1, --
+260, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-12-04 07:22:35, 2025-12-04 07:23:37, 1, --
+261, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-12-04 07:24:20, 2025-12-04 07:25:22, 1, --
+262, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-12-04 07:28:18, 2025-12-04 07:36:49, 1, --
+263, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-12-04 07:30:11, 2025-12-04 07:38:39, 1, --
+264, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-12-04 07:37:16, 2025-12-04 07:45:46, 1, --
+265, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2025-12-04 07:37:34, 2025-12-04 07:46:05, 1, --
+266, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2025-12-04 07:39:24, 2025-12-04 07:47:56, 1, --
+267, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2025-12-04 07:47:15, 2025-12-04 07:55:41, 1, --
+268, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2025-12-04 07:57:15, 2025-12-04 07:58:13, 1, --
+269, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2025-12-04 07:58:52, 2025-12-04 07:59:56, 1, --
+270, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-12-05 06:50:03, 2025-12-06 08:56:48, 1, --
+271, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-12-05 06:50:03, 2025-12-06 08:56:48, 1, --
+272, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-12-05 06:50:03, 2025-12-06 08:56:49, 1, --
+273, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-12-05 06:50:06, 2025-12-06 09:10:12, 1, --
+274, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-12-05 06:50:06, 2025-12-06 09:10:12, 1, --
+275, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-12-05 06:50:06, 2025-12-06 09:10:12, 1, --
+276, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2025-12-06 09:50:07, 2025-12-06 10:00:02, 1, --
+277, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2025-12-06 09:50:06, 2025-12-06 10:00:02, 1, --
+278, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2025-12-06 09:50:07, 2025-12-06 10:00:02, 1, --
+279, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2025-12-06 09:50:09, 2025-12-06 10:00:01, 1, --
+280, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2025-12-06 09:50:10, 2025-12-06 10:00:02, 1, --
+281, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2025-12-06 09:50:10, 2025-12-06 10:00:01, 1, --
+282, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-01-04 08:43:41, 2026-01-04 21:54:55, 1, --
+283, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-01-04 08:43:40, 2026-01-04 21:55:36, 1, --
+284, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-01-04 08:43:41, 2026-01-04 21:55:36, 1, --
+285, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-01-04 08:43:41, 2026-01-04 21:54:55, 1, --
+286, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-01-04 08:43:40, 2026-01-04 21:54:55, 1, --
+287, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-01-17 07:04:52, 2026-01-17 07:22:28, 1, --
+288, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-01-17 07:04:53, 2026-01-17 07:22:28, 1, --
+289, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-01-17 07:04:52, 2026-01-17 07:22:28, 1, --
+290, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-14 06:47:54, 2026-03-14 06:48:59, 1, --
+291, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-14 06:51:43, 2026-03-14 06:52:41, 1, --
+292, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-14 06:58:25, 2026-03-14 06:59:25, 1, --
+293, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-14 07:00:49, 2026-03-14 07:01:48, 1, --
+294, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-14 07:02:51, 2026-03-14 07:03:53, 1, --
+295, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-03-14 07:03:10, 2026-03-14 07:04:12, 1, --
+296, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-14 07:04:45, 2026-03-14 07:05:42, 1, --
+297, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-03-14 07:01:17, 2026-03-14 07:09:47, 1, --
+298, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2026-03-14 07:03:22, 2026-03-14 07:11:53, 1, --
+299, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-16 07:10:41, 2026-03-16 07:11:40, 1, --
+300, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-16 07:12:54, 2026-03-16 07:13:57, 1, --
+301, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-16 07:15:50, 2026-03-16 07:16:46, 1, --
+302, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-03-16 07:19:42, 2026-03-16 07:28:05, 1, --
+303, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-03-16 07:28:40, 2026-03-16 07:37:04, 1, --
+304, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:00:31, 2026-03-18 07:01:28, 1, --
+305, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:03:34, 2026-03-18 07:04:32, 1, --
+306, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:06:11, 2026-03-18 07:07:09, 1, --
+307, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:10:38, 2026-03-18 07:11:38, 1, --
+308, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:13:19, 2026-03-18 07:14:22, 1, --
+309, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:15:58, 2026-03-18 07:17:00, 1, --
+310, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-03-18 07:18:06, 2026-03-18 07:19:08, 1, --
+311, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-03-22 09:11:56, 2026-03-22 20:31:38, 5, --
+312, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-03-22 08:59:48, 2026-03-22 20:31:38, 1, --
+313, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-03-22 08:59:48, 2026-03-22 20:31:38, 1, --
+314, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-03-22 08:59:48, 2026-03-22 20:31:38, 1, --
+315, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-03-22 08:51:55, 2026-03-22 20:31:38, 1, --
+316, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-03-22 08:51:55, 2026-03-22 20:31:38, 1, --
+317, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-03-22 08:51:55, 2026-03-22 20:31:38, 1, --
+318, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-03-22 08:59:48, 2026-03-22 20:30:59, 1, --
+319, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-03-22 08:59:48, 2026-03-22 20:30:59, 1, --
+320, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-03-22 08:59:48, 2026-03-22 20:30:59, 1, --
+321, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-03-22 08:51:55, 2026-03-22 20:36:28, 1, --
+322, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-03-22 08:51:55, 2026-03-22 20:36:27, 1, --
+323, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-03-22 08:51:55, 2026-03-22 20:36:28, 1, --
+324, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-03-25 07:05:14, 2026-03-25 07:13:39, 1, --
+325, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2026-03-25 07:13:08, 2026-03-25 07:21:44, 1, --
+326, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-03-25 07:14:21, 2026-03-25 07:22:50, 1, --
+327, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-04-21 08:21:51, 2026-04-21 08:30:14, 1, --
+328, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2026-04-21 08:23:13, 2026-04-21 08:31:41, 1, --
+329, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2026-04-21 08:24:12, 2026-04-21 08:32:44, 1, --
+330, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-04-21 08:36:25, 2026-04-21 08:37:23, 1, --
+331, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-04-21 08:36:37, 2026-04-21 08:37:37, 1, --
+332, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-04-21 08:31:03, 2026-04-21 08:39:31, 1, --
+333, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2026-04-21 08:32:59, 2026-04-21 08:41:19, 1, --
+334, Grave, INVERSOR - A.1, Corriente residual anormal, 2051, 2026-04-21 08:33:24, 2026-04-21 08:41:57, 1, --
+335, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-04-25 17:09:50, 2026-04-25 17:09:55, 1, --
+336, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-04-25 17:09:54, 2026-04-25 17:09:58, 1, --
+337, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-04-25 17:09:50, 2026-04-25 17:09:55, 1, --
+338, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-04-25 17:09:50, 2026-04-25 17:09:56, 1, --
+339, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-04-25 17:09:53, 2026-04-25 17:09:58, 1, --
+340, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-04-25 17:09:53, 2026-04-25 17:09:58, 1, --
+341, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-05-04 06:47:49, 2026-05-04 06:48:46, 1, --
+342, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-05-12 07:07:43, 2026-05-12 07:08:39, 1, --
+343, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-05-12 07:11:59, 2026-05-12 07:12:55, 1, --
+344, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-05-12 07:17:21, 2026-05-12 07:18:23, 1, --
+345, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-05-12 07:11:12, 2026-05-12 07:19:37, 1, --
+346, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-05-29 06:50:18, 2026-05-29 08:11:18, 1, --
+347, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-05-31 06:56:57, 2026-05-31 07:18:57, 1, --
+348, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-05-31 09:18:43, 2026-05-31 11:36:57, 1, --
+349, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-05-31 09:18:43, 2026-05-31 11:36:57, 1, --
+350, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-05-31 09:18:44, 2026-05-31 11:36:58, 1, --
+351, Grave, INVERSOR - A.3, Sobrecorriente de salida, 2039, 2026-05-31 11:44:53, 2026-05-31 11:52:43, 1, --
+352, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-06-01 07:05:37, 2026-06-01 10:02:37, 1, --
+353, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-06-02 13:25:45, 2026-06-02 13:34:10, 1, --
+354, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-06-23 13:15:26, 2026-06-23 14:19:04, 1, --
+355, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-06-23 13:15:22, 2026-06-23 14:19:04, 1, --
+356, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-06-23 13:15:25, 2026-06-23 15:57:09, 1, --
+357, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-06-23 13:15:22, 2026-06-23 16:24:15, 1, --
+358, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-06-23 13:15:26, 2026-06-23 16:24:15, 1, --
+359, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-06-23 13:15:26, 2026-06-23 15:57:11, 1, --
+360, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-06-23 13:15:22, 2026-06-23 15:57:03, 1, --
+361, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-14 07:01:41, 2026-07-14 10:24:31, 1, --
+362, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-15 07:00:17, 2026-07-15 09:52:57, 1, --
+363, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-16 07:02:52, 2026-07-16 10:27:23, 1, --
+364, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-17 07:04:12, 2026-07-17 07:53:12, 1, --
+365, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-19 06:57:53, 2026-07-19 08:49:33, 1, --
+366, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-20 07:08:05, 2026-07-20 09:01:04, 1, --
+367, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-21 07:03:26, 2026-07-21 08:24:26, 1, --
+368, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-22 06:54:31, 2026-07-22 09:49:32, 1, --
+369, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-23 07:07:13, 2026-07-23 09:00:14, 1, --
+370, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-24 07:20:13, 2026-07-24 09:13:12, 1, --
+371, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-25 07:01:09, 2026-07-25 07:23:09, 1, --
+372, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-26 07:01:28, 2026-07-26 09:54:29, 1, --
+373, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-27 06:57:23, 2026-07-27 08:50:23, 1, --
+374, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-28 06:59:55, 2026-07-28 08:20:55, 1, --
+375, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-29 07:02:01, 2026-07-29 08:23:01, 1, --
+376, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-07-30 07:12:08, 2026-07-30 07:20:32, 1, --
+377, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-07-30 07:21:20, 2026-07-30 07:29:42, 1, --
+378, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-30 06:51:27, 2026-07-30 08:41:27, 1, --
+379, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-07-31 07:01:43, 2026-07-31 08:22:43, 1, --
+380, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-01 06:55:42, 2026-08-01 08:16:42, 1, --
+381, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-02 07:00:28, 2026-08-02 08:53:28, 1, --
+382, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-03 06:59:27, 2026-08-03 10:25:09, 1, --
+383, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-04 06:59:31, 2026-08-04 09:53:50, 1, --
+384, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-05 06:59:56, 2026-08-05 08:52:56, 1, --
+385, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-06 06:59:43, 2026-08-06 08:20:43, 1, --
+386, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-07 06:59:30, 2026-08-07 07:48:29, 1, --
+387, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-09 07:02:51, 2026-08-09 08:23:51, 1, --
+388, Grave, INVERSOR - B.1, Baja tensión en la red eléctrica, 2033, 2026-08-09 17:55:15, 2026-08-09 17:55:19, 1, --
+389, Grave, INVERSOR - B.1, Sobretensión en la red eléctrica, 2034, 2026-08-09 17:55:15, 2026-08-09 17:55:19, 1, --
+390, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-09 17:55:15, 2026-08-09 17:55:19, 1, --
+391, Grave, INVERSOR - B.2, Baja tensión en la red eléctrica, 2033, 2026-08-09 17:55:15, 2026-08-09 17:55:19, 1, --
+392, Grave, INVERSOR - B.2, Sobretensión en la red eléctrica, 2034, 2026-08-09 17:55:15, 2026-08-09 17:55:19, 1, --
+393, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-10 06:56:39, 2026-08-10 09:18:30, 1, --
+394, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-11 07:44:07, 2026-08-11 07:45:10, 1, --
+395, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-11 07:45:53, 2026-08-11 07:46:53, 1, --
+396, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-11 07:47:57, 2026-08-11 07:48:56, 1, --
+397, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-11 07:50:15, 2026-08-11 07:51:11, 1, --
+398, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-11 07:51:56, 2026-08-11 07:53:01, 1, --
+399, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-11 06:58:50, 2026-08-11 09:21:40, 1, --
+400, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-08-12 06:55:37, 2026-08-12 07:44:38, 1, --
+401, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-12 06:48:17, 2026-08-12 10:14:17, 1, --
+402, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-08-13 07:00:41, 2026-08-13 08:53:42, 1, --
+403, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-13 07:02:09, 2026-08-13 12:05:19, 1, --
+404, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-14 06:57:49, 2026-08-14 18:13:02, 1, --
+405, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-15 08:41:49, 2026-08-15 08:42:48, 1, --
+406, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-15 08:43:42, 2026-08-15 08:44:40, 1, --
+407, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-15 08:47:52, 2026-08-15 08:48:51, 1, --
+408, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-08-15 09:00:54, 2026-08-15 09:01:52, 1, --
+409, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-15 09:02:44, 2026-08-15 09:03:46, 1, --
+410, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-08-15 09:02:54, 2026-08-15 09:03:56, 1, --
+411, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-15 07:00:15, 2026-08-15 11:32:26, 1, --
+412, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-08-16 06:52:04, 2026-08-16 10:44:24, 1, --
+413, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-16 15:08:12, 2026-08-16 15:09:12, 1, --
+414, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-08-16 15:08:18, 2026-08-16 15:09:18, 1, --
+415, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-08-16 15:09:26, 2026-08-16 15:10:29, 1, --
+416, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-08-16 15:10:25, 2026-08-16 15:11:22, 1, --
+417, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-16 15:11:11, 2026-08-16 15:12:08, 1, --
+418, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-08-16 15:12:49, 2026-08-16 15:13:48, 1, --
+419, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-08-16 15:16:08, 2026-08-16 15:17:05, 1, --
+420, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-08-16 15:11:45, 2026-08-16 15:20:11, 1, --
+421, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2026-08-16 15:12:51, 2026-08-16 18:14:24, 1, --
+422, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-08-16 15:45:46, 2026-08-16 18:14:24, 1, --
+423, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-16 06:52:18, 2026-08-16 18:14:28, 1, --
+424, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-08-17 03:07:10, 2026-08-17 05:05:17, 5, --
+425, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-08-17 06:13:25, 2026-08-17 12:37:09, 1, --
+426, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-17 06:13:06, 2026-08-17 12:37:09, 1, --
+427, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-08-17 06:13:46, 2026-08-17 12:37:10, 1, --
+428, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-08-17 12:38:02, 2026-08-17 12:38:29, 1, --
+429, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-17 12:38:03, 2026-08-17 12:38:29, 1, --
+430, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-08-17 12:38:02, 2026-08-17 12:38:29, 1, --
+431, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-08-17 12:40:38, 2026-08-17 14:12:20, 1, --
+432, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-17 12:40:39, 2026-08-17 14:12:20, 1, --
+433, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-08-17 12:40:39, 2026-08-17 14:12:20, 1, --
+434, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-08-17 14:20:24, 2026-08-17 14:20:39, 1, --
+435, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-17 14:20:24, 2026-08-17 14:20:38, 1, --
+436, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-08-17 14:20:23, 2026-08-17 14:20:38, 1, --
+437, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-08-17 14:17:15, 2026-08-17 14:21:16, 5, --
+438, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-08-17 06:14:34, 2026-08-17 14:29:01, 1, --
+439, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-08-17 06:14:42, 2026-08-17 14:29:03, 1, --
+440, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-08-17 06:14:25, 2026-08-17 14:29:07, 1, --
+441, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-08-17 17:02:58, 2026-08-17 17:20:13, 1, --
+442, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-17 17:02:57, 2026-08-17 17:20:12, 1, --
+443, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-08-17 17:02:58, 2026-08-17 17:20:13, 1, --
+444, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-17 15:04:35, 2026-08-17 18:18:57, 1, --
+445, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-18 06:53:30, 2026-08-18 08:14:30, 1, --
+446, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-19 06:46:51, 2026-08-19 08:07:52, 1, --
+447, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-08-20 06:55:21, 2026-08-20 07:44:21, 1, --
+448, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-08-28 09:31:28, 2026-08-28 11:34:24, 1, --
+449, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-08-28 09:31:27, 2026-08-28 11:34:24, 1, --
+450, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-08-28 09:31:27, 2026-08-28 11:34:25, 1, --
+451, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-08-28 09:31:30, 2026-08-28 11:34:24, 1, --
+452, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-08-28 09:31:31, 2026-08-28 11:34:24, 1, --
+453, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-08-28 09:36:27, 2026-08-28 11:34:34, 5, --
+454, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-08-28 09:31:30, 2026-08-28 11:34:25, 1, --
+455, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-01 06:45:05, 2026-09-01 07:34:04, 1, --
+456, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-02 06:45:52, 2026-09-02 09:41:52, 1, --
+457, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-03 06:46:09, 2026-09-03 10:13:30, 1, --
+458, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-03 06:42:30, 2026-09-03 12:39:01, 1, --
+459, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-09-03 14:59:53, 2026-09-03 16:11:58, 5, --
+460, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-03 14:54:52, 2026-09-04 13:06:09, 1, --
+461, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-03 14:54:52, 2026-09-04 13:06:09, 1, --
+462, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-03 14:54:52, 2026-09-04 13:06:10, 1, --
+463, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-03 14:54:55, 2026-09-04 13:06:10, 1, --
+464, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-03 14:54:55, 2026-09-04 13:06:09, 1, --
+465, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-03 14:54:55, 2026-09-04 13:06:09, 1, --
+466, Grave, INVERSOR - B.2, Fallo de dispositivo, 2064, 2026-09-04 13:07:26, 2026-09-04 13:08:42, 10, --
+467, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-09-04 13:10:58, 2026-09-04 13:14:59, 5, --
+468, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-04 13:14:51, 2026-09-04 13:16:10, 1, --
+469, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-04 13:14:51, 2026-09-04 13:16:10, 1, --
+470, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-04 13:14:51, 2026-09-04 13:16:10, 1, --
+471, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-04 13:14:54, 2026-09-04 13:16:10, 1, --
+472, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-04 13:14:53, 2026-09-04 13:16:10, 1, --
+473, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-04 13:14:54, 2026-09-04 13:16:10, 1, --
+474, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-05 06:46:06, 2026-09-05 07:08:06, 1, --
+475, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-05 06:46:44, 2026-09-05 07:08:44, 1, --
+476, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-09 06:38:31, 2026-09-09 07:27:31, 1, --
+477, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-10 06:38:10, 2026-09-10 07:27:10, 1, --
+478, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-11 06:39:54, 2026-09-11 07:01:54, 1, --
+479, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-12 06:37:27, 2026-09-12 07:58:26, 1, --
+480, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-13 06:37:35, 2026-09-13 06:59:35, 1, --
+481, Grave, INVERSOR - A.2, Baja tensión en la red eléctrica, 2033, 2026-09-13 08:32:52, 2026-09-13 08:33:05, 1, --
+482, Grave, INVERSOR - A.3, Baja tensión en la red eléctrica, 2033, 2026-09-13 08:32:52, 2026-09-13 08:33:05, 1, --
+483, Grave, INVERSOR - A.1, Baja tensión en la red eléctrica, 2033, 2026-09-13 08:32:50, 2026-09-13 08:33:04, 1, --
+484, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-13 08:33:06, 2026-09-13 18:15:26, 1, --
+485, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-09-13 09:06:15, 2026-09-13 18:16:44, 5, --
+486, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-13 08:33:05, 2026-09-13 18:16:44, 1, --
+487, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-13 08:33:05, 2026-09-13 18:16:44, 1, --
+488, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-13 08:09:06, 2026-09-13 18:16:44, 1, --
+489, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-13 08:09:06, 2026-09-13 18:16:44, 1, --
+490, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-13 08:09:06, 2026-09-13 18:16:44, 1, --
+491, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-13 08:33:05, 2026-09-13 18:15:25, 1, --
+492, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-13 08:33:05, 2026-09-13 18:15:28, 1, --
+493, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-13 08:09:06, 2026-09-13 18:24:37, 1, --
+494, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-13 08:09:06, 2026-09-13 18:24:37, 1, --
+495, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-13 08:09:06, 2026-09-13 18:24:37, 1, --
+496, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-17 06:26:01, 2026-09-17 08:16:41, 1, --
+497, Grave, INVERSOR - A.2, Corriente residual anormal, 2051, 2026-09-19 07:52:50, 2026-09-19 08:01:07, 1, --
+498, Grave, INVERSOR - A.3, Corriente residual anormal, 2051, 2026-09-19 08:04:43, 2026-09-19 08:13:01, 1, --
+499, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-19 08:22:53, 2026-09-19 08:23:56, 1, --
+500, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-19 08:25:04, 2026-09-19 08:26:01, 1, --
+501, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-19 08:30:43, 2026-09-19 08:31:46, 1, --
+502, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-23 06:19:24, 2026-09-23 10:04:12, 1, --
+503, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-24 06:19:08, 2026-09-24 07:58:48, 1, --
+504, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-24 09:09:15, 2026-09-24 10:58:12, 1, --
+505, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-24 09:09:17, 2026-09-24 10:58:16, 1, --
+506, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-24 09:09:16, 2026-09-24 10:58:16, 1, --
+507, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-24 14:08:24, 2026-09-24 17:06:50, 1, --
+508, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-24 14:08:25, 2026-09-24 17:06:52, 1, --
+509, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-24 14:08:27, 2026-09-24 17:06:53, 1, --
+510, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-25 06:30:20, 2026-09-25 10:24:01, 1, --
+511, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-25 08:50:50, 2026-09-25 16:50:29, 1, --
+512, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-25 08:50:42, 2026-09-25 16:50:26, 1, --
+513, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-25 08:50:49, 2026-09-25 16:50:24, 1, --
+514, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-26 06:30:11, 2026-09-26 08:20:21, 1, --
+515, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-26 10:18:03, 2026-09-26 10:48:23, 1, --
+516, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-26 10:41:23, 2026-09-26 11:00:35, 1, --
+517, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-26 10:41:26, 2026-09-26 11:00:39, 1, --
+518, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-26 10:41:24, 2026-09-26 11:00:36, 1, --
+519, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-26 10:18:04, 2026-09-26 11:10:01, 1, --
+520, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-26 11:15:47, 2026-09-26 11:21:37, 1, --
+521, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-26 10:10:54, 2026-09-26 11:27:41, 1, --
+522, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-26 11:27:47, 2026-09-26 11:36:53, 1, --
+523, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-26 12:00:35, 2026-09-26 12:06:21, 1, --
+524, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-26 12:00:36, 2026-09-26 12:07:53, 1, --
+525, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-26 12:00:37, 2026-09-26 12:12:09, 1, --
+526, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-27 08:11:40, 2026-09-27 13:21:37, 1, --
+527, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-27 08:11:41, 2026-09-27 13:21:37, 1, --
+528, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-27 08:11:41, 2026-09-27 13:21:37, 1, --
+529, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-27 08:11:40, 2026-09-27 13:57:22, 1, --
+530, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-27 08:11:41, 2026-09-27 14:05:10, 1, --
+531, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-27 08:11:41, 2026-09-27 14:29:28, 1, --
+532, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-28 06:22:02, 2026-09-28 09:44:03, 1, --
+533, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-28 09:09:36, 2026-09-28 13:59:50, 1, --
+534, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-28 09:09:34, 2026-09-28 13:59:54, 1, --
+535, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-28 09:09:35, 2026-09-28 13:59:53, 1, --
+536, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-28 14:15:53, 2026-09-28 16:39:11, 1, --
+537, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-28 14:15:53, 2026-09-28 16:39:13, 1, --
+538, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-28 14:15:54, 2026-09-28 16:40:41, 1, --
+539, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-29 06:26:03, 2026-09-29 08:15:43, 1, --
+540, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-29 09:06:33, 2026-09-29 11:39:48, 1, --
+541, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-29 09:06:34, 2026-09-29 11:39:52, 1, --
+542, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:43:51, 2026-09-29 11:44:56, 1, --
+543, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:45:46, 2026-09-29 11:46:43, 1, --
+544, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:45:49, 2026-09-29 11:46:53, 1, --
+545, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:46:40, 2026-09-29 11:47:38, 1, --
+546, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:47:36, 2026-09-29 11:48:41, 1, --
+547, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:47:46, 2026-09-29 11:48:46, 1, --
+548, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:48:28, 2026-09-29 11:49:25, 1, --
+549, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:49:31, 2026-09-29 11:50:35, 1, --
+550, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:49:34, 2026-09-29 11:50:39, 1, --
+551, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:50:15, 2026-09-29 11:51:11, 1, --
+552, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:51:29, 2026-09-29 11:52:27, 1, --
+553, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:51:26, 2026-09-29 11:52:29, 1, --
+554, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:52:03, 2026-09-29 11:52:59, 1, --
+555, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:53:20, 2026-09-29 11:54:17, 1, --
+556, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:53:50, 2026-09-29 11:54:48, 1, --
+557, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:53:38, 2026-09-29 11:54:50, 1, --
+558, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:55:09, 2026-09-29 11:56:16, 1, --
+559, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:55:50, 2026-09-29 11:56:53, 1, --
+560, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:55:47, 2026-09-29 11:56:54, 1, --
+561, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:57:08, 2026-09-29 11:58:13, 1, --
+562, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 11:58:06, 2026-09-29 11:59:02, 1, --
+563, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 11:57:53, 2026-09-29 11:59:07, 1, --
+564, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 11:59:15, 2026-09-29 12:00:19, 1, --
+565, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:00:09, 2026-09-29 12:01:14, 1, --
+566, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:00:06, 2026-09-29 12:01:21, 1, --
+567, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:01:11, 2026-09-29 12:02:08, 1, --
+568, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:02:15, 2026-09-29 12:03:12, 1, --
+569, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:02:22, 2026-09-29 12:03:37, 1, --
+570, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:03:06, 2026-09-29 12:04:09, 1, --
+571, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:04:04, 2026-09-29 12:05:04, 1, --
+572, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:04:33, 2026-09-29 12:05:41, 1, --
+573, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:04:59, 2026-09-29 12:06:02, 1, --
+574, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:06:00, 2026-09-29 12:06:58, 1, --
+575, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:06:36, 2026-09-29 12:07:47, 1, --
+576, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:06:53, 2026-09-29 12:07:55, 1, --
+577, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:07:50, 2026-09-29 12:08:49, 1, --
+578, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:08:39, 2026-09-29 12:09:44, 1, --
+579, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:08:50, 2026-09-29 12:09:50, 1, --
+580, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:09:43, 2026-09-29 12:10:44, 1, --
+581, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:10:42, 2026-09-29 12:11:42, 1, --
+582, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:10:35, 2026-09-29 12:11:48, 1, --
+583, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:11:36, 2026-09-29 12:12:38, 1, --
+584, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:12:36, 2026-09-29 12:13:32, 1, --
+585, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:12:39, 2026-09-29 12:13:43, 1, --
+586, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:13:30, 2026-09-29 12:14:27, 1, --
+587, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:14:29, 2026-09-29 12:15:26, 1, --
+588, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:14:35, 2026-09-29 12:15:45, 1, --
+589, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-29 11:47:15, 2026-09-29 12:15:53, 1, --
+590, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-29 11:47:15, 2026-09-29 12:15:58, 1, --
+591, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:15:22, 2026-09-29 12:16:21, 1, --
+592, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:16:27, 2026-09-29 12:17:32, 1, --
+593, Grave, INVERSOR - B.3, Corriente residual anormal, 2051, 2026-09-29 12:17:15, 2026-09-29 12:18:20, 1, --
+594, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:17:08, 2026-09-29 12:18:23, 1, --
+595, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:18:29, 2026-09-29 12:19:35, 1, --
+596, Grave, INVERSOR - B.2, Corriente residual anormal, 2051, 2026-09-29 12:19:32, 2026-09-29 12:20:47, 1, --
+597, Grave, INVERSOR - B.1, Corriente residual anormal, 2051, 2026-09-29 12:20:30, 2026-09-29 12:21:28, 1, --
+598, Grave, INVERSOR - A.2, Baja resistencia de aislamiento, 2062, 2026-09-30 06:25:31, 2026-09-30 06:35:01, 1, --
+599, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-30 06:38:26, 2026-09-30 06:40:23, 1, --
+600, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-30 06:48:11, 2026-09-30 06:55:59, 1, --
+601, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-09-30 06:48:09, 2026-09-30 06:55:56, 1, --
+602, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-30 07:08:01, 2026-09-30 07:10:54, 1, --
+603, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-09-30 07:12:28, 2026-09-30 07:14:36, 1, --
+604, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-09-30 07:59:06, 2026-09-30 08:48:06, 1, --
+605, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-09-30 14:13:01, 2026-09-30 16:45:33, 1, --
+606, Grave, INVERSOR - B.3, Corte de red eléctrica, 2032, 2026-09-30 14:13:00, 2026-09-30 16:45:29, 1, --
+607, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-09-30 14:13:00, 2026-09-30 16:45:31, 1, --
+608, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-09-30 10:32:28, 2026-09-30 16:53:20, 1, --
+609, Grave, INVERSOR - A.1, Baja resistencia de aislamiento, 2062, 2026-10-01 06:26:14, 2026-10-01 09:17:45, 1, --
+610, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-10-01 09:53:36, 2026-10-01 10:02:10, 1, --
+611, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-10-01 10:35:39, 2026-10-01 10:41:02, 1, --
+612, Grave, INVERSOR - B.2, Corte de red eléctrica, 2032, 2026-10-01 13:51:11, 2026-10-01 13:54:01, 1, --
+613, Grave, INVERSOR - B.1, Corte de red eléctrica, 2032, 2026-10-01 14:13:20, 2026-10-01 14:15:47, 1, --
+614, Grave, INVERSOR - A.1, Corte de red eléctrica, 2032, 2026-10-01 11:51:32, 2026-10-01 15:18:04, 1, --
+615, Grave, INVERSOR - A.2, Corte de red eléctrica, 2032, 2026-10-01 11:51:31, 2026-10-01 16:20:34, 1, --
+616, Grave, INVERSOR - A.3, Corte de red eléctrica, 2032, 2026-10-01 11:51:29, 2026-10-01 16:20:35, 1, --
+617, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-10-01 16:40:12, 2026-10-02 17:53:29, 5, --
+618, Grave, Logger(Local), Excepción de comunicación de dispositivo hacia el sur, 1154, 2026-10-02 17:58:09, 2026-10-05 17:57:04, 5, --

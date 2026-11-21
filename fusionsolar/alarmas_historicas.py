@@ -6,6 +6,9 @@ exporta del portal el histórico de cada planta (LC, PL y VES) y se AGREGA a `al
   · Acumulativo y sin pisar: lo ya guardado es la fuente de verdad. Una alarma nueva se agrega; una que ya estaba se ignora (solo se
     rellenan celdas que estuvieran vacías). Nunca se borra ni se reemplaza una fila.
   · Clave estable por alarma: planta + número SN + ID de la alarma + identificador de la causa + fecha y hora en que ocurrió.
+  · Sin alarmas repetidas: el portal a veces exporta la MISMA alarma en dos (o más) filas, iguales salvo por la hora de eliminación. Una
+    alarma es una sola vez (misma clave), así que dentro de un mismo archivo se conserva una fila por clave (la de eliminación más tardía,
+    que es cuando de verdad se recuperó) y contra lo ya guardado manda lo guardado. Ver `deduplicar`.
   · Ventanas con solape: cada semana se vuelve a consultar desde `solape_dias` antes de la última revisión (una alarma entra al
     histórico cuando se elimina, así que una que ocurrió hace días y recién se eliminó también se captura).
   · Primera vez (relleno): se recorre el histórico hacia atrás, por ventanas de `ventana_dias` (máx. 28: el portal solo deja 1 mes en «Hora de incidencia»), hasta `inicio_busqueda` (las ventanas sin
@@ -150,18 +153,43 @@ def leer_filas() -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def deduplicar(filas: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Una fila por alarma (misma `clave`) dentro de un mismo lote. Devuelve (únicas, descartadas).
+
+    El portal a veces exporta la misma alarma en varias filas que solo difieren en la hora de eliminación. Se conserva la de eliminación
+    más tardía (la recuperación real; a igualdad, la que aparece primero) y a esa fila se le completan las celdas que tuviera vacías.
+    Las únicas salen en el orden en que aparece por primera vez cada alarma.
+    """
+    mejor: dict[tuple, dict] = {}
+    descartadas: list[dict] = []
+    for f in filas:
+        k = clave(f)
+        g = mejor.get(k)
+        if g is None:
+            mejor[k] = dict(f)
+            continue
+        if (f.get(C_FELIM) or "") > (g.get(C_FELIM) or ""):
+            g, f = dict(f), g
+            mejor[k] = g
+        for c in COLUMNAS_HOJA:
+            if not g.get(c) and f.get(c):
+                g[c] = f[c]
+        descartadas.append(f)
+    return list(mejor.values()), descartadas
+
+
 def combinar(existentes: list[dict], nuevas: list[dict], ahora: datetime | None = None) -> tuple[list[dict], int]:
     """Suma `nuevas` a `existentes` SIN pisar nada. Devuelve (todas ordenadas, cuántas filas realmente nuevas).
 
-    Una fila con la misma clave que una guardada se descarta (solo completa celdas que estuvieran vacías). Orden: cronológico por
-    fecha de ocurrencia (así el CSV solo crece por el final).
+    Una fila con la misma clave que una guardada se descarta (solo completa celdas que estuvieran vacías); las repetidas dentro de
+    `nuevas` se reducen a una (ver `deduplicar`). Orden: cronológico por fecha de ocurrencia (así el CSV solo crece por el final).
     """
     capturado = (ahora or datetime.now()).strftime(FMT_TS)
     todas: dict[tuple, dict] = {}
     for f in existentes:
         todas.setdefault(clave(f), {c: f.get(c, "") or "" for c in COLUMNAS_CSV})
     n = 0
-    for f in nuevas:
+    for f in deduplicar(nuevas)[0]:
         k = clave(f)
         if k in todas:
             previa = todas[k]
@@ -182,6 +210,9 @@ def guardar_filas(nuevas: list[dict], ahora: datetime | None = None) -> tuple[li
     de commits, así que esa copia es la red de seguridad ante cualquier error.
     """
     previas = leer_filas()
+    repetidas = len(nuevas) - len(deduplicar(nuevas)[0])
+    if repetidas:
+        log.info("%s fila(s) repetida(s) de la misma alarma en el lote; se guarda una sola por alarma", repetidas)
     todas, n = combinar(previas, nuevas, ahora)
     if len(todas) < len(previas):                      # imposible con `combinar`; defensa por si alguien lo cambia
         raise RuntimeError("alarmas_historicas: el resultado tiene menos filas que lo guardado; no se escribe")
@@ -358,4 +389,147 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
     else:
         info["error"] = "; ".join(f"{k}: {v}" for k, v in info["errores"].items())
     log.info("Alarmas históricas: %s", {k: v for k, v in info.items() if k != "errores"})
+    return info
+
+
+# ---------------------------------------------------------------------------------------------- importación de archivos bajados a mano
+# El histórico que ya se tenía se descargaba a mano de cada planta (Alarmas > Alarmas históricas, una pestaña distinta a la que exporta el
+# robot): columnas «N.º, Gravedad, Dispositivo, Nombre de alarma, ID de la alarma, Hora de generación, Hora de fin, ID de razón, Armario».
+# No traen planta, tipo de dispositivo, SN ni tipo de eliminación: se completan con lo ya guardado de esa planta (mismo dispositivo ->
+# mismo SN) para que la clave coincida con la que arma el portal y la misma alarma no entre dos veces.
+CARPETA_MANUALES = "alarmas_manuales"
+_MANUAL = {_norm(k): v for k, v in {
+    "Gravedad": C_GRAVEDAD, "Dispositivo": C_DISP, "Nombre de alarma": C_NOMBRE, "ID de la alarma": C_ID,
+    "Hora de generación": C_FOCURRE, "Hora de fin": C_FELIM, "ID de razón": C_CAUSA}.items()}
+_GRAVEDAD_MANUAL = {"grave": "Mayor", "mayor": "Mayor", "menor": "Menores", "menores": "Menores"}   # el portal lo llama distinto según la pantalla
+
+
+def _fecha_manual(v) -> str:
+    """Fecha de un archivo manual: 'AAAA-MM-DD HH:MM:SS' (también acepta 'DD/MM/AAAA HH:MM:SS' o un datetime); vacío si no es fecha."""
+    t = _texto(v)
+    m = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$", t)
+    if m:
+        d, mo, a, h, mi, s = (int(x) if x else 0 for x in m.groups())
+        try:
+            return datetime(a, mo, d, h, mi, s).strftime(FMT_TS)
+        except ValueError:
+            return ""
+    return _fecha(t)
+
+
+def _filas_manual(path: Path) -> list[list]:
+    """Filas del archivo manual. En un Excel con varias hojas se usa la primera cuyo encabezado se reconozca (la hoja «ORIGINAL» de LC,
+    con todo el texto en una sola columna, se salta y se usa «ORGANIZADA POR COLUMNAS»)."""
+    if path.suffix.lower() == ".csv":
+        return _filas_archivo(path)
+    from openpyxl import load_workbook
+    wb = load_workbook(path, read_only=True, data_only=True)
+    try:
+        for ws in wb.worksheets:
+            filas = [list(r) for r in ws.iter_rows(values_only=True)]
+            if filas and sum(1 for c in filas[0] if _norm(c) in _MANUAL) >= 5:
+                return filas
+    finally:
+        wb.close()
+    return []
+
+
+def leer_manual(path: Path, codigo_planta: str) -> list[dict]:
+    """Lee un archivo bajado a mano -> filas con las columnas del CSV, SIN completar planta/tipo/SN (lo hace `completar_manual`).
+
+    Las columnas se buscan por nombre; el encabezado puede traer una columna de más (coma final) y los textos vienen con espacios
+    sobrantes: se ignora lo que no se reconoce y se limpian los espacios. Las filas con una fecha ilegible se rechazan (ErrorFormato).
+    """
+    filas = _filas_manual(path)
+    if not filas:
+        raise ErrorFormato(f"{path.name}: no se reconoció el encabezado de «Alarmas históricas»")
+    cab = [_MANUAL.get(_norm(c)) for c in filas[0]]
+    faltan = [c for c in (C_DISP, C_ID, C_FOCURRE) if c not in cab]
+    if faltan:
+        raise ErrorFormato(f"{path.name}: faltan las columnas {', '.join(faltan)} (encabezados: {[str(c) for c in filas[0]]})")
+    out = []
+    for r in filas[1:]:
+        if not any(x not in (None, "") for x in r):
+            continue
+        d = {c: "" for c in COLUMNAS_HOJA}
+        for nombre, v in zip(cab, r):
+            if nombre and not d[nombre]:
+                d[nombre] = _fecha_manual(v) if nombre in COLUMNAS_FECHA else _texto(v)
+        if not d[C_FOCURRE]:
+            raise ErrorFormato(f"{path.name}: fila sin fecha y hora de generación legible: {r}")
+        d[C_GRAVEDAD] = _GRAVEDAD_MANUAL.get(_norm(d[C_GRAVEDAD]), d[C_GRAVEDAD])
+        d["Planta"] = codigo_planta
+        out.append(d)
+    return out
+
+
+def _tipo_disp(nombre: str) -> str:
+    """'INVERSOR - A.1', 'INVERSOR N° 1' e 'Inversor 1' son el mismo tipo de equipo; los 'Logger…' también (una por planta)."""
+    n = _norm(nombre)
+    if n.startswith("logger"):
+        return "logger"
+    return re.sub(r"\binversor n\b", "inversor", n)
+
+
+def completar_manual(filas: list[dict], existentes: list[dict]) -> list[dict]:
+    """Completa las filas de un archivo manual con lo que ya se conoce de esa planta: nombre de la planta, tipo de dispositivo, SN y el
+    nombre del dispositivo como lo llama el portal; y el nombre de la alarma como lo llama el portal para ese ID.
+
+    Lanza ErrorFormato si hay un dispositivo que no se puede emparejar con uno ya conocido de la planta (sin SN la clave no coincidiría
+    con la del portal y la alarma podría entrar dos veces): hay que revisarlo a mano antes de guardar nada.
+    """
+    disp: dict[tuple[str, str], dict] = {}
+    plantas: dict[str, str] = {}
+    nombres: dict[str, dict[str, int]] = {}
+    for f in existentes:
+        if f.get(C_SN):
+            disp.setdefault((f["Planta"], _tipo_disp(f[C_DISP])), f)
+        if f.get(C_PLANTA):
+            plantas.setdefault(f["Planta"], f[C_PLANTA])
+        if f.get(C_ID) and f.get(C_NOMBRE):
+            cuenta = nombres.setdefault(f[C_ID], {})
+            cuenta[f[C_NOMBRE]] = cuenta.get(f[C_NOMBRE], 0) + 1
+    sin_par = sorted({(f["Planta"], f[C_DISP]) for f in filas if (f["Planta"], _tipo_disp(f[C_DISP])) not in disp})
+    if sin_par:
+        raise ErrorFormato(f"dispositivos sin equivalente conocido en el histórico (no se guarda nada): {sin_par}")
+    out = []
+    for f in filas:
+        ref = disp[(f["Planta"], _tipo_disp(f[C_DISP]))]
+        g = dict(f)
+        g[C_PLANTA] = plantas.get(f["Planta"], "")
+        g[C_TIPO], g[C_SN], g[C_DISP] = ref[C_TIPO], ref[C_SN], ref[C_DISP]
+        cuenta = nombres.get(f[C_ID])
+        if cuenta:
+            g[C_NOMBRE] = max(cuenta, key=lambda n: (cuenta[n], n))
+        out.append(g)
+    return out
+
+
+def importar_manuales(carpeta: Path, ahora: datetime | None = None) -> dict:
+    """Suma al histórico los archivos bajados a mano de `carpeta`. La planta sale del comienzo del nombre: «PL_mayores.csv», «PL_menores.csv»,
+    «LC.xlsx», «VES.xlsx» (varios archivos de la misma planta se juntan antes de deduplicar).
+
+    Repetible sin riesgo: lo ya guardado nunca se pisa, así que una segunda pasada con los mismos archivos agrega 0. Devuelve, por planta,
+    `archivos`, `leidas`, `repetidas_en_archivos` (misma alarma en dos filas), `ya_estaban` y `nuevas`.
+    """
+    por_planta: dict[str, list[dict]] = {}
+    archivos: dict[str, list[str]] = {}
+    for p in sorted(Path(carpeta).iterdir()):
+        if p.suffix.lower() not in (".csv", ".xlsx") or p.name.startswith(("~$", ".")):
+            continue
+        m = re.match(r"([A-Za-z]+)", p.name)
+        codigo = m.group(1).upper() if m else ""
+        if codigo not in HOJAS:
+            raise ErrorFormato(f"{p.name}: el nombre debe empezar por la planta ({', '.join(HOJAS)})")
+        por_planta.setdefault(codigo, []).extend(leer_manual(p, codigo))
+        archivos.setdefault(codigo, []).append(p.name)
+    previas = leer_filas()
+    completas = {c: completar_manual(fs, previas) for c, fs in por_planta.items()}       # si algo no cuadra, falla antes de guardar
+    info: dict[str, dict] = {}
+    for c, fs in completas.items():
+        unicas, repetidas = deduplicar(fs)
+        _, nuevas = guardar_filas(unicas, ahora)
+        info[c] = {"archivos": archivos[c], "leidas": len(fs), "repetidas_en_archivos": len(repetidas),
+                   "ya_estaban": len(unicas) - nuevas, "nuevas": nuevas}
+    log.info("Alarmas manuales importadas: %s", info)
     return info
