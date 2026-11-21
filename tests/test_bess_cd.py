@@ -69,11 +69,17 @@ class Reglas(unittest.TestCase):
         r = bess_cd.evaluar([None] * 6)
         self.assertEqual((r["Min"], r["Salto"], r["n"]), ("", "Sin datos", 0))
 
-    def test_hfp_min_max_opcional(self):
+    def test_hfp_min_max_reales_sin_fuera_de_rango(self):
         t = [29.0, 27.2, 26.4] + [28.0] * 32 + [27.4]
-        self.assertEqual((bess_cd.evaluar(t)["Min"], bess_cd.evaluar(t)["Max"]), (29.0, 27.4))
-        r = bess_cd.evaluar(t, "min_max")
-        self.assertEqual((r["Min"], r["Max"], r["Fuera"]), (26.4, 29.0, "normal"))
+        self.assertEqual((bess_cd.evaluar(t)["Min"], bess_cd.evaluar(t)["Max"]), (29.0, 27.4))      # HP: T1 y último punto
+        r = bess_cd.evaluar(t, "min_max")                                                               # HFP: mínimo y máximo reales
+        self.assertEqual((r["Min"], r["Max"]), (26.4, 29.0))
+
+    def test_resumen_dia_hfp_sin_fuera_de_rango(self):
+        filas = Recalculo.historial("2026-10-25", [27.7, 27.5, 27.8, 32, 32.5, 33.1])
+        r = bess_cd.resumen_dia(filas, "2026-10-25", "BESS-01")
+        self.assertEqual((r["HFP_Fuera"], r["HFP_Fuera_Tipo"]), ("", ""))
+        self.assertEqual((r["HP_Fuera"], r["HP_Fuera_Tipo"]), (27.5, "bajo"))
 
 
 class Recalculo(unittest.TestCase):
