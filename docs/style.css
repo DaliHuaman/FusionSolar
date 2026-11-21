@@ -9,6 +9,7 @@
   --ok:#157a4a; --ok-bg:#e3f4ea;
   --warn:#8a5a00; --warn-bg:#fff1cf;
   --bad:#c4271b; --bad-bg:#fde6e3;
+  --cold:#1f4f9e; --cold-bg:#dce7fa;
   --nd:#5f5a6b; --nd-bg:#eeebf2;
   --s1:#6a3fc9; --s2:#d6247a; --s3:#ee6c1a; --s4:#0f9d94; --s5:#3b78d8; --s6:#c99a06;
   --shadow:0 1px 2px rgba(39,13,68,.06),0 4px 14px rgba(39,13,68,.06);
@@ -24,6 +25,7 @@
     --ok:#55d08f; --ok-bg:#15301f;
     --warn:#f0be4d; --warn-bg:#3a2f12;
     --bad:#ff8a80; --bad-bg:#43191d;
+    --cold:#8db4ff; --cold-bg:#172a4a;
     --nd:#b4abc4; --nd-bg:#2b2338;
     --s1:#9b72ee; --s2:#f0509a; --s3:#ff9142; --s4:#2cc4b8; --s5:#6fa0f2; --s6:#e6b422;
     --shadow:none;
@@ -38,6 +40,7 @@
   --ok:#55d08f; --ok-bg:#15301f;
   --warn:#f0be4d; --warn-bg:#3a2f12;
   --bad:#ff8a80; --bad-bg:#43191d;
+  --cold:#8db4ff; --cold-bg:#172a4a;
   --nd:#b4abc4; --nd-bg:#2b2338;
   --s1:#9b72ee; --s2:#f0509a; --s3:#ff9142; --s4:#2cc4b8; --s5:#6fa0f2; --s6:#e6b422;
   --shadow:none;
@@ -207,6 +210,8 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .controles-disp{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:0 0 12px}
 #disp-chart .cv{height:340px}
 .h-sub{margin-top:22px}
+.nota-pmax{margin:-4px 0 10px;font-size:12.5px;color:var(--fg-3)}
+.nota-pmax b{color:var(--fg-2,inherit);font-weight:600}
 .kpi .v small{font-size:14px;font-weight:500;color:var(--fg-3);margin-left:3px}
 .tabla.excel td.d{color:var(--fg)}
 /* Disponibilidad: 0 ≤ d < 70 % rojo · 70 ≤ d < 98,5 % amarillo · 98,5 ≤ d ≤ 100 % blanco (color normal del texto) */
@@ -214,6 +219,10 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .tabla.excel td.d.rojo{color:var(--bad);background:var(--bad-bg);font-weight:700}
 .tabla.excel td.conc{color:var(--fg);white-space:nowrap}
 .tabla.excel td.conc.nd{color:var(--fg-3)}
+/* BESS carga-descarga · Fuera de Rango: por encima del rango rojo, por debajo azul; «normal» atenuado */
+.tabla.excel td.fr-alto{color:var(--bad);background:var(--bad-bg);font-weight:700}
+.tabla.excel td.fr-bajo{color:var(--cold);background:var(--cold-bg);font-weight:700}
+.tabla.excel td.salto{color:var(--fg);font-weight:700}
 @media (max-width:640px){#disp-chart .cv{height:280px}.controles-disp .seg{max-width:100%;overflow-x:auto}}
 
 /* Kondu: acentos de marca */
