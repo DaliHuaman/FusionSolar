@@ -61,7 +61,9 @@ BOTON_BUSCAR = re.compile(r"^(Buscar|Search)$")
 RUTA_INFORME_PLANTAS = "#/reportv3/site"
 ETIQ_PERIODO = ["período estadístico", "periodo estadístico", "statistical period"]
 ETIQ_EXPORTADA = ["energía exportada", "energia exportada", "feed-in energy", "exported energy", "on-grid energy"]
-GRANULARIDAD_DIA = re.compile(r"^\s*(Por día|Por dia|By day|Daily)\s*$", re.I)
+GRANULARIDADES = {"dia": re.compile(r"^\s*(Por día|Por dia|By day|Daily)\s*$", re.I),
+                  "mes": re.compile(r"^\s*(Por mes|By month|Monthly)\s*$", re.I),
+                  "anio": re.compile(r"^\s*(Por año|Por ano|By year|Yearly|Annual)\s*$", re.I)}
 # Alarmas > Alarmas históricas: pestaña, botón de exportación y confirmación (por si el portal la pide)
 TAB_ALARMAS_HIST = re.compile(r"^\s*(Alarmas históricas|Historical alarms)\s*$", re.I)
 BOTON_EXPORTAR = re.compile(r"^\s*(Exportar|Export)\s*$", re.I)
@@ -708,68 +710,76 @@ class Scraper:
         log.info("Informe de plantas: planta «%s»", nombre)
         return nombre
 
-    def _granularidad_dia(self) -> None:
+    def _granularidad(self, clave: str = "dia") -> None:
+        """Deja el selector «Granularidad de tiempo» en «Por día» (horas del día), «Por mes» (días del mes) o «Por año» (meses del año)."""
         pg = self.page
+        rx = GRANULARIDADES[clave]
         txt = pg.evaluate(JS_GRANULARIDAD)
-        if txt and GRANULARIDAD_DIA.search(txt.splitlines()[0] if txt else ""):
+        if txt and rx.search(txt.splitlines()[0]):
             return
-        log.info("Granularidad actual: %r; elijo «Por día»", txt)
+        log.info("Granularidad actual: %r; elijo «%s»", txt, clave)
         try:
             pg.locator('[data-fs-gran="1"]').first.click()
             pg.wait_for_timeout(600)
-            pg.get_by_text(GRANULARIDAD_DIA).last.click()
-            pg.wait_for_timeout(800)
+            pg.get_by_text(rx).last.click()
+            pg.wait_for_timeout(1200)
         except (PWTimeout, PWError) as e:
             self.captura("informe_plantas_granularidad")
-            raise ErrorPortal(f"no se pudo elegir la granularidad «Por día» ({e})")
+            raise ErrorPortal(f"no se pudo elegir la granularidad «{clave}» ({e})")
         txt = pg.evaluate(JS_GRANULARIDAD)
-        if not (txt and GRANULARIDAD_DIA.search(txt.splitlines()[0])):
+        if not (txt and rx.search(txt.splitlines()[0])):
             self.captura("informe_plantas_granularidad")
-            raise ErrorPortal(f"la granularidad no quedó en «Por día» ({txt!r})")
+            raise ErrorPortal(f"la granularidad no quedó en «{clave}» ({txt!r})")
+
+    def _granularidad_dia(self) -> None:
+        self._granularidad("dia")
 
     def _leer_tabla_plantas(self) -> dict:
         return self.page.evaluate(JS_TABLA_INFORME, [ETIQ_PERIODO, ETIQ_EXPORTADA])
 
-    def energia_exportada_dia(self, dia: date) -> list[tuple[str, float | None]]:
-        """[(«AAAA-MM-DD HH:MM:SS», kWh exportados)] de la planta elegida en `dia` (una fila por hora, todas las páginas).
+    def _energia_periodo(self, gran: str, texto: str) -> list[tuple[str, float | None]]:
+        """[(período, kWh exportados)] del Informe de plantas para la planta elegida, todas las páginas.
 
-        Pone la fecha en «Período estadístico», pulsa Buscar y espera a que la tabla muestre ese día. [] si el portal no tiene filas ese día.
+        `gran` = «dia» (texto AAAA-MM-DD → una fila por hora), «mes» (AAAA-MM → una fila por día) o «anio» (AAAA → una fila por mes).
+        Pone el período, pulsa Buscar y espera a que la tabla muestre ese período. [] si el portal no tiene filas; ErrorPortal si no se pudo leer.
         """
         pg = self.page
-        iso = dia.isoformat()
         self._cerrar_avisos(intentos=1)
+        self._granularidad(gran)
         campo = pg.locator('input[value^="20"]:visible').first
         campo.click()
         pg.keyboard.press("Control+A")
-        pg.keyboard.type(iso)
+        pg.keyboard.type(texto)
         pg.keyboard.press("Enter")
-        pg.wait_for_timeout(400)
+        pg.wait_for_timeout(500)
         pg.get_by_role("button", name=BOTON_BUSCAR).first.click()
         t, vacio = None, 0
-        for _ in range(40):                                   # hasta ~20 s a que la tabla muestre el día pedido
+        for _ in range(40):                                   # hasta ~20 s a que la tabla muestre el período pedido
             pg.wait_for_timeout(500)
             t = self._leer_tabla_plantas()
             if t["filas"]:
+                vacio = 0
                 if t["col"] < 0 or t["colRend"] < 0:
                     break
-                if all((f[t["col"]] or "").startswith(iso) for f in t["filas"]):
+                if all((f[t["col"]] or "").startswith(texto) for f in t["filas"]):
                     break
             else:
                 vacio += 1
-                if vacio >= 24:                                # 12 s sin filas: el portal no tiene datos ese día
-                    log.info("informe de plantas %s sin filas (%s)", iso, pg.evaluate(JS_TABLA_VACIA))
+                aviso = pg.evaluate(JS_TABLA_VACIA)
+                if vacio >= (6 if re.search(r"no hay datos|no data", aviso or "", re.I) else 24):   # 3 s con «No hay datos» (o 12 s sin aviso)
+                    log.info("informe de plantas %s (%s) sin filas (%s)", texto, gran, aviso)
                     return []
         if not t or not t["filas"]:
             return []
         if t["col"] < 0 or t["colRend"] < 0:
             self.captura("informe_plantas_sin_columna")
             raise ErrorPortal(f"no se encontraron las columnas «Período estadístico» / «Energía exportada» (encabezados: {t['nombres']})")
-        if not all((f[t["col"]] or "").startswith(iso) for f in t["filas"]):
+        if not all((f[t["col"]] or "").startswith(texto) for f in t["filas"]):
             self.captura("informe_plantas_fecha")
-            raise ErrorPortal(f"el informe no mostró el {iso} (primera fila: {t['filas'][0][t['col']]!r})")
+            raise ErrorPortal(f"el informe no mostró {texto} (primera fila: {t['filas'][0][t['col']]!r})")
         total = pg.evaluate(JS_TOTAL)
         filas: dict[str, float | None] = {}
-        for _ in range(12):                                   # 24 horas a 10 por página = 3 páginas
+        for _ in range(12):                                   # hasta 12 páginas de 10 filas (31 días = 4 páginas)
             for f in t["filas"]:
                 filas[f[t["col"]].strip()] = parse_num(f[t["colRend"]])
             if total is not None and len(filas) >= total:
@@ -783,10 +793,18 @@ class Scraper:
                 if t["filas"] and t["filas"][0][t["col"]] != primera:
                     break
             else:
-                raise ErrorPortal(f"la página siguiente del informe del {iso} no cargó")
+                raise ErrorPortal(f"la página siguiente del informe {texto} no cargó")
         if total is not None and len(filas) != total:
-            log.warning("informe de plantas %s: se leyeron %s filas y el portal indica Total: %s", iso, len(filas), total)
+            raise ErrorPortal(f"informe de plantas {texto} ({gran}): se leyeron {len(filas)} filas y el portal indica Total: {total}")
         return sorted(filas.items())
+
+    def energia_exportada_dia(self, dia: date) -> list[tuple[str, float | None]]:
+        """[(«AAAA-MM-DD HH:MM:SS», kWh exportados)] de la planta elegida en `dia` (una fila por hora, todas las páginas)."""
+        return self._energia_periodo("dia", dia.isoformat())
+
+    def energia_exportada_mes(self, anio: int, mes: int) -> list[tuple[str, float | None]]:
+        """[(«AAAA-MM-DD», kWh exportados)] de la planta elegida en el mes (una fila por día; el total diario)."""
+        return self._energia_periodo("mes", f"{anio:04d}-{mes:02d}")
 
     # ------------------------------------------------------------------ Alarmas > Alarmas históricas (exportar)
     def abrir_alarmas_historicas(self, ne: str) -> None:

@@ -1,0 +1,33 @@
+name: TEMPORAL auditoria energia exportada
+
+# TEMPORAL (se borra antes de fusionar): al subir la rama compara el portal con lo guardado, solo en modo prueba (no guarda ni envía correos).
+on:
+  push:
+    branches: [claude/energia-exportada-completo]
+
+permissions:
+  contents: read
+
+jobs:
+  prueba:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar
+        run: |
+          bash .github/scripts/reintentar.sh 3 15 pip install -r requirements.txt
+          bash .github/scripts/reintentar.sh 3 15 python -m playwright install chromium
+      - name: Traer histórico (rama data)
+        run: git clone --depth 1 --branch data "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" datos
+      - name: Auditar (prueba)
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+        run: timeout 2400 python run.py --auditar-energia --prueba

@@ -333,3 +333,78 @@ def enviar_prueba(cfg: dict, ahora: datetime, para: list[str], enviar=alertas.en
     html = html.replace('<tr><td height="4"', banner + '<tr><td height="4"', 1)
     enviar("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + texto, para, html, None)
     log.info("Correo de prueba de energía exportada enviado a %s", ", ".join(para))
+
+
+# ---------------------------------------------------------------------------------------------- auditoría contra el portal
+def meses(desde: date, hasta: date) -> list[tuple[int, int]]:
+    out, a, m = [], desde.year, desde.month
+    while (a, m) <= (hasta.year, hasta.month):
+        out.append((a, m))
+        a, m = (a + 1, 1) if m == 12 else (a, m + 1)
+    return out
+
+
+def comparar(portal_dias: dict[str, float], filas: list[dict], planta: str, tol: float = 0.011) -> dict:
+    """Compara los totales diarios del portal (solo días con exportación > 0) con lo guardado (suma de las horas de ese día).
+
+    Devuelve {"faltan": días del portal sin ninguna fila guardada, "difieren": {día: (portal, guardado)}, "sobran": días guardados sin total en el portal}.
+    """
+    guardado: dict[str, float] = {}
+    for f in filas:
+        if f["Planta"] == planta:
+            try:
+                guardado[f["Fecha_Hora"][:10]] = guardado.get(f["Fecha_Hora"][:10], 0.0) + float(f["Energia_kWh"])
+            except (TypeError, ValueError):
+                pass
+    faltan = sorted(d for d in portal_dias if d not in guardado)
+    difieren = {d: (portal_dias[d], round(guardado[d], 3)) for d in sorted(portal_dias) if d in guardado and abs(portal_dias[d] - guardado[d]) > tol}
+    sobran = sorted(d for d in guardado if d not in portal_dias)
+    return {"faltan": faltan, "difieren": difieren, "sobran": sobran}
+
+
+def auditar(sc, cfg: dict, ahora: datetime, desde: date | None = None, prueba: bool = False) -> dict:
+    """Recorre el Informe de plantas MES A MES (una fila por día) desde `desde` (por defecto `inicio_auditoria` de la config, 2025-01-01) y compara,
+    día por día, con lo guardado. Los días con exportación que no estén guardados (o cuya suma por hora no cuadre) se leen hora por hora y se
+    agregan como relleno (sin correo). Si el portal ya no tiene detalle por hora de un día pero sí su total diario, se guarda el total del día
+    (Fecha_Hora = «AAAA-MM-DD», sin hora). `prueba`: solo informa, no guarda."""
+    c = config(cfg)
+    buscar = {p["codigo"]: p["buscar"] for p in cfg["plantas"]}
+    inicio = desde or date.fromisoformat(c.get("inicio_auditoria", "2025-01-01"))
+    filas = leer_filas()
+    resumen: dict = {"plantas": {}}
+    limite = time.monotonic() + float(c.get("presupuesto_auditoria_s", 1500))
+    for p in plantas(cfg):
+        cod = p["codigo"]
+        sc.elegir_planta_informe(buscar[cod])
+        portal: dict[str, float] = {}
+        for a, m in meses(inicio, ahora.date()):
+            if time.monotonic() > limite:
+                resumen["incompleto"] = True
+                break
+            for dia, kwh in sc.energia_exportada_mes(a, m):
+                if kwh and kwh > 0:
+                    portal[dia] = kwh
+            log.info("Auditoría %s %04d-%02d: %s día(s) con exportación en el portal", cod, a, m, sum(1 for d in portal if d.startswith(f"{a:04d}-{m:02d}")))
+        cmp_ = comparar(portal, filas, cod)
+        log.info("Auditoría %s: portal %s día(s) con exportación · faltan %s %s · difieren %s · sin total en el portal %s", cod, len(portal),
+                 len(cmp_["faltan"]), cmp_["faltan"], cmp_["difieren"], cmp_["sobran"])
+        res = {"dias_portal": len(portal), "kwh_portal": round(sum(portal.values()), 3), **cmp_, "rellenados": [], "solo_total_diario": []}
+        resumen["plantas"][cod] = res
+        for dia in sorted(set(cmp_["faltan"]) | set(cmp_["difieren"])):
+            if time.monotonic() > limite:
+                resumen["incompleto"] = True
+                break
+            horas = sc.energia_exportada_dia(date.fromisoformat(dia))
+            suma = round(sum(v for _, v in horas if v and v > 0), 3)
+            log.info("Auditoría %s %s: portal día %.3f kWh · por hora %s fila(s), suma %.3f", cod, dia, portal[dia], len(horas), suma)
+            if prueba:
+                continue
+            if suma > 0:
+                filas, nuevas = fusionar(filas, [(cod, fh, v) for fh, v in horas], ahora, sin_aviso=True)
+                res["rellenados"].append(dia)
+            else:                                              # sin detalle por hora: se guarda el total del día
+                filas, nuevas = fusionar(filas, [(cod, dia, portal[dia])], ahora, sin_aviso=True)
+                res["solo_total_diario"].append(dia)
+    if not prueba:
+        escribir_filas(filas)
+    return resumen

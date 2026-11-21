@@ -209,6 +209,23 @@ def extraer_energia_exportada(cfg: dict, visible: bool, desde: date | None = Non
         return energia_exportada.actualizar(sc, cfg, ts, desde, hasta, prueba=prueba)
 
 
+def auditar_energia(cfg: dict, visible: bool, desde: date | None = None, prueba: bool = False) -> dict:
+    """Auditoría completa de la energía exportada contra el portal (mes a mes) y relleno de lo que falte; no envía correos."""
+    cred = credenciales()
+    ts = now_local(cfg)
+    with Scraper(cred.usuario, cred.clave, headless=not visible) as sc:
+        for intento in (1, 2):
+            try:
+                sc.login()
+                sc.abrir_informe_plantas()
+                break
+            except ErrorPortal:
+                if intento == 2:
+                    raise
+                log.warning("reintentando login...")
+        return energia_exportada.auditar(sc, cfg, ts, desde, prueba)
+
+
 def extraer_alarmas_historicas(cfg: dict, visible: bool, desde: date | None = None, hasta: date | None = None) -> dict:
     """Alarmas > Alarmas históricas de cada planta: exporta el Excel del portal y suma lo nuevo a alarmas_historicas.csv (sin pisar nada)."""
     cred = credenciales()
@@ -242,6 +259,7 @@ def main() -> int:
     ap.add_argument("--importar-alarmas", metavar="CARPETA", help="suma a alarmas_historicas.csv los archivos de alarmas bajados a mano de esa carpeta (no usa el portal)")
     ap.add_argument("--energia-exportada", action="store_true", help="solo la energía exportada a la red (Informe de plantas, cada hora) y su aviso")
     ap.add_argument("--potencia-maxima", action="store_true", help="solo leer la potencia activa máxima de cada inversor (Configuración) y mostrarla; no guarda nada")
+    ap.add_argument("--auditar-energia", action="store_true", help="compara mes a mes (totales diarios) el Informe de plantas con lo guardado y rellena lo que falte (sin correos)")
     ap.add_argument("--prueba", action="store_true", help="con --energia-exportada: solo leer y registrar en el log (no guarda ni envía correos)")
     a = ap.parse_args()
 
@@ -279,6 +297,10 @@ def main() -> int:
             res = extraer_alarmas_historicas(cfg, a.visible, a.desde, a.hasta)
             print(json.dumps(res, ensure_ascii=False, default=str))
             return 1 if res.get("error") else 0
+        if a.auditar_energia:
+            res = auditar_energia(cfg, a.visible, a.desde, a.prueba)
+            print(json.dumps(res, ensure_ascii=False, default=str))
+            return 0
         if a.energia_exportada:
             res = extraer_energia_exportada(cfg, a.visible, a.desde, a.hasta, a.prueba)
             print(json.dumps(res, ensure_ascii=False, default=str))
