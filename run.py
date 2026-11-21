@@ -163,6 +163,33 @@ def extraer_disponibilidad(cfg: dict, visible: bool, desde: date | None = None, 
         return disponibilidad.actualizar(sc, cfg, ts, desde, hasta)
 
 
+def leer_potencias_maximas(cfg: dict, visible: bool) -> dict:
+    """Solo lectura: «Potencia activa máxima (kW)» de cada inversor (Control > inversor > Configuración). No guarda nada:
+    el valor se fija a mano en config/inversores.json (`potencia_activa_max_kw`)."""
+    cred = credenciales()
+    res: dict = {}
+    with Scraper(cred.usuario, cred.clave, headless=not visible) as sc:
+        for intento in (1, 2):
+            try:
+                sc.login()
+                sc.abrir_control()
+                break
+            except ErrorPortal:
+                if intento == 2:
+                    raise
+                log.warning("reintentando login...")
+        encontrados, _ = emparejar_inversores(sc.expandir_arbol(), cfg)
+        for inv in cfg["inversores"]:
+            nodo = encontrados.get(inv["id"])
+            try:
+                res[inv["id"]] = sc.leer_potencia_maxima(nodo["ne"], nodo["nombre"]) if nodo else None
+            except Exception as e:
+                log.warning("no se pudo leer la potencia activa máxima de %s: %s", inv["id"], e)
+                res[inv["id"]] = None
+            log.info("Potencia activa máxima %-10s %s kW (config: %s)", inv["id"], res[inv["id"]], inv.get("potencia_activa_max_kw"))
+    return res
+
+
 def extraer_energia_exportada(cfg: dict, visible: bool, desde: date | None = None, hasta: date | None = None,
                               prueba: bool = False) -> dict:
     """Informes > Informe de plantas: energía exportada a la red hora a hora (solo > 0) en energia_exportada.csv y aviso por correo."""
@@ -212,6 +239,7 @@ def main() -> int:
     ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: ultimo dia a consultar (por defecto ayer / hoy)")
     ap.add_argument("--alarmas-historicas", action="store_true", help="solo las alarmas históricas (exporta de cada planta y suma al CSV acumulado)")
     ap.add_argument("--energia-exportada", action="store_true", help="solo la energía exportada a la red (Informe de plantas, cada hora) y su aviso")
+    ap.add_argument("--potencia-maxima", action="store_true", help="solo leer la potencia activa máxima de cada inversor (Configuración) y mostrarla; no guarda nada")
     ap.add_argument("--prueba", action="store_true", help="con --energia-exportada: solo leer y registrar en el log (no guarda ni envía correos)")
     a = ap.parse_args()
 
@@ -237,6 +265,10 @@ def main() -> int:
         if a.descubrir:
             extraer(cfg, a.visible, solo_descubrir=True)
             return 0
+        if a.potencia_maxima:
+            res = leer_potencias_maximas(cfg, a.visible)
+            print(json.dumps(res, ensure_ascii=False))
+            return 0 if any(v is not None for v in res.values()) else 1
         if a.alarmas_historicas:
             res = extraer_alarmas_historicas(cfg, a.visible, a.desde, a.hasta)
             print(json.dumps(res, ensure_ascii=False, default=str))
