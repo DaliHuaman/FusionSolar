@@ -231,7 +231,7 @@ def _agregar(wb: Workbook, filas: list[dict]) -> None:
 def _hoja_disponibilidad(wb: Workbook, filas: list[dict], desde: str | None, ref: float = 12,
                          pnom: dict[str, float | None] | None = None) -> None:
     """(Re)crea la hoja "Disponibilidad" (tras BESS) con el formato de Maestro: encabezados morados con letra amarilla, fila 1 = planta,
-    fila 2 = inversor y su potencia nominal («Inversor 1 - 115 kW»), fila 3 = «Horas operativas» / «Rendimiento (kWh)» /
+    fila 2 = inversor y su potencia activa máxima («InvA.1 - 125 kW», fija en config), fila 3 = «Horas operativas» / «Rendimiento (kWh)» /
     «Disponibilidad»; una fila por día desde `desde` (vacío = todo el histórico), la más reciente arriba.
 
     Horas y rendimiento son datos (vienen de FusionSolar); la disponibilidad es la fórmula =IF(horas>=12,1,horas/12). Si ese día

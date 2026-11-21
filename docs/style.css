@@ -207,6 +207,8 @@ footer{max-width:1280px;margin:10px auto 40px;padding:0 16px;color:var(--fg-3);f
 .controles-disp{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin:0 0 12px}
 #disp-chart .cv{height:340px}
 .h-sub{margin-top:22px}
+.nota-pmax{margin:-4px 0 10px;font-size:12.5px;color:var(--fg-3)}
+.nota-pmax b{color:var(--fg-2,inherit);font-weight:600}
 .kpi .v small{font-size:14px;font-weight:500;color:var(--fg-3);margin-left:3px}
 .tabla.excel td.d{color:var(--fg)}
 /* Disponibilidad: 0 ≤ d < 70 % rojo · 70 ≤ d < 98,5 % amarillo · 98,5 ≤ d ≤ 100 % blanco (color normal del texto) */
