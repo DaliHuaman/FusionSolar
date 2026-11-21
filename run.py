@@ -136,7 +136,7 @@ def extraer(cfg: dict, visible: bool, solo_descubrir: bool = False, extra: dict 
                 log.exception("fallo leyendo %s: %s", inv["id"], e)
                 sc.captura(f"error_{inv['id']}")
                 detalle[inv["id"]] = str(e)
-        potencia.guardar(pnom, cfg, ts)                    # potencia nominal (fija) para la sección Disponibilidad; no lanza
+        potencia.guardar(pnom, cfg, ts)                    # potencia nominal leída del portal (solo registro; Disponibilidad usa la activa máxima fija); no lanza
         potencia.aplicar(cfg)
         if (cfg.get("bess") or {}).get("activo"):          # despues de los inversores: nada de aqui los puede romper
             filas_bess, errores_bess = extraer_bess(sc, nodos, cfg, ts)
@@ -248,7 +248,7 @@ def main() -> int:
                 try:                                       # lo escribe aparte `run.py --disponibilidad`; aqui solo se lee
                     filas_disp = disponibilidad.leer_filas()
                     excel_disp = {"filas": filas_disp, "desde": dcfg.get("excel_desde"), "ref": dcfg.get("horas_referencia", disponibilidad.HORAS_REF),
-                                  "pnom": {i["id"]: i.get("pnom_kw") for i in cfg["inversores"]}}
+                                  "pnom": {i["id"]: i.get("potencia_activa_max_kw") for i in cfg["inversores"]}}
                 except Exception as e:
                     log.exception("no se pudo leer disponibilidad.csv: %s", e)
             filas_alarmas: list[dict] = []
