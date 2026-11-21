@@ -15,7 +15,7 @@ Informe de inversores) y la disponibilidad calculada con la fórmula =IF(horas>=
 `disponibilidad.csv`, así que tampoco cambia el diseño de las demás hojas.
 
 Hoja "BESS carga-descarga": una fila por día (la más reciente arriba) y, por BESS, HFP (fuera de punta) y HP (hora punta) con °C mín., °C máx.
-y «°C Concentración» (Al inicio / Al final / Sin predominio: dónde se concentró el aumento de temperatura). Se reconstruye entera desde
+Salto °C, Tramo y Fuera de Rango (metodología «Lógica de Temperaturas», ver fusionsolar/bess_cd.py). Se reconstruye entera desde
 `bess_carga_descarga.csv` (ver fusionsolar/bess_cd.py).
 
 Hoja "BESS" (segunda hoja): una fila por corrida (la más reciente arriba) y un bloque de 6 temperaturas (°C) por BESS, separados por una
@@ -405,9 +405,15 @@ def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     ws.freeze_panes = "B4"
 
 
+TIT_BCD = ("°C Min", "°C Máx", "Salto °C", "Tramo", "Fuera de Rango")     # HP; en HFP no hay «Fuera de Rango» (solo las 4 primeras)
+NB_G = (len(TIT_BCD) - 1, len(TIT_BCD))                                     # columnas de HFP y de HP
+NB = sum(NB_G)
+
+
 def _hoja_bess_cd(wb: Workbook, filas: list[dict], ids: list[str]) -> None:
     """(Re)crea la hoja "BESS carga-descarga" (después de "BESS") con el formato de Maestro: encabezados morados con letra amarilla;
-    fila 1 = BESS, fila 2 = HFP | HP, fila 3 = °C Min | °C Máx | °C Concentración; una fila por día, la más reciente arriba."""
+    fila 1 = BESS, fila 2 = HFP | HP, fila 3 = °C Min | °C Máx | Salto °C | Tramo (| Fuera de Rango solo en HP); una fila por día, la más
+    reciente arriba. «Fuera de Rango» se pinta de rojo si la temperatura queda por encima del rango y de azul si queda por debajo."""
     if HOJA_BCD in wb.sheetnames:
         del wb[HOJA_BCD]
     pos = wb.sheetnames.index(HOJA_BESS) + 1 if HOJA_BESS in wb.sheetnames else 1
@@ -439,33 +445,44 @@ def _hoja_bess_cd(wb: Workbook, filas: list[dict], ids: list[str]) -> None:
             c += 1
         col0[bid] = c
         for g, nombre in enumerate(("HFP", "HP")):
-            for j, tit in enumerate(("°C Min", "°C Máx", "°C Concentración")):
-                cc = c + g * 3 + j
+            for j, tit in enumerate(TIT_BCD[:NB_G[g]]):
+                cc = c + (NB_G[0] if g else 0) + j
                 enc(1, cc)
                 enc(2, cc)
                 enc(3, cc, tit)
-                ws.column_dimensions[get_column_letter(cc)].width = 18 if j == 2 else 10
-            ws.cell(2, c + g * 3).value = nombre
-            ws.merge_cells(start_row=2, start_column=c + g * 3, end_row=2, end_column=c + g * 3 + 2)
+                ws.column_dimensions[get_column_letter(cc)].width = 14 if j == 4 else 9.5
+            ini = c + (NB_G[0] if g else 0)
+            ws.cell(2, ini).value = nombre
+            ws.merge_cells(start_row=2, start_column=ini, end_row=2, end_column=ini + NB_G[g] - 1)
         ws.cell(1, c).value = bid
-        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + 5)
-        c += 6
+        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + NB - 1)
+        c += NB
     por_dia: dict[str, dict[str, dict]] = {}
     for f in filas:
         por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = f
     centrado = Alignment(horizontal="center")
+    color_fuera = {"alto": PatternFill("solid", fgColor="FF0000"), "bajo": PatternFill("solid", fgColor="4472C4")}
     for fila, dia in enumerate(sorted(por_dia, reverse=True), start=PRIMERA_FILA_DATOS):
         a = ws.cell(fila, 1)
         a.value, a.number_format, a.alignment = datetime.strptime(dia, "%Y-%m-%d"), "dd/mm/yyyy", Alignment(horizontal="right")
         for bid, f in por_dia[dia].items():
             if bid not in col0:
                 continue
-            for j, clave in enumerate(("HFP_Min", "HFP_Max", "HFP_Concentracion", "HP_Min", "HP_Max", "HP_Concentracion")):
-                cel = ws.cell(fila, col0[bid] + j)
-                v = f.get(clave)
-                cel.value, cel.alignment = (v or None) if j % 3 == 2 else _num(v), centrado
-                if j % 3 != 2:
-                    cel.number_format = "0.0"
+            for g, nombre in enumerate(("HFP", "HP")):
+                for j, campo in enumerate(("Min", "Max", "Salto", "Tramo", "Fuera")[:NB_G[g]]):
+                    cel = ws.cell(fila, col0[bid] + (NB_G[0] if g else 0) + j)
+                    v = f.get(f"{nombre}_{campo}")
+                    try:
+                        n = _num(v)                                      # número, o texto («normal» / «Sin datos»)
+                    except (TypeError, ValueError):
+                        n = None
+                    cel.value, cel.alignment = (n if n is not None else (v or None)), centrado
+                    if n is not None:
+                        cel.number_format = "0" if campo == "Tramo" else "0.0"
+                        if campo == "Tramo":
+                            cel.value = int(n)
+                    if campo == "Fuera" and n is not None and f.get(f"{nombre}_Fuera_Tipo") in color_fuera:
+                        cel.fill = color_fuera[f[f"{nombre}_Fuera_Tipo"]]
     ws.freeze_panes = "B4"
 
 

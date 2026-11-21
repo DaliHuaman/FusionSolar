@@ -722,7 +722,7 @@
     inv: "Misma vista de la hoja «Indicadores» del Excel, separada por planta. Hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.",
     bess: "Misma vista de la hoja «BESS»: temperaturas en °C de cada BESS por corrida (últimos 7 días). Máx = temperatura más alta del grupo; Sum./Ret. = agua suministrada / de retorno; bat. = lado batería; pot. = lado potencia; Ext. = exterior.",
     dia: "Un renglón por día. «Inicio» es la hora a la que arrancó el inversor ese día (un valor por día); «T máx» es la temperatura interna más alta registrada ese día.",
-    bcd: "Misma vista de la hoja «BESS carga-descarga»: por día, temperatura mínima y máxima (°C, «Temperatura más alta del grupo») de cada BESS fuera de punta (HFP, 00:00–17:30) y en hora punta (HP, 18:00–20:30), y dónde se concentró el aumento de temperatura al comparar el promedio de los 2 primeros incrementos de 30 min con el de los 2 últimos: «Al inicio», «Al final» o «Sin predominio» (diferencia menor a 0,1 °C por 30 min). Se agrega una fila cada día a las 12:00 (Lima) con el día anterior; el más reciente arriba.",
+    bcd: "Misma vista de la hoja «BESS carga-descarga»: por día y BESS, la «Temperatura más alta del grupo» cada 30 min fuera de punta (HFP, 00:00–17:30, 36 puntos) y en hora punta (HP, 18:00–20:30, 6 puntos). En HFP, °C Min y °C Máx son la temperatura mínima y máxima del periodo (en cualquier punto). En HP, °C Min = primer punto (T1) y °C Máx = último punto (T6). Salto °C = el mayor tramo de 30 min (subida o bajada) si es de 3 °C o más, si no «normal»; Tramo = en qué tramo ocurrió (1 = T1→T2…); Fuera de Rango (solo HP) = temperatura intermedia que sale del rango entre °C Min y °C Máx (rojo si queda por encima, azul si queda por debajo). Se agrega una fila cada día a las 12:00 (Lima) con el día anterior; el más reciente arriba.",
     disp: "Misma vista de la hoja «Disponibilidad»: horas operativas del día (Duración de conexión a la red, de FusionSolar), rendimiento del día (kWh) y disponibilidad = si horas ≥ 12 → 100 %, si no horas ÷ 12. Un renglón por día, el más reciente arriba.",
   };
   const ordenGrupos = (invs) => { const o = ["LC", "VES", "PL"]; return grupos(invs).sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
@@ -872,30 +872,43 @@
     t.replaceChildren(el("thead", {}, h1, h2), body);
   }
 
-  // Hoja «BESS carga-descarga»: por día y BESS, °C mín / máx y «concentración» del aumento de temperatura en HFP y HP.
+  // Hoja «BESS carga-descarga»: por día y BESS, en HFP y HP: HFP: mínima, máxima, Salto °C y Tramo; HP: °C Min (T1), °C Máx (T6), Salto °C, Tramo y Fuera de Rango.
+  // por[id] = [hfp_min, hfp_max, hfp_salto, hfp_tramo, hfp_fuera, hfp_tipo, hp_min, ..., hp_tipo] (tipo «alto» = rojo, «bajo» = azul)
   function tablaBcd(t) {
     const B = D.bess;
     if (!B || !B.activo || !B.equipos.length) { vacioTabla(t, "Las temperaturas BESS no están activas."); return; }
     const todos = ((B.cd || {}).dias || []);
     if (!todos.length) { vacioTabla(t, "Aún no hay días cerrados: se agrega una fila cada día a las 12:00 (Lima) con el día anterior."); return; }
+    const TIT = ["°C Min", "°C Máx", "Salto °C", "Tramo", "Fuera de Rango"];
     const f = aplicarMes("excel-bcd", todos, x => x[0].slice(0, 7));
     const h1 = el("tr", {}), h2 = el("tr"), h3 = el("tr");
     h1.append(filtroMes(el("th", { class: "g", text: "Fecha", rowspan: 3 }), "excel-bcd", f.meses, f.sel, () => tablaBcd(t)));
     B.equipos.forEach((e, k) => {
       if (k) h1.append(el("th", { class: "sep", rowspan: 3 }));
-      h1.append(el("th", { class: "g", colspan: 6, text: e.nombre }));
-      ["HFP", "HP"].forEach(g => h2.append(el("th", { class: "i", colspan: 3, text: g })));
-      for (let j = 0; j < 2; j++) h3.append(el("th", { class: "u", text: "°C Min" }), el("th", { class: "u", text: "°C Máx" }), el("th", { class: "u", text: "°C Concentración" }));
+      h1.append(el("th", { class: "g", colspan: TIT.length * 2 - 1, text: e.nombre }));
+      [["HFP", TIT.length - 1], ["HP", TIT.length]].forEach(([g, n]) => {
+        h2.append(el("th", { class: "i", colspan: n, text: g }));
+        TIT.slice(0, n).forEach(x => h3.append(el("th", { class: "u", text: x })));
+      });
     });
+    const esNum = x => typeof x === "number";
     const body = el("tbody");
     f.filas.forEach(([dia, por]) => {
       const tr = el("tr", {}, el("td", { text: dia.slice(8) + "/" + dia.slice(5, 7) + "/" + dia.slice(0, 4) }));
       B.equipos.forEach((e, k) => {
         if (k) tr.append(el("td", { class: "sep" }));
         const v = por[e.id] || [];
-        [0, 1, 2, 3, 4, 5].forEach(j => {
-          const conc = j % 3 === 2;
-          tr.append(el("td", { class: conc ? "conc" + (v[j] && v[j] !== "Sin datos" ? "" : " nd") : "p", text: v[j] == null ? "–" : conc ? v[j] : fT(v[j]) }));
+        [0, 6].forEach((o, g) => {
+          const [mn, mx, salto, tramo, fuera, tipo] = v.slice(o, o + 6);
+          const txt = x => x == null ? "–" : esNum(x) ? fT(x) : x;
+          const tc = (x, cls) => (x == null || !esNum(x) ? "conc nd" : cls);
+          tr.append(
+            el("td", { class: "p", text: txt(mn) }),
+            el("td", { class: "p", text: txt(mx) }),
+            el("td", { class: tc(salto, "salto"), text: esNum(salto) ? (salto > 0 ? "+" : "") + fT(salto) : txt(salto) }),
+            el("td", { class: tc(tramo, "salto"), text: tramo == null ? "–" : String(tramo) }),
+            ...(g === 0 ? [] : [el("td", { class: esNum(fuera) ? (tipo === "bajo" ? "fr-bajo" : "fr-alto") : "conc nd", text: txt(fuera),
+                       title: esNum(fuera) ? (tipo === "bajo" ? "Por debajo del rango" : "Por encima del rango") : "" })]));
         });
       });
       body.append(tr);

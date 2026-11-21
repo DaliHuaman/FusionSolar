@@ -43,12 +43,24 @@ def _bess(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
 
 
 def _carga_descarga(cfg: dict, filas: list[dict]) -> dict:
-    """Bloque "bess.cd" de data.json: dias[k] = [fecha, {id_BESS: [hfp_min, hfp_max, hfp_conc, hp_min, hp_max, hp_conc]}], el más reciente primero."""
-    num = lambda v: None if v in ("", None) else round(float(v), 1)
+    """Bloque "bess.cd" de data.json: dias[k] = [fecha, {id_BESS: [hfp..., hp...]}], el más reciente primero.
+
+    Por periodo 6 valores: [°C Min, °C Máx, Salto °C, Tramo, Fuera de Rango, tipo] (Salto / Tramo / Fuera = número o «normal»;
+    tipo = «alto» (rojo) / «bajo» (azul) / null). null = sin dato."""
+    def val(v, campo):
+        if v in ("", None):
+            return None
+        if campo == "Fuera_Tipo":
+            return v
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return v                                             # «normal» / «Sin datos»
+        return int(x) if campo == "Tramo" else round(x, 1)
     por_dia: dict[str, dict] = {}
     for f in filas:
-        por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = [num(f.get("HFP_Min")), num(f.get("HFP_Max")), f.get("HFP_Concentracion") or None,
-                                                         num(f.get("HP_Min")), num(f.get("HP_Max")), f.get("HP_Concentracion") or None]
+        por_dia.setdefault(f["Fecha"], {})[f["BESS"]] = [val(f.get(f"{g}_{c}"), c)
+                                                         for g in ("HFP", "HP") for c in ("Min", "Max", "Salto", "Tramo", "Fuera", "Fuera_Tipo")]
     return {"dias": [[d, por_dia[d]] for d in sorted(por_dia, reverse=True)]}
 
 
