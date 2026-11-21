@@ -24,7 +24,7 @@
   const fP = v => v == null ? "—" : v.toLocaleString("es-PE", { maximumFractionDigits: 1 }) + " %";
 
   let D = null;
-  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv", dg: "dia", dr: 30, mes: {} };   // mes: filtro por mes de cada tabla ({id_tabla: "AAAA-MM"})   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
+  const S = { planta: "TODAS", dias: 7, zmode: "x", tabla: "inv", dg: "dia", dr: 30, mes: {}, ee: null };   // ee: planta elegida en «Energía exportada»   // mes: filtro por mes de cada tabla ({id_tabla: "AAAA-MM"})   // zmode: eje(s) que acerca el zoom ("x" horizontal, "y" vertical, "xy" ambos)
   let charts = [];
   const zoomGuardado = new Map();                       // clave de gráfica -> {x:[min,max], y:[min,max]} (se conserva al refrescar datos)
   let soltarZoom = false;                               // true al cambiar planta/rango: se parte de la vista completa
@@ -106,7 +106,7 @@
     if (vista === "bess") { destruirCharts(); pintarBess(); return; }
     $("#sec-bess").hidden = true;
     if (vista === "disp") { destruirCharts(); pintarDisp(); return; }
-    pintarKpis(); pintarCards(); pintarGraficas(); pintarTemperatura(); pintarInicio(); pintarDiario(); pintarExcel(); pintarAlarmas(); pintarPotencia();
+    pintarKpis(); pintarCards(); pintarGraficas(); pintarTemperatura(); pintarInicio(); pintarDiario(); pintarEnergia(); pintarExcel(); pintarAlarmas(); pintarPotencia();
   }
 
   function pintarAviso() {
@@ -717,12 +717,89 @@
     t.replaceChildren(head, body);
   }
 
+  // ---------------------------------------------------------------- Histórico de energía exportada a la red (Informe de plantas, hora a hora)
+  // D.energia_exportada = {plantas: [{codigo, titulo}], filas: {código: [["AAAA-MM-DD HH:MM", kWh], ...]} (solo > 0, lo más reciente primero)}
+  const fKwh3 = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fFH = s => s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4) + " " + s.slice(11, 16);
+  function pintarEnergia() {
+    const E = D.energia_exportada, sec = $("#sec-energia");
+    if (!E || !E.activo) { sec.hidden = true; return; }
+    const pls = (E.plantas || []).filter(p => S.planta === "TODAS" || p.codigo === S.planta);
+    if (!pls.length) { sec.hidden = true; return; }
+    if (!pls.some(p => p.codigo === S.ee)) S.ee = pls[0].codigo;
+    $("#tabs-energia").replaceChildren(...pls.map(p => {
+      const n = ((E.filas || {})[p.codigo] || []).length;
+      const b = el("button", { type: "button", class: p.codigo === S.ee ? "on" : "", title: p.titulo }, `${p.codigo} · ${p.titulo.replace(/^BSF /, "")}`, el("span", { class: "u", text: ` (${n})` }));
+      b.onclick = () => { S.ee = p.codigo; cerrarPop(); pintarEnergia(); };
+      return b;
+    }));
+    $("#tabs-energia").hidden = pls.length < 2;
+    $("#nota-energia").textContent = "Horas en que la planta exportó energía a la red, según FusionSolar › Informes › Informe de plantas (granularidad por día, columna «Energía exportada (kWh)»). " +
+      "Se revisa cada hora al minuto 15 (el portal publica con ~2 h de retraso); solo se guardan las horas con energía exportada mayor a 0 y cada hora nueva se avisa por correo. Lo más reciente arriba." +
+      (E.revisado ? ` Última revisión: ${fFH(E.revisado)}.` : "");
+    const todas = (E.filas || {})[S.ee] || [];
+    const t = $("#t-energia"), res = $("#ee-resumen");
+    if (!todas.length) {
+      res.replaceChildren();
+      vacioTabla(t, "Sin energía exportada registrada para esta planta.");
+      return;
+    }
+    const clv = "energia-" + S.ee;
+    const f = aplicarMes(clv, todas, r => r[0].slice(0, 7));
+    const total = f.filas.reduce((a, r) => a + r[1], 0);
+    const dias = new Set(f.filas.map(r => r[0].slice(0, 10))).size;
+    const k = (l, v, sub) => el("div", { class: "kpi" }, el("div", { class: "l", text: l }), el("div", { class: "v", text: v }), el("div", { class: "s", text: sub }));
+    const per = f.sel ? mesTxt(f.sel) : "todo el histórico";
+    res.replaceChildren(
+      k("Energía exportada", fKwh3(total) + " kWh", per),
+      k("Horas con exportación", String(f.filas.length), `${dias} día${dias === 1 ? "" : "s"} · ${per}`),
+      k("Último registro", fFH(todas[0][0]), fKwh3(todas[0][1]) + " kWh"));
+    const th = filtroMes(el("th", { text: "Fecha y hora" }), clv, f.meses, f.sel, pintarEnergia);
+    t.replaceChildren(
+      el("thead", {}, el("tr", {}, th, el("th", { text: "Energía exportada (kWh)" }))),
+      el("tbody", {}, f.filas.map(r => el("tr", {}, el("td", { text: fFH(r[0]) }), el("td", { class: "ee-v", text: fKwh3(r[1]) })))),
+      el("tfoot", {}, el("tr", {}, el("td", { text: "Total" + (f.sel ? " · " + mesTxt(f.sel) : "") }), el("td", { text: fKwh3(total) }))));
+  }
+
+  // Hoja «Energía Exportada kWh»: por planta, «Fecha y hora» y «Energía exportada (kWh)» lado a lado (cada planta con su propia lista).
+  function tablaEnergiaExcel(t) {
+    const E = D.energia_exportada;
+    if (!E || !E.activo) { vacioTabla(t, "La energía exportada no está activa."); return; }
+    const pls = E.plantas || [], F = E.filas || {};
+    const todas = pls.flatMap(p => F[p.codigo] || []);
+    if (!todas.length) { vacioTabla(t, "Aún no hay energía exportada registrada."); return; }
+    // filtro por mes (en «Fecha y hora» de la primera planta): aplica a todas las plantas de la hoja
+    const fm = aplicarMes("excel-ee", todas, r => r[0].slice(0, 7));
+    const L = Object.fromEntries(pls.map(p => [p.codigo, fm.sel ? (F[p.codigo] || []).filter(r => r[0].slice(0, 7) === fm.sel) : (F[p.codigo] || [])]));
+    const n = Math.max(0, ...pls.map(p => L[p.codigo].length));
+    if (!n) { vacioTabla(t, "Sin energía exportada en el mes elegido."); return; }
+    const h1 = el("tr"), h2 = el("tr");
+    pls.forEach((p, k) => {
+      if (k) h1.append(el("th", { class: "sep", rowspan: 2 }));
+      h1.append(el("th", { class: "g", colspan: 2, text: p.titulo }));
+      const th = el("th", { class: "u", text: "Fecha y hora" });
+      h2.append(k ? th : filtroMes(th, "excel-ee", fm.meses, fm.sel, () => tablaEnergiaExcel(t)), el("th", { class: "u", text: "Energía exportada (kWh)" }));
+    });
+    const body = el("tbody");
+    for (let i = 0; i < n; i++) {
+      const tr = el("tr");
+      pls.forEach((p, k) => {
+        if (k) tr.append(el("td", { class: "sep" }));
+        const r = L[p.codigo][i];
+        tr.append(el("td", { class: "ee-fh", text: r ? fFH(r[0]) : "" }), el("td", { class: "p", text: r ? fKwh3(r[1]) : "" }));
+      });
+      body.append(tr);
+    }
+    t.replaceChildren(el("thead", {}, h1, h2), body);
+  }
+
   // "Datos del Excel" con pestañas, como las hojas del archivo: Indicadores (MΩ y %), BESS e Inicio y temperatura interna.
   const NOTAS_TABLA = {
     inv: "Misma vista de la hoja «Indicadores» del Excel, separada por planta. Hasta 300 filas del rango elegido; el Excel descargable tiene todo el histórico.",
     bess: "Misma vista de la hoja «BESS»: temperaturas en °C de cada BESS por corrida (últimos 7 días). Máx = temperatura más alta del grupo; Sum./Ret. = agua suministrada / de retorno; bat. = lado batería; pot. = lado potencia; Ext. = exterior.",
     dia: "Un renglón por día. «Inicio» es la hora a la que arrancó el inversor ese día (un valor por día); «T máx» es la temperatura interna más alta registrada ese día.",
     bcd: "Misma vista de la hoja «BESS carga-descarga»: por día y BESS, la «Temperatura más alta del grupo» cada 30 min fuera de punta (HFP, 00:00–17:30, 36 puntos) y en hora punta (HP, 18:00–20:30, 6 puntos). En HFP, °C Min y °C Máx son la temperatura mínima y máxima del periodo (en cualquier punto). En HP, °C Min = primer punto (T1) y °C Máx = último punto (T6). Salto °C = el mayor tramo de 30 min (subida o bajada) si es de 3 °C o más, si no «normal»; Tramo = en qué tramo ocurrió (1 = T1→T2…); Fuera de Rango (solo HP) = temperatura intermedia que sale del rango entre °C Min y °C Máx (rojo si queda por encima, azul si queda por debajo). Se agrega una fila cada día a las 12:00 (Lima) con el día anterior; el más reciente arriba.",
+    ee: "Misma vista de la hoja «Energía Exportada kWh»: por planta, la fecha y hora y la energía exportada a la red (kWh) de cada hora en que hubo exportación (solo valores mayores a 0). Cada planta lleva su propia lista, la más reciente arriba.",
     disp: "Misma vista de la hoja «Disponibilidad»: horas operativas del día (Duración de conexión a la red, de FusionSolar), rendimiento del día (kWh) y disponibilidad = si horas ≥ 12 → 100 %, si no horas ÷ 12. Un renglón por día, el más reciente arriba.",
   };
   const ordenGrupos = (invs) => { const o = ["LC", "VES", "PL"]; return grupos(invs).sort((x, y) => o.indexOf(x.planta) - o.indexOf(y.planta) || x.grupo.localeCompare(y.grupo)); };
@@ -734,6 +811,9 @@
     const hayAh = !!D.alarmas_hist;
     document.querySelectorAll("#tabs-excel .ah-tab").forEach(b => { b.hidden = !hayAh; });
     if (!hayAh && S.tabla.startsWith("ah-")) S.tabla = "inv";
+    const hayEe = !!(D.energia_exportada && D.energia_exportada.activo);
+    document.querySelectorAll("#tabs-excel .ee-tab").forEach(b => { b.hidden = !hayEe; });
+    if (!hayEe && S.tabla === "ee") S.tabla = "inv";
     document.querySelectorAll("#tabs-excel button").forEach(b => b.classList.toggle("on", b.dataset.t === S.tabla));
     const esAh = S.tabla.startsWith("ah-");
     $("#ah-barra").hidden = !esAh;
@@ -741,6 +821,7 @@
     const t = $("#t-excel");
     if (esAh) { tablaAlarmasHist(t, S.tabla.slice(3)); return; }
     if (S.tabla === "bess") tablaBess(t); else if (S.tabla === "dia") tablaDia(t); else if (S.tabla === "bcd") tablaBcd(t);
+    else if (S.tabla === "ee") tablaEnergiaExcel(t);
     else if (S.tabla === "disp") tablaDisp(t, ordenGrupos(), (D.disponibilidad || {}).excel_desde, 800, "excel-disp");
     else tablaInversores(t);
   }

@@ -55,6 +55,11 @@ API_INFORME = "/rest/pvms/web/report/v1/inverter/energy-generate-kpi-list"
 ETIQ_HORAS_RED = ["duración de conexión a la red", "grid connection duration", "grid connected duration"]
 ETIQ_RENDIMIENTO = ["rendimiento", "yield", "energy yield"]      # kWh del día: distingue "sin datos" de "no se conectó a la red"
 BOTON_BUSCAR = re.compile(r"^(Buscar|Search)$")
+# Informes > Informe de plantas (granularidad "Por día"): una fila por hora con «Período estadístico» y «Energía exportada (kWh)».
+RUTA_INFORME_PLANTAS = "#/reportv3/site"
+ETIQ_PERIODO = ["período estadístico", "periodo estadístico", "statistical period"]
+ETIQ_EXPORTADA = ["energía exportada", "energia exportada", "feed-in energy", "exported energy", "on-grid energy"]
+GRANULARIDAD_DIA = re.compile(r"^\s*(Por día|Por dia|By day|Daily)\s*$", re.I)
 # Alarmas > Alarmas históricas: pestaña, botón de exportación y confirmación (por si el portal la pide)
 TAB_ALARMAS_HIST = re.compile(r"^\s*(Alarmas históricas|Historical alarms)\s*$", re.I)
 BOTON_EXPORTAR = re.compile(r"^\s*(Exportar|Export)\s*$", re.I)
@@ -130,6 +135,47 @@ JS_TABLA_INFORME = """([etiquetas, etiquetasRend]) => {
   const filas = [...document.querySelectorAll("tr.dpdesign-table-row")].map(tr => [...tr.querySelectorAll("td")].map(td => td.textContent.trim()))
     .filter(f => f.some(x => x));
   return {col: i, colRend: j, nombres: ths, filas};
+}"""
+
+# Informe de plantas: marca (data-fs-planta) el nodo del árbol de la izquierda cuyo nombre contiene alguno de `buscar`.
+JS_NODO_INFORME = """(buscar) => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const norm = s => (s || "").replace(/\\s+/g, " ").trim().toLowerCase();
+  document.querySelectorAll("[data-fs-planta]").forEach(e => e.removeAttribute("data-fs-planta"));
+  const c = [...document.querySelectorAll("span, div, a, li, p")].filter(e => e.children.length === 0 && vis(e) && e.getBoundingClientRect().left < 480)
+    .filter(e => buscar.some(b => norm(e.getAttribute("title") || e.textContent).includes(norm(b))));
+  if (!c.length) return null;
+  c[0].setAttribute("data-fs-planta", "1");
+  return (c[0].getAttribute("title") || c[0].textContent || "").trim();
+}"""
+
+# Informe de plantas: texto del selector «Granularidad de tiempo» (y lo marca con data-fs-gran para poder abrirlo).
+JS_GRANULARIDAD = """() => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const lab = [...document.querySelectorAll("label, span, div, p")].find(e => e.children.length === 0 && vis(e) && /granularidad de tiempo|time granularity/i.test(e.textContent || ""));
+  let n = lab && lab.parentElement;
+  for (let k = 0; k < 4 && n; k++, n = n.parentElement) {
+    const s = [...n.querySelectorAll('[class*="select-selector"], [class*="select-selection"], [class*="select"]')].filter(vis)[0];
+    if (s) { document.querySelectorAll("[data-fs-gran]").forEach(e => e.removeAttribute("data-fs-gran")); s.setAttribute("data-fs-gran", "1"); return (s.innerText || s.textContent || "").trim(); }
+  }
+  return null;
+}"""
+
+# Texto que muestra la tabla cuando no trae filas (p. ej. «Sin datos»), para el log.
+JS_TABLA_VACIA = """() => {
+  const e = document.querySelector('[class*="table-placeholder"], [class*="empty-description"], [class*="empty"]');
+  return e ? (e.innerText || e.textContent || "").replace(/\\s+/g, " ").trim().slice(0, 120) : "sin aviso de tabla vacía";
+}"""
+
+# Paginación de la tabla: pulsa «siguiente» si está habilitado. Devuelve true si avanzó.
+JS_PAGINA_SIGUIENTE = """() => {
+  const vis = e => { const r = e.getBoundingClientRect(), s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.display !== "none" && s.visibility !== "hidden"; };
+  const b = [...document.querySelectorAll('[class*="pagination-next"]')].filter(vis)[0];
+  if (!b) return false;
+  const off = /disabled/i.test((b.className || "").toString()) || b.getAttribute("aria-disabled") === "true" || (b.querySelector("button") && b.querySelector("button").disabled);
+  if (off) return false;
+  (b.querySelector("button, a") || b).click();
+  return true;
 }"""
 
 # «Total: 4» al pie de la tabla de alarmas (el portal lo muestra tras Buscar); None si no se encuentra.
@@ -590,6 +636,133 @@ class Scraper:
             log.warning("informe: no se encontró la columna de rendimiento; un día sin conexión se tomará como «sin dato»")
         return [{"planta": f[0], "dispositivo": f[1], "horas": parse_num(f[t["col"]]),
                  "rend": parse_num(f[t["colRend"]]) if t["colRend"] >= 0 else None} for f in t["filas"]]
+
+    # ------------------------------------------------------------------ Informe de plantas (energía exportada a la red)
+    def _anotar_informe(self, r) -> None:
+        """Deja en `self.urls_informe` las llamadas REST del informe (diagnóstico: permite pasar luego a la API, más rápida)."""
+        try:
+            if "/report" in r.url and r.request.method == "POST":
+                u = r.url.split("?")[0]
+                if u not in self.urls_informe:
+                    self.urls_informe.append(u)
+        except Exception:
+            pass
+
+    def abrir_informe_plantas(self) -> None:
+        """Informes > Informe de plantas, con el árbol de plantas a la izquierda y el botón Buscar a la vista."""
+        pg = self.page
+        if not getattr(self, "_escucha_informe", False):
+            self.urls_informe: list[str] = []
+            pg.on("response", self._anotar_informe)
+            self._escucha_informe = True
+        for intento in range(3):
+            try:
+                self._cerrar_avisos()
+                pg.evaluate(f"location.hash = {RUTA_INFORME_PLANTAS!r}")
+                pg.get_by_role("button", name=BOTON_BUSCAR).first.wait_for(state="visible", timeout=30000)
+                pg.wait_for_timeout(2000)
+                self._cerrar_avisos()
+                log.info("Informe de plantas abierto (%s)", pg.url.split("#")[-1])
+                return
+            except (PWTimeout, PWError):
+                log.warning("abrir_informe_plantas intento %s fallo", intento + 1)
+                pg.wait_for_timeout(2000)
+        self.captura("informe_plantas_fallo")
+        raise ErrorPortal("No se pudo abrir Informes > Informe de plantas")
+
+    def elegir_planta_informe(self, buscar: list[str]) -> str:
+        """Selecciona en el árbol del Informe de plantas la planta cuyo nombre contiene alguno de `buscar` y deja la granularidad en «Por día»."""
+        pg = self.page
+        self._cerrar_avisos(intentos=1)
+        nombre = pg.evaluate(JS_NODO_INFORME, buscar)
+        if not nombre:
+            self.captura("informe_plantas_sin_nodo")
+            raise ErrorPortal(f"no se encontró la planta {buscar} en el árbol del Informe de plantas")
+        pg.locator('[data-fs-planta="1"]').first.click()
+        pg.wait_for_timeout(2500)
+        self._granularidad_dia()
+        log.info("Informe de plantas: planta «%s»", nombre)
+        return nombre
+
+    def _granularidad_dia(self) -> None:
+        pg = self.page
+        txt = pg.evaluate(JS_GRANULARIDAD)
+        if txt and GRANULARIDAD_DIA.search(txt.splitlines()[0] if txt else ""):
+            return
+        log.info("Granularidad actual: %r; elijo «Por día»", txt)
+        try:
+            pg.locator('[data-fs-gran="1"]').first.click()
+            pg.wait_for_timeout(600)
+            pg.get_by_text(GRANULARIDAD_DIA).last.click()
+            pg.wait_for_timeout(800)
+        except (PWTimeout, PWError) as e:
+            self.captura("informe_plantas_granularidad")
+            raise ErrorPortal(f"no se pudo elegir la granularidad «Por día» ({e})")
+        txt = pg.evaluate(JS_GRANULARIDAD)
+        if not (txt and GRANULARIDAD_DIA.search(txt.splitlines()[0])):
+            self.captura("informe_plantas_granularidad")
+            raise ErrorPortal(f"la granularidad no quedó en «Por día» ({txt!r})")
+
+    def _leer_tabla_plantas(self) -> dict:
+        return self.page.evaluate(JS_TABLA_INFORME, [ETIQ_PERIODO, ETIQ_EXPORTADA])
+
+    def energia_exportada_dia(self, dia: date) -> list[tuple[str, float | None]]:
+        """[(«AAAA-MM-DD HH:MM:SS», kWh exportados)] de la planta elegida en `dia` (una fila por hora, todas las páginas).
+
+        Pone la fecha en «Período estadístico», pulsa Buscar y espera a que la tabla muestre ese día. [] si el portal no tiene filas ese día.
+        """
+        pg = self.page
+        iso = dia.isoformat()
+        self._cerrar_avisos(intentos=1)
+        campo = pg.locator('input[value^="20"]:visible').first
+        campo.click()
+        pg.keyboard.press("Control+A")
+        pg.keyboard.type(iso)
+        pg.keyboard.press("Enter")
+        pg.wait_for_timeout(400)
+        pg.get_by_role("button", name=BOTON_BUSCAR).first.click()
+        t, vacio = None, 0
+        for _ in range(40):                                   # hasta ~20 s a que la tabla muestre el día pedido
+            pg.wait_for_timeout(500)
+            t = self._leer_tabla_plantas()
+            if t["filas"]:
+                if t["col"] < 0 or t["colRend"] < 0:
+                    break
+                if all((f[t["col"]] or "").startswith(iso) for f in t["filas"]):
+                    break
+            else:
+                vacio += 1
+                if vacio >= 24:                                # 12 s sin filas: el portal no tiene datos ese día
+                    log.info("informe de plantas %s sin filas (%s)", iso, pg.evaluate(JS_TABLA_VACIA))
+                    return []
+        if not t or not t["filas"]:
+            return []
+        if t["col"] < 0 or t["colRend"] < 0:
+            self.captura("informe_plantas_sin_columna")
+            raise ErrorPortal(f"no se encontraron las columnas «Período estadístico» / «Energía exportada» (encabezados: {t['nombres']})")
+        if not all((f[t["col"]] or "").startswith(iso) for f in t["filas"]):
+            self.captura("informe_plantas_fecha")
+            raise ErrorPortal(f"el informe no mostró el {iso} (primera fila: {t['filas'][0][t['col']]!r})")
+        total = pg.evaluate(JS_TOTAL)
+        filas: dict[str, float | None] = {}
+        for _ in range(12):                                   # 24 horas a 10 por página = 3 páginas
+            for f in t["filas"]:
+                filas[f[t["col"]].strip()] = parse_num(f[t["colRend"]])
+            if total is not None and len(filas) >= total:
+                break
+            primera = t["filas"][0][t["col"]]
+            if not pg.evaluate(JS_PAGINA_SIGUIENTE):
+                break
+            for _ in range(20):
+                pg.wait_for_timeout(400)
+                t = self._leer_tabla_plantas()
+                if t["filas"] and t["filas"][0][t["col"]] != primera:
+                    break
+            else:
+                raise ErrorPortal(f"la página siguiente del informe del {iso} no cargó")
+        if total is not None and len(filas) != total:
+            log.warning("informe de plantas %s: se leyeron %s filas y el portal indica Total: %s", iso, len(filas), total)
+        return sorted(filas.items())
 
     # ------------------------------------------------------------------ Alarmas > Alarmas históricas (exportar)
     def abrir_alarmas_historicas(self, ne: str) -> None:

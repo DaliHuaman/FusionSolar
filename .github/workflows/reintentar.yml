@@ -5,7 +5,7 @@ name: Relanzar corrida fallida
 # Solo relanza el primer intento (run_attempt 1), así que no puede entrar en bucle.
 on:
   workflow_run:
-    workflows: ["Actualizar indicadores FusionSolar", "Disponibilidad diaria FusionSolar", "Alarmas históricas FusionSolar"]
+    workflows: ["Actualizar indicadores FusionSolar", "Disponibilidad diaria FusionSolar", "Alarmas históricas FusionSolar", "Energía exportada FusionSolar"]
     types: [completed]
 
 permissions:
