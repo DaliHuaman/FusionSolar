@@ -25,6 +25,9 @@ agregarla no cambia el diseño de las otras hojas ni dispara la reconstrucción 
 Hojas "Alarma Histórica PL / LC / VES": alarmas históricas de FusionSolar acumuladas semana a semana (ver fusionsolar/alarmas_historicas.py);
 se reconstruyen enteras desde `alarmas_historicas.csv`.
 
+Hoja "Energía Exportada kWh": por planta (LC, VES, PL) dos columnas, «Fecha y hora» y «Energía exportada (kWh)», con solo las horas en que hubo
+energía exportada a la red (> 0), lo más reciente arriba. Se reconstruye entera desde `energia_exportada.csv` (ver fusionsolar/energia_exportada.py).
+
 Si el archivo existente tiene un diseño anterior (otra VERSION_DISENO), se reconstruye desde el CSV maestro.
 """
 from __future__ import annotations
@@ -52,6 +55,7 @@ HOJA_BESS = "BESS"
 HOJA_INICIO = "Inicio_Temp"
 HOJA_DISP = "Disponibilidad"
 HOJA_BCD = "BESS carga-descarga"
+HOJA_ENERGIA = "Energía Exportada kWh"
 # (encabezado del grupo, [(id del inversor, encabezado)]) en el orden de la hoja de Maestro; entre grupos va una columna vacía
 GRUPOS_DISP = [("Logiscity", [("LC-Inv1", "Inversor 1"), ("LC-Inv2", "Inversor 2")]),
                ("Villa el Salvador", [("VES-Inv1", "Inversor 1"), ("VES-Inv2", "Inversor 2")]),
@@ -365,6 +369,44 @@ def _hoja_alarmas(wb: Workbook, codigo: str, filas: list[dict]) -> None:
     ws.auto_filter.ref = f"A1:{get_column_letter(len(ah.COLUMNAS_HOJA))}{max(2, len(filas) + 1)}"
 
 
+def _hoja_energia(wb: Workbook, plantas: list[dict], por_planta: dict[str, list[tuple[str, float]]]) -> None:
+    """(Re)crea la hoja «Energía Exportada kWh» (tras las de alarmas) con el formato Kondu: fila 1 = planta (combinada en 2 columnas),
+    fila 2 = «Fecha y hora» | «Energía exportada (kWh)»; una columna vacía separa cada planta. Cada planta lleva su propia lista, solo
+    con las horas en que hubo energía exportada (> 0) y la más reciente arriba."""
+    if HOJA_ENERGIA in wb.sheetnames:
+        del wb[HOJA_ENERGIA]
+    anclas = [n for n in (HOJA_BESS, HOJA_BCD, HOJA_DISP, *ah.HOJAS.values()) if n in wb.sheetnames]
+    pos = max((wb.sheetnames.index(n) for n in anclas), default=0) + 1
+    ws = wb.create_sheet(HOJA_ENERGIA, pos)
+    ws.sheet_view.showGridLines = False
+    fill = PatternFill("solid", fgColor="7B1490")
+    fuente = Font(name="Calibri", size=11, bold=True, color="FFFF00")
+    lado = Side(style="thin")
+    borde = Border(left=lado, right=lado, top=lado, bottom=lado)
+    centro = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    c = 1
+    for k, p in enumerate(plantas):
+        if k:
+            ws.column_dimensions[get_column_letter(c)].width = 2.4
+            c += 1
+        for j, (titulo, ancho) in enumerate((("Fecha y hora", 19), ("Energía exportada (kWh)", 16))):
+            for fila, texto in ((1, p["titulo"] if j == 0 else None), (2, titulo)):
+                cel = ws.cell(fila, c + j)
+                cel.fill, cel.font, cel.border, cel.alignment = fill, fuente, borde, centro
+                if texto is not None:
+                    cel.value = texto
+            ws.column_dimensions[get_column_letter(c + j)].width = ancho
+        ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + 1)
+        for i, (fh, kwh) in enumerate(por_planta.get(p["codigo"], []), start=3):
+            a, b = ws.cell(i, c), ws.cell(i, c + 1)
+            a.value, a.number_format, a.alignment = datetime.strptime(fh, FMT), "dd/mm/yyyy hh:mm", Alignment(horizontal="center")
+            b.value, b.number_format, b.alignment = kwh, "#,##0.000", Alignment(horizontal="center")
+        c += 2
+    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[2].height = 30
+    ws.freeze_panes = "A3"
+
+
 def _hoja_bess(wb: Workbook, filas_bess: list[dict]) -> None:
     """(Re)crea la hoja "BESS" como segunda hoja, con los encabezados morados de "Indicadores":
     fila 1 = BESS (combinada), fila 2 = magnitud, fila 3 = °C; A3 = Horario; datos desde la fila 4."""
@@ -554,7 +596,7 @@ def _actualizar_umbrales(wb: Workbook, umbrales: dict[str, float]) -> None:
 def escribir(filas: list[dict], inversores: list[dict],
              historico_completo: Callable[[], list[dict]] | None = None,
              filas_bess: list[dict] | None = None, disp: dict | None = None, bcd: dict | None = None,
-             alarmas: dict[str, list[dict]] | None = None) -> Path:
+             alarmas: dict[str, list[dict]] | None = None, energia: dict | None = None) -> Path:
     """Anexa las lecturas al Excel. Lanza PermissionError/OSError si el archivo está bloqueado.
 
     `historico_completo` devuelve todas las filas del CSV maestro (que ya incluye `filas`): se usa solo
@@ -562,6 +604,7 @@ def escribir(filas: list[dict], inversores: list[dict],
     `disp` = {"filas": filas de disponibilidad.csv, "desde": "AAAA-MM-DD", "ref": horas de referencia, "pnom": {id: kW}}: si viene,
     se recrea la hoja «Disponibilidad». `bcd` = {"filas": filas de bess_carga_descarga.csv, "ids": [BESS]}: recrea «BESS carga-descarga».
     `alarmas` = {código de planta: filas de alarmas_historicas.csv (lo más reciente primero)}: recrea «Alarma Histórica PL / LC / VES».
+    `energia` = {"plantas": [{codigo, titulo}], "filas": {código: [(fecha_hora, kWh)] lo más reciente primero}}: recrea «Energía Exportada kWh».
     """
     umbrales = {i["id"]: i["umbral"] for i in inversores}
     ruta = ruta_excel()
@@ -592,6 +635,8 @@ def escribir(filas: list[dict], inversores: list[dict],
                 del wb[nombre]
         for codigo in ah.HOJAS:
             _hoja_alarmas(wb, codigo, alarmas.get(codigo, []))
+    if energia is not None:
+        _hoja_energia(wb, energia.get("plantas") or [], energia.get("filas") or {})
     if historico_completo:
         _hoja_inicio_temp(wb, historico_completo())
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")

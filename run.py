@@ -9,6 +9,9 @@ Uso:
     python run.py --disponibilidad --desde 2025-01-01 [--hasta 2026-11-04]   # recorre un rango (la primera vez recorre todo el historial solo)
     python run.py --alarmas-historicas             # exporta las Alarmas históricas de LC, PL y VES y las suma a alarmas_historicas.csv (semanal)
     python run.py --alarmas-historicas --desde 2026-01-01 [--hasta 2026-03-31]   # idem, pero solo ese rango de fechas
+    python run.py --energia-exportada              # Informe de plantas: energía exportada a la red de hoy y ayer (+ relleno pendiente) y aviso por correo
+    python run.py --energia-exportada --desde 2025-06-01 [--hasta 2025-06-30]    # idem, recorriendo además ese rango (sin aviso)
+    python run.py --energia-exportada --prueba     # solo lee y deja en el log lo que encontró (no guarda ni envía correos)
 """
 from __future__ import annotations
 
@@ -22,7 +25,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from fusionsolar import alarmas_historicas, alertas, bess_cd, disponibilidad, potencia, sitedata, store, umbrales
+from fusionsolar import alarmas_historicas, alertas, bess_cd, disponibilidad, energia_exportada, potencia, sitedata, store, umbrales
 from fusionsolar.common import (CAMPOS_BESS, STATE_DIR, ROOT, classify, credenciales, load_config, load_env, now_local)
 from fusionsolar.scraper import ErrorPortal, Scraper, emparejar_bess, emparejar_inversores, emparejar_plantas
 
@@ -160,6 +163,24 @@ def extraer_disponibilidad(cfg: dict, visible: bool, desde: date | None = None, 
         return disponibilidad.actualizar(sc, cfg, ts, desde, hasta)
 
 
+def extraer_energia_exportada(cfg: dict, visible: bool, desde: date | None = None, hasta: date | None = None,
+                              prueba: bool = False) -> dict:
+    """Informes > Informe de plantas: energía exportada a la red hora a hora (solo > 0) en energia_exportada.csv y aviso por correo."""
+    cred = credenciales()
+    ts = now_local(cfg)
+    with Scraper(cred.usuario, cred.clave, headless=not visible) as sc:
+        for intento in (1, 2):
+            try:
+                sc.login()
+                sc.abrir_informe_plantas()
+                break
+            except ErrorPortal:
+                if intento == 2:
+                    raise
+                log.warning("reintentando login...")
+        return energia_exportada.actualizar(sc, cfg, ts, desde, hasta, prueba=prueba)
+
+
 def extraer_alarmas_historicas(cfg: dict, visible: bool, desde: date | None = None, hasta: date | None = None) -> dict:
     """Alarmas > Alarmas históricas de cada planta: exporta el Excel del portal y suma lo nuevo a alarmas_historicas.csv (sin pisar nada)."""
     cred = credenciales()
@@ -184,15 +205,25 @@ def main() -> int:
     ap.add_argument("--visible", action="store_true")
     ap.add_argument("--descubrir", action="store_true")
     ap.add_argument("--probar-correo", action="store_true")
+    ap.add_argument("--probar-correo-energia", action="store_true", help="correo de prueba del aviso de energía exportada, solo a los correos de --para")
+    ap.add_argument("--para", help="con --probar-correo-energia: destinatario(s) de la prueba, separados por coma")
     ap.add_argument("--disponibilidad", action="store_true", help="solo la disponibilidad diaria (horas operativas del Informe de inversores)")
     ap.add_argument("--desde", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: primer dia a consultar (AAAA-MM-DD)")
     ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: ultimo dia a consultar (por defecto ayer / hoy)")
     ap.add_argument("--alarmas-historicas", action="store_true", help="solo las alarmas históricas (exporta de cada planta y suma al CSV acumulado)")
+    ap.add_argument("--energia-exportada", action="store_true", help="solo la energía exportada a la red (Informe de plantas, cada hora) y su aviso")
+    ap.add_argument("--prueba", action="store_true", help="con --energia-exportada: solo leer y registrar en el log (no guarda ni envía correos)")
     a = ap.parse_args()
 
     load_env()
     configurar_logs()
     cfg = load_config()
+    if a.probar_correo_energia:
+        para = alertas.unir_correos((a.para or "").split(","))
+        if not para:
+            raise SystemExit("Indica el destinatario de la prueba con --para correo@dominio")
+        energia_exportada.enviar_prueba(cfg, now_local(cfg), para)
+        return 0
     if a.probar_correo:
         alertas.enviar_prueba(cfg, now_local(cfg))
         return 0
@@ -210,6 +241,10 @@ def main() -> int:
             res = extraer_alarmas_historicas(cfg, a.visible, a.desde, a.hasta)
             print(json.dumps(res, ensure_ascii=False, default=str))
             return 1 if res.get("error") else 0
+        if a.energia_exportada:
+            res = extraer_energia_exportada(cfg, a.visible, a.desde, a.hasta, a.prueba)
+            print(json.dumps(res, ensure_ascii=False, default=str))
+            return 1 if res.get("errores") else 0
         if a.disponibilidad:
             res = extraer_disponibilidad(cfg, a.visible, a.desde, a.hasta)
             print(json.dumps(res, ensure_ascii=False))
@@ -259,8 +294,16 @@ def main() -> int:
                     alarmas_excel = alarmas_historicas.por_planta(filas_alarmas)
                 except Exception as e:
                     log.exception("no se pudo leer alarmas_historicas.csv: %s", e)
+            filas_energia: list[dict] = []
+            energia_excel = None
+            if energia_exportada.config(cfg).get("activo", True):
+                try:                                       # lo escribe aparte `run.py --energia-exportada` (cada hora); aqui solo se lee
+                    filas_energia = energia_exportada.leer_filas()
+                    energia_excel = {"plantas": energia_exportada.plantas(cfg), "filas": energia_exportada.por_planta(filas_energia)}
+                except Exception as e:
+                    log.exception("no se pudo leer energia_exportada.csv: %s", e)
             if filas or filas_bess:
-                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp, bcd, alarmas_excel))
+                info.update(store.guardar(filas, cfg["inversores"], historial_bess or None, excel_disp, bcd, alarmas_excel, energia_excel))
             info["leidos"] = len(filas)
             info.update(extra)
             if filas:                                      # aviso por correo; no lanza y nunca altera la corrida
@@ -274,7 +317,8 @@ def main() -> int:
             if errores:
                 info["errores"] = errores
 
-        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp, filas_cd, filas_alarmas)
+        data = sitedata.construir(cfg, store.leer_historico(), faltan, ts, info, historial_bess, filas_disp, filas_cd, filas_alarmas,
+                                  filas_energia)
         sitedata.escribir(data)
         try:                                               # vista previa de las hojas «Alarma Histórica *» (archivo aparte, se descarga al abrir la pestaña)
             sitedata.escribir_alarmas(sitedata.construir_alarmas(filas_alarmas, ts))

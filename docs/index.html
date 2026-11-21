@@ -115,6 +115,14 @@
     </p>
   </section>
 
+  <section data-vista="inv" id="sec-energia">
+    <h2>Histórico de Energía exportada a la red por planta (kWh)</h2>
+    <p class="nota" id="nota-energia"></p>
+    <div class="seg" id="tabs-energia" role="group" aria-label="Planta"></div>
+    <div class="ee-resumen" id="ee-resumen"></div>
+    <div class="tabla-wrap alto ee-tabla"><table id="t-energia" class="tabla"></table></div>
+  </section>
+
   <section data-vista="inv">
     <h2>Datos del Excel <span class="u">una pestaña por hoja del archivo</span></h2>
     <div class="seg" id="tabs-excel" role="group" aria-label="Hoja del Excel">
@@ -123,6 +131,7 @@
       <button type="button" data-t="bcd">BESS carga-descarga</button>
       <button type="button" data-t="dia">Inicio y temp. interna</button>
       <button type="button" data-t="disp">Disponibilidad</button>
+      <button type="button" data-t="ee" class="ee-tab">Energía Exportada kWh</button>
       <button type="button" data-t="ah-PL" class="ah-tab">Alarma Histórica PL</button>
       <button type="button" data-t="ah-LC" class="ah-tab">Alarma Histórica LC</button>
       <button type="button" data-t="ah-VES" class="ah-tab">Alarma Histórica VES</button>
