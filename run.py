@@ -9,6 +9,7 @@ Uso:
     python run.py --disponibilidad --desde 2025-01-01 [--hasta 2026-11-04]   # recorre un rango (la primera vez recorre todo el historial solo)
     python run.py --alarmas-historicas             # exporta las Alarmas históricas de LC, PL y VES y las suma a alarmas_historicas.csv (semanal)
     python run.py --alarmas-historicas --desde 2026-01-01 [--hasta 2026-03-31]   # idem, pero solo ese rango de fechas
+    python run.py --importar-alarmas alarmas_manuales   # suma al histórico los archivos de alarmas bajados a mano (sin portal; sin repetir alarmas)
     python run.py --energia-exportada              # Informe de plantas: energía exportada a la red de hoy y ayer (+ relleno pendiente) y aviso por correo
     python run.py --energia-exportada --desde 2025-06-01 [--hasta 2025-06-30]    # idem, recorriendo además ese rango (sin aviso)
     python run.py --energia-exportada --prueba     # solo lee y deja en el log lo que encontró (no guarda ni envía correos)
@@ -238,6 +239,7 @@ def main() -> int:
     ap.add_argument("--desde", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: primer dia a consultar (AAAA-MM-DD)")
     ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: ultimo dia a consultar (por defecto ayer / hoy)")
     ap.add_argument("--alarmas-historicas", action="store_true", help="solo las alarmas históricas (exporta de cada planta y suma al CSV acumulado)")
+    ap.add_argument("--importar-alarmas", metavar="CARPETA", help="suma a alarmas_historicas.csv los archivos de alarmas bajados a mano de esa carpeta (no usa el portal)")
     ap.add_argument("--energia-exportada", action="store_true", help="solo la energía exportada a la red (Informe de plantas, cada hora) y su aviso")
     ap.add_argument("--potencia-maxima", action="store_true", help="solo leer la potencia activa máxima de cada inversor (Configuración) y mostrarla; no guarda nada")
     ap.add_argument("--prueba", action="store_true", help="con --energia-exportada: solo leer y registrar en el log (no guarda ni envía correos)")
@@ -254,6 +256,10 @@ def main() -> int:
         return 0
     if a.probar_correo:
         alertas.enviar_prueba(cfg, now_local(cfg))
+        return 0
+    if a.importar_alarmas:
+        res = alarmas_historicas.importar_manuales(Path(a.importar_alarmas), now_local(cfg))
+        print(json.dumps(res, ensure_ascii=False))
         return 0
     umbrales.aplicar(cfg)            # umbrales leidos del portal en corridas anteriores (si los hay) sobre los del JSON
     potencia.aplicar(cfg)            # potencia nominal de cada inversor (portal si ya se leyo; si no, la de la configuracion)
