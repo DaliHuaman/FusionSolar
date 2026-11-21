@@ -1,0 +1,51 @@
+name: Importar alarmas históricas manuales
+
+# Suma a alarmas_historicas.csv (rama "data") los archivos de alarmas bajados a mano que estén en la carpeta alarmas_manuales/
+# (PL_mayores.csv, PL_menores.csv, LC.xlsx, VES.xlsx). No usa el portal. Una alarma es una sola vez: las filas repetidas dentro de los
+# archivos se reducen a una y lo ya guardado nunca se pisa, así que se puede repetir sin riesgo (la segunda vez agrega 0).
+# El Excel y el dashboard se actualizan en la siguiente corrida de 30 min. Ver fusionsolar/alarmas_historicas.py (importar_manuales).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Misma cola que las demás corridas: todas escriben la rama "data" y no deben pisarse.
+concurrency:
+  group: fusionsolar-actualizar
+  cancel-in-progress: false
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: bash .github/scripts/reintentar.sh 3 15 pip install -r requirements.txt
+
+      - name: Traer histórico (rama data)
+        run: |
+          REMOTE="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          bash .github/scripts/reintentar.sh 3 10 git clone --depth 1 --branch data "$REMOTE" datos
+
+      - name: Importar y deduplicar
+        env:
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+        run: python run.py --importar-alarmas alarmas_manuales
+
+      - name: Guardar histórico (rama data)
+        run: |
+          test -f datos/historico.csv || { echo "::error::No hay histórico.csv en la rama data; no se publica nada."; exit 1; }
+          cd datos
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" \
+            commit -q --allow-empty --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (alarmas manuales)"
+          bash "$GITHUB_WORKSPACE/.github/scripts/reintentar.sh" 3 10 git push -q --force origin HEAD:data
