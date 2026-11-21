@@ -316,3 +316,20 @@ def actualizar(sc, cfg: dict, ahora: datetime, desde: date | None = None, hasta:
     if not info["errores"]:
         info.pop("errores")
     return info
+
+
+def enviar_prueba(cfg: dict, ahora: datetime, para: list[str], enviar=alertas.enviar_correo) -> None:
+    """Correo de prueba (python run.py --probar-correo-energia --para correo) SOLO a `para`, sin copia ni cambios en el histórico.
+
+    Ejemplo realista: las 12:00 de PL y VES se publican con ~2 h de retraso, así que salen juntas en la revisión de las 14:15; las 13:00
+    de PL saldrían en la de las 15:15 (otro correo)."""
+    dia = ahora.strftime("%Y-%m-%d")
+    ejemplo = [{"Planta": "PL", "Fecha_Hora": f"{dia} 12:00:00", "Energia_kWh": 3.849},
+               {"Planta": "VES", "Fecha_Hora": f"{dia} 12:00:00", "Energia_kWh": 0.052}]
+    rev = ahora.replace(hour=14, minute=15, second=0, microsecond=0)
+    asunto, texto, html = componer(cfg, ejemplo, rev)
+    banner = ('<tr><td bgcolor="#fff1cf" style="background:#fff1cf;padding:6px 24px;font:12px Arial,sans-serif;color:#8a5a00">'
+              'Correo de prueba con datos de ejemplo</td></tr>')
+    html = html.replace('<tr><td height="4"', banner + '<tr><td height="4"', 1)
+    enviar("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + texto, para, html, None)
+    log.info("Correo de prueba de energía exportada enviado a %s", ", ".join(para))

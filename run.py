@@ -205,6 +205,8 @@ def main() -> int:
     ap.add_argument("--visible", action="store_true")
     ap.add_argument("--descubrir", action="store_true")
     ap.add_argument("--probar-correo", action="store_true")
+    ap.add_argument("--probar-correo-energia", action="store_true", help="correo de prueba del aviso de energía exportada, solo a los correos de --para")
+    ap.add_argument("--para", help="con --probar-correo-energia: destinatario(s) de la prueba, separados por coma")
     ap.add_argument("--disponibilidad", action="store_true", help="solo la disponibilidad diaria (horas operativas del Informe de inversores)")
     ap.add_argument("--desde", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: primer dia a consultar (AAAA-MM-DD)")
     ap.add_argument("--hasta", type=date.fromisoformat, help="con --disponibilidad / --alarmas-historicas: ultimo dia a consultar (por defecto ayer / hoy)")
@@ -216,6 +218,12 @@ def main() -> int:
     load_env()
     configurar_logs()
     cfg = load_config()
+    if a.probar_correo_energia:
+        para = alertas.unir_correos((a.para or "").split(","))
+        if not para:
+            raise SystemExit("Indica el destinatario de la prueba con --para correo@dominio")
+        energia_exportada.enviar_prueba(cfg, now_local(cfg), para)
+        return 0
     if a.probar_correo:
         alertas.enviar_prueba(cfg, now_local(cfg))
         return 0
