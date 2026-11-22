@@ -1,12 +1,16 @@
 name: TEMPORAL auditoria energia exportada
 
-# TEMPORAL (se borra antes de fusionar): al subir la rama compara el portal con lo guardado, solo en modo prueba (no guarda ni envía correos).
+# TEMPORAL (se borra antes de fusionar): al subir la rama compara el portal con lo guardado, audita y rellena lo que falte (sin correos) y vuelve a auditar en modo prueba para demostrar que no falta nada.
 on:
   push:
     branches: [claude/energia-exportada-completo]
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: fusionsolar-actualizar
+  cancel-in-progress: false
 
 jobs:
   prueba:
@@ -24,7 +28,20 @@ jobs:
           bash .github/scripts/reintentar.sh 3 15 python -m playwright install chromium
       - name: Traer histórico (rama data)
         run: git clone --depth 1 --branch data "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" datos
-      - name: Auditar (prueba)
+      - name: Auditar y rellenar (sin correos)
+        env:
+          FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
+          FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
+          HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
+          FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
+        run: timeout 2400 python run.py --auditar-energia
+      - name: Guardar histórico (rama data)
+        run: |
+          cd datos
+          git add -A
+          git -c user.name="FusionSolar Bot" -c user.email="fusionsolar-bot@users.noreply.github.com" commit -q --amend -m "Datos $(date -u +'%Y-%m-%d %H:%M') UTC (auditoría energía exportada)"
+          bash "$GITHUB_WORKSPACE/.github/scripts/reintentar.sh" 3 10 git push -q --force origin HEAD:data
+      - name: Verificar (prueba, debe no faltar nada)
         env:
           FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
           FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}

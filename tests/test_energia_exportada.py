@@ -131,6 +131,12 @@ class TestLogica(Base):
             self.assertEqual("LC|2025-07-25" in est["relleno_hecho"], k == 2)
         self.assertIn("VES|2026-11-01", est["relleno_hecho"])
 
+    def test_comparar_detecta_faltan_y_difieren(self):
+        filas, _ = self.ee.fusionar([], [("PL", "2026-11-01 10:00:00", 16.59), ("PL", "2026-11-08 10:00:00", 1.0)], datetime(2026, 11, 18))
+        r = self.ee.comparar({"2026-11-01": 16.59, "2026-11-08": 2.0, "2026-11-15": 3.0}, filas, "PL")
+        self.assertEqual(r["faltan"], ["2026-11-15"])
+        self.assertEqual(list(r["difieren"]), ["2026-11-08"])
+
     def test_prueba_no_guarda(self):
         datos = {("LC", "2026-11-18"): horas("2026-11-18", {12: 1.0})}
         self.ee.actualizar(PortalFalso(datos), self.cfg, datetime(2026, 11, 18, 15, 15), prueba=True, enviar=self.enviar)
@@ -161,6 +167,10 @@ class TestSalidas(Base):
         self.assertEqual(ws["A1"].value, "BSF Logiscity 244 kWp - 230 kW")
         self.assertEqual((ws["A2"].value, ws["B2"].value), ("Fecha y hora", "Energía exportada (kWh)"))
         self.assertEqual(ws["A3"].value, datetime(2025, 7, 25, 11))      # lo más reciente arriba
+        filas2, _ = self.ee.fusionar([], [("LC", "2025-06-15", 0.33)], datetime(2026, 11, 18, 15, 15), sin_aviso=True)
+        ws2 = load_workbook(excel_indicadores.escribir([], self.cfg["inversores"], energia={"plantas": self.ee.plantas(self.cfg), "filas": self.ee.por_planta(filas2)}))["Energía Exportada kWh"]
+        self.assertEqual((ws2["A3"].value, ws2["B3"].value), (datetime(2025, 6, 15), 0.33))
+        self.assertEqual(sitedata._energia(self.cfg, filas2)["filas"]["LC"][0], ["2025-06-15", 0.33])
         self.assertEqual(ws["B4"].value, 1.25)
         self.assertEqual(ws["D1"].value, "BSF Villa el Salvador 244 kWp - 230 kW")
         self.assertIsNone(ws["D3"].value)

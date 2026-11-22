@@ -101,7 +101,7 @@ def _energia(cfg: dict, filas: list[dict]) -> dict:
     c = ee.config(cfg)
     est = leer_json(ee.ruta_estado(), {})
     return {"activo": bool(c.get("activo", True)), "plantas": ee.plantas(cfg), "revisado": est.get("ultima_revision_ok") or est.get("ultima_revision"),
-            "filas": {cod: [[fh[:16], kwh] for fh, kwh in lst] for cod, lst in ee.por_planta(filas).items()}}
+            "filas": {cod: [[fh if len(fh) == 10 else fh[:16], kwh] for fh, kwh in lst] for cod, lst in ee.por_planta(filas).items()}}
 
 
 def _alarmas_meta(filas: list[dict]) -> dict:

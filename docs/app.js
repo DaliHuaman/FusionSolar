@@ -720,7 +720,7 @@
   // ---------------------------------------------------------------- Histórico de energía exportada a la red (Informe de plantas, hora a hora)
   // D.energia_exportada = {plantas: [{codigo, titulo}], filas: {código: [["AAAA-MM-DD HH:MM", kWh], ...]} (solo > 0, lo más reciente primero)}
   const fKwh3 = v => v == null ? "–" : v.toLocaleString("es-PE", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-  const fFH = s => s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4) + " " + s.slice(11, 16);
+  const fFH = s => s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4) + (s.length === 10 ? " (día completo)" : " " + s.slice(11, 16));
   function pintarEnergia() {
     const E = D.energia_exportada, sec = $("#sec-energia");
     if (!E || !E.activo) { sec.hidden = true; return; }
