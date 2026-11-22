@@ -32,6 +32,7 @@ Si el archivo existente tiene un diseño anterior (otra VERSION_DISENO), se reco
 """
 from __future__ import annotations
 
+import logging
 import os
 from copy import copy
 from datetime import datetime, timedelta
@@ -46,6 +47,8 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from . import alarmas_historicas as ah
 from .common import CAMPOS_BESS, COLUMNAS, ROOT
+
+log = logging.getLogger("fusionsolar.excel")
 
 HOJA_WIDE = "Indicadores"
 HOJA_PLANA = "Historico"
@@ -627,22 +630,36 @@ def escribir(filas: list[dict], inversores: list[dict],
     else:
         _actualizar_umbrales(wb, umbrales)
     _agregar(wb, a_escribir)
+    # Cada hoja extra se arma aparte: si una falla (dato con formato inesperado) se registra y se conserva lo demás, así una hoja mala
+    # nunca impide guardar las otras hojas ni que el dashboard se actualice.
+    def _seguro(nombre: str, fn, *args) -> None:
+        try:
+            fn(*args)
+        except Exception as e:
+            log.exception("la hoja «%s» no se pudo escribir (%s); se omite y se sigue con las demás", nombre, e)
+            errores_hojas.append(nombre)
+            if nombre in wb.sheetnames:                  # no dejar una hoja a medias
+                del wb[nombre]
+
+    errores_hojas: list[str] = []
     if filas_bess:
-        _hoja_bess(wb, filas_bess)
+        _seguro(HOJA_BESS, _hoja_bess, wb, filas_bess)
     if disp is not None:
-        _hoja_disponibilidad(wb, disp["filas"], disp.get("desde"), disp.get("ref", 12), disp.get("pnom"))
+        _seguro(HOJA_DISP, _hoja_disponibilidad, wb, disp["filas"], disp.get("desde"), disp.get("ref", 12), disp.get("pnom"))
     if bcd is not None:
-        _hoja_bess_cd(wb, bcd["filas"], bcd.get("ids") or [])
+        _seguro(HOJA_BCD, _hoja_bess_cd, wb, bcd["filas"], bcd.get("ids") or [])
     if alarmas is not None:
         for nombre in ah.HOJAS.values():             # se recrean las tres juntas para que queden en orden PL, LC, VES
             if nombre in wb.sheetnames:
                 del wb[nombre]
         for codigo in ah.HOJAS:
-            _hoja_alarmas(wb, codigo, alarmas.get(codigo, []))
+            _seguro(ah.HOJAS[codigo], _hoja_alarmas, wb, codigo, alarmas.get(codigo, []))
     if energia is not None:
-        _hoja_energia(wb, energia.get("plantas") or [], energia.get("filas") or {})
+        _seguro(HOJA_ENERGIA, _hoja_energia, wb, energia.get("plantas") or [], energia.get("filas") or {})
     if historico_completo:
-        _hoja_inicio_temp(wb, historico_completo())
+        _seguro(HOJA_INICIO, _hoja_inicio_temp, wb, historico_completo())
+    if errores_hojas:
+        log.error("Hojas del Excel omitidas por error: %s", ", ".join(errores_hojas))
     tmp = ruta.with_name(ruta.stem + ".tmp.xlsx")
     wb.save(tmp)
     os.replace(tmp, ruta)        # atómico; falla con PermissionError si Excel tiene el archivo abierto
