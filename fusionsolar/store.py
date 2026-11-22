@@ -139,6 +139,10 @@ def guardar(filas: list[dict], inversores: list[dict], filas_bess: list[dict] | 
         log.warning("Excel bloqueado/no disponible (%s). %s filas quedan pendientes.", e, len(total))
         _escribir_csv(PENDIENTES, total, anexar=False)
         return {"excel": None, "pendientes": len(total), "error": str(e)}
+    except Exception as e:                                  # fallo inesperado del Excel: el CSV ya quedó guardado y el dashboard debe seguir
+        log.exception("No se pudo escribir el Excel (%s); el CSV maestro y el dashboard siguen. %s filas quedan pendientes.", e, len(total))
+        _escribir_csv(PENDIENTES, total, anexar=False)
+        return {"excel": None, "pendientes": len(total), "error": str(e)}
 
 
 def leer_historico() -> list[dict]:
