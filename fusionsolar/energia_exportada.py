@@ -139,6 +139,8 @@ def _fmt(v: float) -> str:
 
 
 def _fmt_fh(fh: str) -> str:
+    if len(fh) <= 10:                                          # total diario sin hora
+        return datetime.strptime(fh, "%Y-%m-%d").strftime("%d/%m/%Y")
     d = datetime.strptime(fh, FMT_TS)
     return d.strftime("%d/%m/%Y %H:%M")
 
