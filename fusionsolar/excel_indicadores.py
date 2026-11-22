@@ -399,7 +399,11 @@ def _hoja_energia(wb: Workbook, plantas: list[dict], por_planta: dict[str, list[
         ws.merge_cells(start_row=1, start_column=c, end_row=1, end_column=c + 1)
         for i, (fh, kwh) in enumerate(por_planta.get(p["codigo"], []), start=3):
             a, b = ws.cell(i, c), ws.cell(i, c + 1)
-            a.value, a.number_format, a.alignment = datetime.strptime(fh, FMT), "dd/mm/yyyy hh:mm", Alignment(horizontal="center")
+            if len(fh) <= 10:                                  # total diario sin detalle horario (portal sin datos por hora): solo fecha
+                valor, fmt_fh = datetime.strptime(fh, "%Y-%m-%d"), "dd/mm/yyyy"
+            else:
+                valor, fmt_fh = datetime.strptime(fh, FMT), "dd/mm/yyyy hh:mm"
+            a.value, a.number_format, a.alignment = valor, fmt_fh, Alignment(horizontal="center")
             b.value, b.number_format, b.alignment = kwh, "#,##0.000", Alignment(horizontal="center")
         c += 2
     ws.row_dimensions[1].height = 30
