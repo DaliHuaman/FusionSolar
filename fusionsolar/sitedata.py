@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import calendar
 import json
+import logging
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -13,6 +14,8 @@ from . import alarmas_historicas as ah
 from . import disponibilidad as disp
 from . import energia_exportada as ee
 from .common import CAMPOS_BESS, STATE_DIR, leer_json
+
+log = logging.getLogger("fusionsolar.sitedata")
 
 SITE_DIR = STATE_DIR / "site"
 DIAS_SERIE = 45          # resolucion completa (cada lectura) en el dashboard
@@ -158,6 +161,13 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
               filas_disp: list[dict] | None = None, filas_cd: list[dict] | None = None,
               filas_alarmas: list[dict] | None = None, filas_energia: list[dict] | None = None) -> dict:
     invs = cfg["inversores"]
+    def _seguro(nombre: str, fn, defecto):
+        try:                                                    # una sección auxiliar con datos raros no debe impedir publicar el dashboard
+            return fn()
+        except Exception as e:
+            log.exception("sección «%s» del dashboard omitida por error: %s", nombre, e)
+            return defecto
+
     out: dict = {
         "generado": ahora.strftime("%Y-%m-%d %H:%M:%S"),
         "zona_horaria": cfg["zona_horaria"],
@@ -168,10 +178,11 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "no_encontrados": no_encontrados,
         "corrida": info_corrida or {},
         "ultima": {}, "serie": {}, "inicio": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
-        "bess": {**_bess(cfg, filas_bess or [], ahora), "cd": _carga_descarga(cfg, filas_cd or [])},
-        "disponibilidad": _disponibilidad(cfg, filas_disp or []),
-        "alarmas_hist": _alarmas_meta(filas_alarmas or []),
-        "energia_exportada": _energia(cfg, filas_energia or []),
+        "bess": _seguro("bess", lambda: {**_bess(cfg, filas_bess or [], ahora), "cd": _carga_descarga(cfg, filas_cd or [])},
+                       {**_bess(cfg, [], ahora), "cd": _carga_descarga(cfg, [])}),
+        "disponibilidad": _seguro("disponibilidad", lambda: _disponibilidad(cfg, filas_disp or []), _disponibilidad(cfg, [])),
+        "alarmas_hist": _seguro("alarmas_hist", lambda: _alarmas_meta(filas_alarmas or []), _alarmas_meta([])),
+        "energia_exportada": _seguro("energia_exportada", lambda: _energia(cfg, filas_energia or []), _energia(cfg, [])),
     }
     df = pd.DataFrame(filas)
     if df.empty:
