@@ -4,6 +4,8 @@ Cada 30 minutos, GitHub entra a FusionSolar, lee de los 10 inversores (LC, VES y
 **resistencia de aislamiento**, el **estado de ajuste de potencia activa**, la **temperatura interna** y la **hora de inicio**, y los agrega a un Excel.
 También lee las **temperaturas de las 5 BESS** (Control › cada BESS › Detalles), calcula la **disponibilidad diaria** de cada planta y publica un dashboard web con todo.
 
+> **Seguridad:** este repo es público; los correos y las claves van solo en secretos de Actions. Ver [SEGURIDAD.md](SEGURIDAD.md).
+
 ## Qué hay en el repositorio (y para qué sirve)
 
 | Archivo | Para qué sirve |

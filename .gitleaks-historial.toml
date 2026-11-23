@@ -1,0 +1,6 @@
+# Solo reglas estándar de gitleaks, para escanear el historial completo. La regla propia de correos corporativos (.gitleaks.toml) no se
+# aplica al historial hasta que se limpie con git filter-repo (los commits antiguos todavía contienen esos correos). Ver SEGURIDAD.md.
+title = "FusionSolar (historial)"
+
+[extend]
+useDefault = true
