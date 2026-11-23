@@ -105,6 +105,8 @@ jobs:
           cp -r docs/. site/
           cp -r "${{ runner.temp }}/fusionsolar/site/data/." site/data/     # data.json + alarmas_historicas.json
           touch site/.nojekyll
+          # version del codigo en las URLs de css/js (rompe la cache del navegador y de Pages tras cada cambio)
+          sed -i "s/__BUILD__/${GITHUB_SHA::7}/g" site/index.html site/app.js
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

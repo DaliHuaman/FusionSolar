@@ -4,6 +4,7 @@ from __future__ import annotations
 import calendar
 import json
 import logging
+import os
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -177,6 +178,7 @@ def construir(cfg: dict, filas: list[dict], no_encontrados: list[str], ahora: da
         "inversores": [{k: i[k] for k in ("id", "planta", "grupo", "nombre", "umbral")} for i in invs],
         "no_encontrados": no_encontrados,
         "corrida": info_corrida or {},
+        "build": os.environ.get("GITHUB_SHA", "")[:7],      # commit desplegado: el dashboard lo usa para recargar codigo viejo
         "ultima": {}, "serie": {}, "inicio": {}, "diario": {}, "alarmas": [], "eventos_potencia": [],
         "bess": _seguro("bess", lambda: {**_bess(cfg, filas_bess or [], ahora), "cd": _carga_descarga(cfg, filas_cd or [])},
                        {**_bess(cfg, [], ahora), "cd": _carga_descarga(cfg, [])}),
