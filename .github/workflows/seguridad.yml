@@ -1,0 +1,41 @@
+name: Escaneo de secretos (gitleaks)
+
+# Busca claves, tokens y correos corporativos en el código (archivos actuales) y en todo el historial de Git con reglas estándar.
+# Corre en cada push y PR, y una vez por semana. No usa secretos ni toca la rama "data". Ver SEGURIDAD.md.
+on:
+  push:
+    branches: [claude/solar-investors-dashboard-o40oor]
+  pull_request:
+  schedule:
+    - cron: "37 11 * * 1"          # lunes, hora poco cargada
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GITLEAKS_VERSION: "8.21.2"
+  GITLEAKS_SHA256: "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba"
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0           # historial completo
+          persist-credentials: false
+
+      - name: Instalar gitleaks (versión fija y verificada)
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
+          tar xzf gitleaks.tgz gitleaks
+          ./gitleaks version
+
+      - name: Archivos actuales (reglas estándar + correo corporativo)
+        run: ./gitleaks detect --no-git --source . --config .gitleaks.toml --redact --no-banner --verbose
+
+      - name: Historial completo (solo reglas estándar)
+        run: ./gitleaks detect --source . --config .gitleaks-historial.toml --redact --no-banner --verbose

@@ -1,0 +1,13 @@
+# Configuración de gitleaks para este repo público (se usa en .github/workflows/seguridad.yml).
+# Hereda las reglas estándar (claves de API, tokens, llaves privadas...) y agrega una propia: ningún correo corporativo en el código.
+# Los destinatarios de las alertas van en secretos de Actions (ALERTA_DESTINATARIOS / ALERTA_COPIA), no en archivos.
+title = "FusionSolar"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "correo-corporativo-kallpa"
+description = "Correo corporativo @kg.com.pe en el código (debe ir en un secreto de Actions)"
+regex = '''(?i)[a-z0-9._%+-]+@kg\.com\.pe'''
+keywords = ["kg.com.pe"]
