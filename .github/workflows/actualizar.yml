@@ -63,7 +63,8 @@ jobs:
           SMTP_HOST: ${{ vars.SMTP_HOST }}                       # opcional (por defecto smtp.gmail.com)
           SMTP_PORT: ${{ vars.SMTP_PORT }}                       # opcional (por defecto 465)
           ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}         # opcional (por defecto = SMTP_USER)
-          ALERTA_DESTINATARIOS: ${{ vars.ALERTA_DESTINATARIOS }} # opcional: se suma a config alertas.destinatarios
+          ALERTA_DESTINATARIOS: ${{ secrets.ALERTA_DESTINATARIOS || vars.ALERTA_DESTINATARIOS }}   # secreto (no se ve en los registros); se suma a config
+          ALERTA_COPIA: ${{ secrets.ALERTA_COPIA || vars.ALERTA_COPIA }}                           # secreto: copia (CC); se suma a config
         run: python run.py --probar-correo
 
       - name: Extraer de FusionSolar y actualizar Excel
@@ -73,7 +74,8 @@ jobs:
           SMTP_HOST: ${{ vars.SMTP_HOST }}                       # opcional (por defecto smtp.gmail.com)
           SMTP_PORT: ${{ vars.SMTP_PORT }}                       # opcional (por defecto 465)
           ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}         # opcional (por defecto = SMTP_USER)
-          ALERTA_DESTINATARIOS: ${{ vars.ALERTA_DESTINATARIOS }} # opcional: se suma a config alertas.destinatarios
+          ALERTA_DESTINATARIOS: ${{ secrets.ALERTA_DESTINATARIOS || vars.ALERTA_DESTINATARIOS }}   # secreto (no se ve en los registros); se suma a config
+          ALERTA_COPIA: ${{ secrets.ALERTA_COPIA || vars.ALERTA_COPIA }}                           # secreto: copia (CC); se suma a config
           FUSIONSOLAR_USER: ${{ secrets.FUSIONSOLAR_USER }}
           FUSIONSOLAR_PASSWORD: ${{ secrets.FUSIONSOLAR_PASSWORD }}
           EXCEL_DIR: ${{ github.workspace }}/datos

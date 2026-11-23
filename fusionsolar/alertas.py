@@ -5,7 +5,7 @@ se recupera y vuelve a caer (con `enfriamiento_horas` minimas desde el ultimo av
 alrededor del limite). Varios inversores de la misma corrida salen juntos en un solo correo.
 
 Secretos (variables de entorno, en GitHub Actions = Secrets): SMTP_USER, SMTP_PASSWORD (y opcionales SMTP_HOST, SMTP_PORT,
-ALERTA_REMITENTE y ALERTA_COPIA que reemplazan a config; ALERTA_DESTINATARIOS se SUMA a config). Sin ellos no se envia nada ni se pierde el aviso.
+ALERTA_REMITENTE; ALERTA_DESTINATARIOS y ALERTA_COPIA se SUMAN a config). Sin ellos no se envia nada ni se pierde el aviso.
 """
 from __future__ import annotations
 
@@ -61,21 +61,28 @@ def unir_correos(*listas) -> list[str]:
     return out
 
 
-def destinatarios(cfg: dict) -> list[str]:
-    """Para: la variable ALERTA_DESTINATARIOS (si existe) MÁS los de config `alertas.destinatarios` (sin repetir).
+def ocultar_correos(texto: object) -> str:
+    """Sustituye direcciones de correo por «***» (los registros de Actions de un repo público son públicos)."""
+    return re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", "***", str(texto))
 
-    Antes la variable reemplazaba a la configuración; ahora se suman, para que un destinatario agregado en config (p. ej. Marcelo
-    Moreno) reciba el aviso aunque la variable de Actions no lo tenga."""
-    env = os.environ.get("ALERTA_DESTINATARIOS", "")
-    return unir_correos(re.split(r"[,;\s]+", env) if env.strip() else [], _cfg(cfg)["destinatarios"])
+
+def _lista_env(nombre: str) -> list[str]:
+    env = os.environ.get(nombre, "")
+    return re.split(r"[,;\s]+", env) if env.strip() else []
+
+
+def destinatarios(cfg: dict) -> list[str]:
+    """Para: la variable/secreto ALERTA_DESTINATARIOS (si existe) MÁS los de config `alertas.destinatarios` (sin repetir).
+
+    Los correos corporativos ya no van en el código (repo público): se cargan en el secreto ALERTA_DESTINATARIOS de Actions. Si falta,
+    no hay a quién avisar: la corrida no falla y el aviso queda pendiente (no se marca como enviado) hasta que se cargue."""
+    return unir_correos(_lista_env("ALERTA_DESTINATARIOS"), _cfg(cfg)["destinatarios"])
 
 
 def copia(cfg: dict) -> list[str]:
-    """Destinatarios en copia (CC); se excluyen los que ya van en 'Para'."""
-    env = os.environ.get("ALERTA_COPIA", "")
-    lista = re.split(r"[,;\s]+", env) if env.strip() else _cfg(cfg)["copia"]
+    """Destinatarios en copia (CC): ALERTA_COPIA (si existe) MÁS los de config `alertas.copia`; se excluyen los que ya van en 'Para'."""
     para = {d.lower() for d in destinatarios(cfg)}
-    return [d for d in lista if d and "@" in d and d.lower() not in para]
+    return [d for d in unir_correos(_lista_env("ALERTA_COPIA"), _cfg(cfg)["copia"]) if d.lower() not in para]
 
 
 def cargar_plantilla(cfg: dict, archivo: str | None = None, respaldo: dict[str, str] | None = None) -> dict[str, str]:
@@ -292,15 +299,15 @@ def procesar(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
             para = destinatarios(cfg)
             try:
                 if not para:
-                    raise RuntimeError("no hay destinatarios (config alertas.destinatarios o ALERTA_DESTINATARIOS)")
+                    raise RuntimeError("no hay destinatarios (config alertas.destinatarios o secreto ALERTA_DESTINATARIOS)")
                 asunto, cuerpo, html = componer(cfg, avisos, ahora)
                 enviar_correo(asunto, cuerpo, para, html, copia(cfg))
                 enviados = len(avisos)
                 for a in avisos:
                     a_guardar[a["id"]]["ultimo_envio"] = ahora.strftime(FMT_TS)
-                log.info("Aviso enviado (%s inversores) a %s (copia: %s)", enviados, ", ".join(para), ", ".join(copia(cfg)) or "-")
+                log.info("Aviso enviado (%s inversores) a %s destinatario(s) y %s en copia", enviados, len(para), len(copia(cfg)))
             except Exception as e:                      # sin enviar no se marca nada: se reintenta en la proxima corrida
-                log.warning("No se pudo enviar el aviso (%s); se reintentara en la proxima corrida", e)
+                log.warning("No se pudo enviar el aviso (%s); se reintentara en la proxima corrida", ocultar_correos(e))
                 for a in avisos:                        # que no cuente como "ya en alerta avisada"
                     a_guardar[a["id"]]["en_alerta"] = estado.get(a["id"], {}).get("en_alerta", False)
         if a_guardar != estado:
@@ -325,4 +332,4 @@ def enviar_prueba(cfg: dict, ahora: datetime) -> None:
               'Correo de prueba con datos de ejemplo</td></tr>')
     html = html.replace('<tr><td height="4"', banner + '<tr><td height="4"', 1)
     enviar_correo("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + cuerpo, para, html, copia(cfg))
-    log.info("Correo de prueba enviado a %s (copia: %s)", ", ".join(para), ", ".join(copia(cfg)) or "-")
+    log.info("Correo de prueba enviado a %s destinatario(s) y %s en copia", len(para), len(copia(cfg)))
