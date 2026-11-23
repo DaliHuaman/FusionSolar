@@ -92,7 +92,6 @@ class TestLogica(Base):
         self.assertIn("PL", m["asunto"])
         self.assertIn("supervisor@ejemplo.test", m["para"])
         self.assertEqual(m["cc"], ["copia@ejemplo.test"])
-        self.assertIn("gestiondesoluciones@kondu.pe", m["para"])
         self.assertIn("18/11/2026 12:00", m["html"])
         self.assertIn("Energía exportada a la red", m["html"])
         filas = self.ee.leer_filas()
@@ -144,25 +143,27 @@ class TestLogica(Base):
 
     def test_destinatarios_aislamiento_suma_variable(self):
         from fusionsolar import alertas
-        self.assertEqual(alertas.destinatarios(self.cfg), ["supervisor@ejemplo.test", "gestiondesoluciones@kondu.pe"])
+        self.assertEqual(alertas.destinatarios(self.cfg), ["supervisor@ejemplo.test"])
         self.assertEqual(alertas.copia(self.cfg), ["copia@ejemplo.test"])
 
-    def test_sin_variables_el_aviso_sale_solo_a_config(self):
-        """Si falta el secreto ALERTA_DESTINATARIOS nada falla ni se pierde el aviso: sale a los de config."""
+    def test_sin_secretos_no_falla_y_reintenta(self):
+        """Si falta el secreto ALERTA_DESTINATARIOS no se rompe la corrida ni se marca el aviso: se reintenta cuando exista."""
         from fusionsolar import alertas
         os.environ.pop("ALERTA_DESTINATARIOS"), os.environ.pop("ALERTA_COPIA")
-        self.assertEqual(alertas.destinatarios(self.cfg), ["gestiondesoluciones@kondu.pe"])
-        self.assertEqual(alertas.copia(self.cfg), [])
+        self.assertEqual(alertas.destinatarios(self.cfg), [])
         datos = {("PL", "2026-11-18"): horas("2026-11-18", {12: 0.84})}
         self.ee.actualizar(PortalFalso(datos), self.cfg, datetime(2026, 11, 18, 15, 15), enviar=self.enviar)
+        self.assertEqual(self.enviados, [])
+        self.assertEqual([f["Alertado"] for f in self.ee.leer_filas()], [""])            # sigue pendiente de aviso
+        os.environ["ALERTA_DESTINATARIOS"] = "supervisor@ejemplo.test"
+        self.ee.actualizar(PortalFalso(datos), self.cfg, datetime(2026, 11, 18, 15, 45), enviar=self.enviar)
         self.assertEqual(len(self.enviados), 1)
-        self.assertEqual(self.enviados[0]["para"], ["gestiondesoluciones@kondu.pe"])
 
     def test_variable_repetida_o_con_separadores_no_duplica(self):
         from fusionsolar import alertas
-        os.environ["ALERTA_DESTINATARIOS"] = "A@x.test; a@x.test, gestiondesoluciones@kondu.pe\nb@x.test"
+        os.environ["ALERTA_DESTINATARIOS"] = "A@x.test; a@x.test, g@x.test\nb@x.test"
         os.environ["ALERTA_COPIA"] = "a@x.test,c@x.test"
-        self.assertEqual(alertas.destinatarios(self.cfg), ["A@x.test", "gestiondesoluciones@kondu.pe", "b@x.test"])
+        self.assertEqual(alertas.destinatarios(self.cfg), ["A@x.test", "g@x.test", "b@x.test"])
         self.assertEqual(alertas.copia(self.cfg), ["c@x.test"])
 
     def test_registros_sin_correos(self):

@@ -75,7 +75,7 @@ def destinatarios(cfg: dict) -> list[str]:
     """Para: la variable/secreto ALERTA_DESTINATARIOS (si existe) MÁS los de config `alertas.destinatarios` (sin repetir).
 
     Los correos corporativos ya no van en el código (repo público): se cargan en el secreto ALERTA_DESTINATARIOS de Actions. Si falta,
-    el aviso sale solo a los de config (nunca falla ni se pierde)."""
+    no hay a quién avisar: la corrida no falla y el aviso queda pendiente (no se marca como enviado) hasta que se cargue."""
     return unir_correos(_lista_env("ALERTA_DESTINATARIOS"), _cfg(cfg)["destinatarios"])
 
 
