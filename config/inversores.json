@@ -10,8 +10,8 @@
   "alertas": {
     "activo": true,
     "porcentaje_sobre_umbral": 5,
-    "destinatarios": ["gestiondesoluciones@kondu.pe", "destinatario@correo.invalido"],
-    "copia": ["copia@correo.invalido"],
+    "destinatarios": ["gestiondesoluciones@kondu.pe"],
+    "copia": [],
     "reenviar_cada_horas": 24,
     "enfriamiento_horas": 2,
     "dashboard_url": "https://dalihuaman.github.io/FusionSolar/",
@@ -64,8 +64,8 @@
     "dias_releer": 2,
     "presupuesto_segundos": 900,
     "alertar_horas": 48,
-    "destinatarios": ["gestiondesoluciones@kondu.pe", "destinatario@correo.invalido"],
-    "copia": ["copia@correo.invalido"],
+    "destinatarios": ["gestiondesoluciones@kondu.pe"],
+    "copia": [],
     "plantilla": "config/alerta_energia.txt",
     "fechas_relleno": {
       "LC":  ["2025-06-15", "2025-07-25"],

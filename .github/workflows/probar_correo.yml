@@ -25,6 +25,7 @@ jobs:
           SMTP_HOST: ${{ vars.SMTP_HOST }}
           SMTP_PORT: ${{ vars.SMTP_PORT }}
           ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}
-          ALERTA_DESTINATARIOS: ${{ vars.ALERTA_DESTINATARIOS }}
+          ALERTA_DESTINATARIOS: ${{ secrets.ALERTA_DESTINATARIOS || vars.ALERTA_DESTINATARIOS }}   # secreto (no se ve en los registros); se suma a config
+          ALERTA_COPIA: ${{ secrets.ALERTA_COPIA || vars.ALERTA_COPIA }}                           # secreto: copia (CC); se suma a config
           FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
         run: python run.py --probar-correo

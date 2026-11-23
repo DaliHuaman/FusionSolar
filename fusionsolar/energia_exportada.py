@@ -194,8 +194,8 @@ def componer(cfg: dict, avisos: list[dict], ahora: datetime) -> tuple[str, str, 
 
 def destinatarios(cfg: dict) -> tuple[list[str], list[str]]:
     c = config(cfg)
-    para = alertas.unir_correos(c["destinatarios"])
-    cc = [d for d in alertas.unir_correos(c["copia"]) if d.lower() not in {x.lower() for x in para}]
+    para = alertas.unir_correos(alertas._lista_env("ALERTA_DESTINATARIOS"), c["destinatarios"])      # secreto + config (sin repetir)
+    cc = [d for d in alertas.unir_correos(alertas._lista_env("ALERTA_COPIA"), c["copia"]) if d.lower() not in {x.lower() for x in para}]
     return para, cc
 
 
@@ -211,15 +211,15 @@ def avisar(cfg: dict, filas: list[dict], ahora: datetime, enviar=alertas.enviar_
     para, cc = destinatarios(cfg)
     try:
         if not para:
-            raise RuntimeError("no hay destinatarios (config energia_exportada.destinatarios)")
+            raise RuntimeError("no hay destinatarios (config energia_exportada.destinatarios o secreto ALERTA_DESTINATARIOS)")
         asunto, texto, html = componer(cfg, pend, ahora)
         enviar(asunto, texto, para, html, cc)
     except Exception as e:
-        log.warning("No se pudo enviar el aviso de energía exportada (%s); se reintentará en la próxima corrida", e)
-        return {"pendientes": len(pend), "enviados": 0, "error": str(e)}
+        log.warning("No se pudo enviar el aviso de energía exportada (%s); se reintentará en la próxima corrida", alertas.ocultar_correos(e))
+        return {"pendientes": len(pend), "enviados": 0, "error": alertas.ocultar_correos(e)}
     for f in pend:
         f["Alertado"] = ahora.strftime(FMT_TS)
-    log.info("Aviso de energía exportada enviado (%s horas) a %s (copia: %s)", len(pend), ", ".join(para), ", ".join(cc) or "-")
+    log.info("Aviso de energía exportada enviado (%s horas) a %s destinatario(s) y %s en copia", len(pend), len(para), len(cc))
     return {"pendientes": len(pend), "enviados": len(pend)}
 
 
@@ -334,4 +334,4 @@ def enviar_prueba(cfg: dict, ahora: datetime, para: list[str], enviar=alertas.en
               'Correo de prueba con datos de ejemplo</td></tr>')
     html = html.replace('<tr><td height="4"', banner + '<tr><td height="4"', 1)
     enviar("[PRUEBA] " + asunto, "(Correo de prueba con datos de ejemplo)\n\n" + texto, para, html, None)
-    log.info("Correo de prueba de energía exportada enviado a %s", ", ".join(para))
+    log.info("Correo de prueba de energía exportada enviado (%s destinatario)", len(para))

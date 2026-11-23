@@ -48,8 +48,12 @@ class Base(unittest.TestCase):
         self.cfg = common.load_config()
         self.cfg["energia_exportada"]["fechas_relleno"] = {"LC": ["2025-07-25"], "VES": ["2026-11-01"], "PL": []}
         self.enviados = []
+        os.environ["ALERTA_DESTINATARIOS"] = "supervisor@ejemplo.test"       # como el secreto de Actions (los correos reales ya no están en el repo)
+        os.environ["ALERTA_COPIA"] = "copia@ejemplo.test"
 
     def tearDown(self):
+        os.environ.pop("ALERTA_DESTINATARIOS", None)
+        os.environ.pop("ALERTA_COPIA", None)
         self.tmp.cleanup()
         for k in ("HISTORICO_CSV", "FUSIONSOLAR_STATE", "EXCEL_DIR"):
             os.environ.pop(k, None)
@@ -86,7 +90,8 @@ class TestLogica(Base):
         self.assertEqual(len(self.enviados), 1)                    # solo las de hoy (PL); el relleno no avisa
         m = self.enviados[0]
         self.assertIn("PL", m["asunto"])
-        self.assertIn("destinatario@correo.invalido", m["para"])
+        self.assertIn("supervisor@ejemplo.test", m["para"])
+        self.assertEqual(m["cc"], ["copia@ejemplo.test"])
         self.assertIn("gestiondesoluciones@kondu.pe", m["para"])
         self.assertIn("18/11/2026 12:00", m["html"])
         self.assertIn("Energía exportada a la red", m["html"])
@@ -139,12 +144,30 @@ class TestLogica(Base):
 
     def test_destinatarios_aislamiento_suma_variable(self):
         from fusionsolar import alertas
-        os.environ["ALERTA_DESTINATARIOS"] = "gestiondesoluciones@kondu.pe"
-        try:
-            para = alertas.destinatarios(self.cfg)
-        finally:
-            os.environ.pop("ALERTA_DESTINATARIOS")
-        self.assertEqual(para, ["gestiondesoluciones@kondu.pe", "destinatario@correo.invalido"])
+        self.assertEqual(alertas.destinatarios(self.cfg), ["supervisor@ejemplo.test", "gestiondesoluciones@kondu.pe"])
+        self.assertEqual(alertas.copia(self.cfg), ["copia@ejemplo.test"])
+
+    def test_sin_variables_el_aviso_sale_solo_a_config(self):
+        """Si falta el secreto ALERTA_DESTINATARIOS nada falla ni se pierde el aviso: sale a los de config."""
+        from fusionsolar import alertas
+        os.environ.pop("ALERTA_DESTINATARIOS"), os.environ.pop("ALERTA_COPIA")
+        self.assertEqual(alertas.destinatarios(self.cfg), ["gestiondesoluciones@kondu.pe"])
+        self.assertEqual(alertas.copia(self.cfg), [])
+        datos = {("PL", "2026-11-18"): horas("2026-11-18", {12: 0.84})}
+        self.ee.actualizar(PortalFalso(datos), self.cfg, datetime(2026, 11, 18, 15, 15), enviar=self.enviar)
+        self.assertEqual(len(self.enviados), 1)
+        self.assertEqual(self.enviados[0]["para"], ["gestiondesoluciones@kondu.pe"])
+
+    def test_variable_repetida_o_con_separadores_no_duplica(self):
+        from fusionsolar import alertas
+        os.environ["ALERTA_DESTINATARIOS"] = "A@x.test; a@x.test, gestiondesoluciones@kondu.pe\nb@x.test"
+        os.environ["ALERTA_COPIA"] = "a@x.test,c@x.test"
+        self.assertEqual(alertas.destinatarios(self.cfg), ["A@x.test", "gestiondesoluciones@kondu.pe", "b@x.test"])
+        self.assertEqual(alertas.copia(self.cfg), ["c@x.test"])
+
+    def test_registros_sin_correos(self):
+        from fusionsolar import alertas
+        self.assertEqual(alertas.ocultar_correos("rechazado: {'persona@ejemplo.test': (550, b'x')}"), "rechazado: {'***': (550, b'x')}")
 
 
 class TestSalidas(Base):
