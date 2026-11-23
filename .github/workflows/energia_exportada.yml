@@ -2,7 +2,7 @@ name: Energía exportada FusionSolar
 
 # Cada hora, al minuto 15 (hora de Lima), se lee de FusionSolar (Informes > Informe de plantas > cada planta > «Por día») la columna
 # «Energía exportada (kWh)» de hoy y de ayer. Solo las horas con energía exportada > 0 se guardan en energia_exportada.csv (rama "data") y
-# cada hora NUEVA se avisa por correo (config energia_exportada.destinatarios). Ver fusionsolar/energia_exportada.py.
+# cada hora NUEVA se avisa por correo (config energia_exportada.destinatarios + secretos ALERTA_DESTINATARIOS / ALERTA_COPIA). Ver fusionsolar/energia_exportada.py.
 # El Excel (hoja «Energía Exportada kWh») y el dashboard se actualizan en la siguiente corrida de 30 min.
 #
 # Hora: Lima es UTC-5 todo el año, así que el minuto 15 de cada hora UTC es también el minuto 15 en Lima (14:15, 15:15...). El portal publica
@@ -72,6 +72,8 @@ jobs:
           SMTP_HOST: ${{ vars.SMTP_HOST }}
           SMTP_PORT: ${{ vars.SMTP_PORT }}
           ALERTA_REMITENTE: ${{ vars.ALERTA_REMITENTE }}
+          ALERTA_DESTINATARIOS: ${{ secrets.ALERTA_DESTINATARIOS || vars.ALERTA_DESTINATARIOS }}   # secreto (no se ve en los registros); se suma a config
+          ALERTA_COPIA: ${{ secrets.ALERTA_COPIA || vars.ALERTA_COPIA }}                           # secreto: copia (CC); se suma a config
           HISTORICO_CSV: ${{ github.workspace }}/datos/historico.csv
           FUSIONSOLAR_STATE: ${{ runner.temp }}/fusionsolar
           DESDE: ${{ inputs.desde }}
