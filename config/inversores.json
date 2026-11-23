@@ -10,7 +10,7 @@
   "alertas": {
     "activo": true,
     "porcentaje_sobre_umbral": 5,
-    "destinatarios": ["gestiondesoluciones@kondu.pe"],
+    "destinatarios": [],
     "copia": [],
     "reenviar_cada_horas": 24,
     "enfriamiento_horas": 2,
@@ -64,7 +64,7 @@
     "dias_releer": 2,
     "presupuesto_segundos": 900,
     "alertar_horas": 48,
-    "destinatarios": ["gestiondesoluciones@kondu.pe"],
+    "destinatarios": [],
     "copia": [],
     "plantilla": "config/alerta_energia.txt",
     "fechas_relleno": {
