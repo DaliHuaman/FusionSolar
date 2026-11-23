@@ -18,6 +18,10 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
+      - name: Traer umbrales reales (rama data)
+        run: |
+          mkdir -p "${{ runner.temp }}/fusionsolar"
+          git fetch -q --depth 1 origin data && git show FETCH_HEAD:umbrales.json > "${{ runner.temp }}/fusionsolar/umbrales.json" || echo "sin umbrales.json: se usan los del JSON"
       - name: Enviar correo de prueba
         env:
           SMTP_USER: ${{ secrets.SMTP_USER }}

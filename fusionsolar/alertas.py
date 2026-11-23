@@ -18,6 +18,7 @@ import ssl
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 
+from . import umbrales
 from .common import FMT_TS, ROOT, archivo_datos, guardar_json, leer_json
 
 log = logging.getLogger("fusionsolar.alertas")
@@ -320,10 +321,18 @@ def procesar(cfg: dict, filas: list[dict], ahora: datetime) -> dict:
 
 def enviar_prueba(cfg: dict, ahora: datetime) -> None:
     """Correo de prueba con datos de ejemplo (python run.py --probar-correo). No toca el estado de las alertas."""
-    ejemplo = [{"id": "VES-Inv2", "planta": "VES", "inversor": "Inv2", "r": 0.038, "umbral": 0.037, "limite": 0.03885,
-                "sobre": 2.7, "motivo": "Nueva alerta"}]
-    ejemplo.append({"id": "PL-InvB.2", "planta": "PL", "inversor": "InvB.2", "r": 0.205, "umbral": 0.2, "limite": 0.21,
-                    "sobre": 2.5, "motivo": "Nueva alerta"})
+    # Umbral REAL de cada inversor (el mismo que usa evaluar): el leido del portal (umbrales.json) o el del JSON de respaldo.
+    umbrales.aplicar(cfg)
+    ejemplo = []
+    for iid, r_rel in (("VES-Inv2", 0.02), ("PL-InvB.2", 0.03)):
+        inv = next((i for i in cfg["inversores"] if i["id"] == iid), None)
+        if not inv:
+            continue
+        u = float(inv["umbral"])
+        r = round(u * (1 + r_rel), 3)                  # lectura de ejemplo: unos % sobre el umbral real
+        ejemplo.append({"id": iid, "planta": inv["planta"], "inversor": inv["nombre"], "r": r, "umbral": u,
+                        "limite": u * (1 + float(_cfg(cfg)["porcentaje_sobre_umbral"]) / 100),
+                        "sobre": (r - u) / u * 100, "motivo": "Nueva alerta"})
     asunto, cuerpo, html = componer(cfg, ejemplo, ahora)
     para = destinatarios(cfg)
     if not para:
